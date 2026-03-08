@@ -25,9 +25,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/model/model.h"
+#include "somtparser/model/model.h"
 
-namespace SMTParser{
+namespace SOMTParser{
     Model::Model(){
 
     }

@@ -2,12 +2,12 @@
  * Phase 2: NodeVisitor API unit test.
  * DAG traversal with visit-once guarantee; KindCounter example.
  */
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 #include <iostream>
 #include <map>
 
-using namespace SMTParser;
+using namespace SOMTParser;
 
 class KindCounter : public NodeVisitor {
 public:

@@ -25,9 +25,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/ir/sort.h"
+#include "somtparser/ir/sort.h"
 
-namespace SMTParser{
+namespace SOMTParser{
 
     // Static constant sorts are now defined inline in the header file
 

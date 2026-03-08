@@ -25,11 +25,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <stack>
 #include <unordered_map>
 
-namespace SMTParser{
+namespace SOMTParser{
 
     void not_implemented_warning(const std::string& op){
         std::cerr << "Not implemented warning: " << op << " is not implemented" << std::endl;

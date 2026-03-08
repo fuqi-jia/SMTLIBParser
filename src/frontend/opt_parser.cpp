@@ -25,9 +25,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 
-namespace SMTParser{
+namespace SOMTParser{
     
     KEYWORD Parser::attemptParseKeywords(){
         if(*bufptr == ':'){

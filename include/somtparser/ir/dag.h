@@ -28,11 +28,11 @@
 #ifndef DAG_HEADER
 #define DAG_HEADER
 
-#include "smtparser/core/kind.h"
-#include "smtparser/ir/sort.h"
-#include "smtparser/core/util.h"
-#include "smtparser/ir/value.h"
-#include "smtparser/core/timing.h"
+#include "somtparser/core/kind.h"
+#include "somtparser/ir/sort.h"
+#include "somtparser/core/util.h"
+#include "somtparser/ir/value.h"
+#include "somtparser/core/timing.h"
 
 #include <iostream>
 #include <fstream>
@@ -50,7 +50,7 @@
 #include <unordered_set>
 #include <array>
 
-namespace SMTParser{
+namespace SOMTParser{
     // Forward declaration of DAGNode class
     class DAGNode;
     

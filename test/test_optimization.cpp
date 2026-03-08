@@ -2,13 +2,13 @@
  * Test optimization / OMT: minimize, maximize, getObjectives, define-objective, lex-optimize.
  */
 
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <iostream>
 #include <cassert>
 
 static void test_minimize() {
     std::cout << "=== Testing (minimize x) ===" << std::endl;
-    SMTParser::Parser parser;
+    SOMTParser::Parser parser;
     assert(parser.parseStr("(set-logic QF_LIA)"));
     assert(parser.parseStr("(declare-const x Int)"));
     assert(parser.parseStr("(minimize x)"));
@@ -22,7 +22,7 @@ static void test_minimize() {
 
 static void test_maximize() {
     std::cout << "=== Testing (maximize y) ===" << std::endl;
-    SMTParser::Parser parser;
+    SOMTParser::Parser parser;
     assert(parser.parseStr("(set-logic QF_LIA)"));
     assert(parser.parseStr("(declare-const y Int)"));
     assert(parser.parseStr("(maximize y)"));
@@ -34,7 +34,7 @@ static void test_maximize() {
 
 static void test_multiple_objectives() {
     std::cout << "=== Testing multiple objectives ===" << std::endl;
-    SMTParser::Parser parser;
+    SOMTParser::Parser parser;
     assert(parser.parseStr("(set-logic QF_LIA)"));
     assert(parser.parseStr("(declare-const x Int)"));
     assert(parser.parseStr("(declare-const y Int)"));
@@ -48,7 +48,7 @@ static void test_multiple_objectives() {
 
 static void test_define_objective_and_lex_optimize() {
     std::cout << "=== Testing define-objective and lex-optimize ===" << std::endl;
-    SMTParser::Parser parser;
+    SOMTParser::Parser parser;
     assert(parser.parseStr("(set-logic QF_LIA)"));
     assert(parser.parseStr("(declare-const x Int)"));
     assert(parser.parseStr("(declare-const y Int)"));
@@ -64,7 +64,7 @@ static void test_define_objective_and_lex_optimize() {
 
 static void test_empty_objectives_before_any_optimization() {
     std::cout << "=== Testing getObjectives() before any optimization ===" << std::endl;
-    SMTParser::Parser parser;
+    SOMTParser::Parser parser;
     assert(parser.parseStr("(set-logic QF_LIA)"));
     assert(parser.parseStr("(declare-const x Int)"));
     auto objs = parser.getObjectives();

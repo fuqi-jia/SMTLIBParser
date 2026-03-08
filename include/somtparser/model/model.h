@@ -28,9 +28,9 @@
 #ifndef _MODEL_H
 #define _MODEL_H
 
-#include "smtparser/ir/dag.h"
+#include "somtparser/ir/dag.h"
 
-namespace SMTParser{
+namespace SOMTParser{
     class Model{
         public:
             Model();

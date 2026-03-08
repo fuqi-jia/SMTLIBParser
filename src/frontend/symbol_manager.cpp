@@ -2,10 +2,10 @@
  * SymbolManager implementation
  */
 
-#include "smtparser/frontend/symbol_manager.h"
+#include "somtparser/frontend/symbol_manager.h"
 #include <algorithm>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 SymbolManager::SymbolManager() = default;
 
@@ -321,4 +321,4 @@ void SymbolManager::removeFun(const std::string& name) {
     removeFunctionName(name);
 }
 
-} // namespace SMTParser
+} // namespace SOMTParser

@@ -2,9 +2,9 @@
  * ParserContext implementations
  */
 
-#include "smtparser/frontend/parser_context.h"
+#include "somtparser/frontend/parser_context.h"
 
-namespace SMTParser {
+namespace SOMTParser {
 
 std::vector<std::shared_ptr<DAGNode>> ParserContext::getAssertions() const {
     return assertions;
@@ -43,4 +43,4 @@ std::vector<std::shared_ptr<DAGNode>> ParserContext::getSplitLemmas() const {
     return split_lemmas;
 }
 
-} // namespace SMTParser
+} // namespace SOMTParser

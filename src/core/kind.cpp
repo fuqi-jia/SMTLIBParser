@@ -25,10 +25,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/core/kind.h"
+#include "somtparser/core/kind.h"
 #include <iostream>
 
-namespace SMTParser{
+namespace SOMTParser{
 
     std::string kindToString(const NODE_KIND& nk){
         switch (nk)

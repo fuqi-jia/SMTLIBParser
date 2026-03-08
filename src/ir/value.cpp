@@ -25,12 +25,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/ir/value.h"
+#include "somtparser/ir/value.h"
 #include <stdexcept>
 #include <algorithm>
 #include <cctype>
 
-namespace SMTParser {
+namespace SOMTParser {
     // Default constructor
     Value::Value() : value_type(UNKNOWN) {}
 

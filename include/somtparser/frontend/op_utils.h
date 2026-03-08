@@ -12,9 +12,9 @@
 #ifndef OP_UTILS_HEADER
 #define OP_UTILS_HEADER
 
-#include "smtparser/ir/node.h"
+#include "somtparser/ir/node.h"
 
-namespace SMTParser {
+namespace SOMTParser {
 
 #define IR_IS(name) inline bool name(Node n) { return n && n->name(); }
 
@@ -80,6 +80,6 @@ IR_IS(isFuncApplication) IR_IS(isFuncRecApplication)
 
 #undef IR_IS
 
-}  // namespace SMTParser
+}  // namespace SOMTParser
 
 #endif /* OP_UTILS_HEADER */

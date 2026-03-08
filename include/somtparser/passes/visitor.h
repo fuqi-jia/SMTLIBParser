@@ -10,11 +10,11 @@
 #ifndef VISITOR_HEADER
 #define VISITOR_HEADER
 
-#include "smtparser/ir/node.h"
+#include "somtparser/ir/node.h"
 
 #include <unordered_set>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 /** DAG-safe visitor: each node is visited at most once (pre-order). */
 class NodeVisitor {
@@ -31,6 +31,6 @@ private:
     std::unordered_set<Node, NodeHash, NodeEqual> visited_;
 };
 
-}  // namespace SMTParser
+}  // namespace SOMTParser
 
 #endif /* VISITOR_HEADER */

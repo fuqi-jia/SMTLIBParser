@@ -28,11 +28,11 @@
 #ifndef INTERVAL_HEADER
 #define INTERVAL_HEADER
 
-#include "smtparser/ir/number.h"
-#include "smtparser/core/kind.h"
+#include "somtparser/ir/number.h"
+#include "somtparser/core/kind.h"
 #include <vector>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 class Interval {
     private:
@@ -179,6 +179,6 @@ class Interval {
 inline Interval EmptyInterval = Interval(1, -1, false, false);
 inline Interval FullInterval = Interval(Number::negativeInfinity(), Number::positiveInfinity(), false, false);
 
-} // namespace SMTParser
+} // namespace SOMTParser
 
 #endif

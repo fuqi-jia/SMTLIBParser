@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 
 // Test basic boolean constants
-void test_boolean_constants(SMTParser::ParserPtr& parser) {
+void test_boolean_constants(SOMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Boolean Constants ===" << std::endl;
     auto t = parser->mkExpr("true");
     assert(t && t->isTrue() && !t->isFalse());
@@ -23,7 +23,7 @@ void test_boolean_constants(SMTParser::ParserPtr& parser) {
 }
 
 // Test logical operations (expected: true/false)
-void test_logical_operations(SMTParser::ParserPtr& parser) {
+void test_logical_operations(SOMTParser::ParserPtr& parser) {
     std::vector<std::pair<std::string, bool>> cases = {
         {"(not true)", false},
         {"(not false)", true},
@@ -45,7 +45,7 @@ void test_logical_operations(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Logical Operations ===" << std::endl;
     for (const auto& p : cases) {
         std::cout << "Expression: " << p.first << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(p.first);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(p.first);
         assert(result);
         assert(result->isTrue() == p.second || result->isFalse() == !p.second);
         std::cout << "  Result: " << parser->toString(result) << std::endl;
@@ -54,7 +54,7 @@ void test_logical_operations(SMTParser::ParserPtr& parser) {
 }
 
 // Test complex boolean expressions
-void test_complex_expressions(SMTParser::ParserPtr& parser) {
+void test_complex_expressions(SOMTParser::ParserPtr& parser) {
     std::vector<std::pair<std::string, bool>> cases = {
         {"(and (or true false) (not false))", true},
         {"(or (and true false) (not true))", false},
@@ -67,7 +67,7 @@ void test_complex_expressions(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Complex Boolean Expressions ===" << std::endl;
     for (const auto& p : cases) {
         std::cout << "Expression: " << p.first << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(p.first);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(p.first);
         assert(result);
         assert(result->isTrue() == p.second || result->isFalse() == !p.second);
         std::cout << "  Result: " << parser->toString(result) << std::endl;
@@ -78,7 +78,7 @@ void test_complex_expressions(SMTParser::ParserPtr& parser) {
 int main() {
     std::cout << "======= Boolean Logic Operations Test =======" << std::endl;
     
-    SMTParser::ParserPtr parser = SMTParser::newParser();
+    SOMTParser::ParserPtr parser = SOMTParser::newParser();
     
     test_boolean_constants(parser);
     test_logical_operations(parser);

@@ -1,11 +1,11 @@
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <iostream>
 #include <string>
 #include <cassert>
 
 int main() {
     // 创建解析器
-    auto parser = SMTParser::newParser();
+    auto parser = SOMTParser::newParser();
     
     // 测试用的SMT-LIB模型字符串
     std::string model_str1 = R"(

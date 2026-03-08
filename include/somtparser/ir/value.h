@@ -26,11 +26,11 @@
  */
 #ifndef VALUE_HEADER
 #define VALUE_HEADER
-#include "smtparser/ir/number.h"
-#include "smtparser/ir/interval.h"
+#include "somtparser/ir/number.h"
+#include "somtparser/ir/interval.h"
 #include <memory>
 
-namespace SMTParser{
+namespace SOMTParser{
     // This class is used to store the value of a variable
     // It can be any kind of value, including a number, an interval, a string, a boolean, etc.
     enum ValueType{

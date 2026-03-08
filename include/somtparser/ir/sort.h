@@ -28,8 +28,8 @@
 #ifndef _SORT_H
 #define _SORT_H
 
-#include "smtparser/core/kind.h"
-#include "smtparser/core/asserting.h"
+#include "somtparser/core/kind.h"
+#include "somtparser/core/asserting.h"
 
 #include <vector>
 #include <string>
@@ -37,7 +37,7 @@
 #include <unordered_map>
 #include <functional>
 
-namespace SMTParser{
+namespace SOMTParser{
     
     // supported const/variable types
     enum class SORT_KIND {

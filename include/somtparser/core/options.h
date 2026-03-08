@@ -27,11 +27,11 @@
 #ifndef _OPTIONS_H
 #define _OPTIONS_H
 
-#include "smtparser/core/asserting.h"
+#include "somtparser/core/asserting.h"
 #include <mpfr.h>
 #include <unordered_map>
 
-namespace SMTParser{
+namespace SOMTParser{
     class GlobalOptions {
     public:
         // ENUM_LOGIC logic = UNKNOWN_LOGIC;
@@ -232,7 +232,7 @@ namespace SMTParser{
         std::string toString() const {
             std::string result;
             result += "=================================================================\n";
-            result += "                SMTParser Configuration Report\n";
+            result += "                SOMTParser Configuration Report\n";
             result += "=================================================================\n\n";
             
             // Logic setting

@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 
 // Test basic quantifier operations (forall and exists)
-void test_basic_quantifiers(SMTParser::ParserPtr& parser) {
+void test_basic_quantifiers(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(forall ((x Int)) (> x 0))",                            // Simple forall
         "(exists ((x Int)) (= x 0))",                            // Simple exists
@@ -18,7 +18,7 @@ void test_basic_quantifiers(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Basic Quantifiers ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -26,7 +26,7 @@ void test_basic_quantifiers(SMTParser::ParserPtr& parser) {
 }
 
 // Test nested quantifiers
-void test_nested_quantifiers(SMTParser::ParserPtr& parser) {
+void test_nested_quantifiers(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(forall ((x Int)) (exists ((y Int)) (= y (* 2 x))))",   // forall-exists
         "(exists ((x Int)) (forall ((y Int)) (>= x y)))",        // exists-forall
@@ -38,7 +38,7 @@ void test_nested_quantifiers(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Nested Quantifiers ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -46,7 +46,7 @@ void test_nested_quantifiers(SMTParser::ParserPtr& parser) {
 }
 
 // Test quantifiers with arrays
-void test_quantifiers_with_arrays(SMTParser::ParserPtr& parser) {
+void test_quantifiers_with_arrays(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(forall ((i Int)) (=> (and (>= i 0) (< i 10)) (= (select a i) 0)))",  // All elements in range are 0
         "(exists ((i Int)) (= (select a i) 1))",                               // Some element is 1
@@ -59,13 +59,13 @@ void test_quantifiers_with_arrays(SMTParser::ParserPtr& parser) {
     
     try {
         // First declare the array
-        std::shared_ptr<SMTParser::Sort> int_sort = SMTParser::SortManager::INT_SORT;
-        std::shared_ptr<SMTParser::DAGNode> array = parser->mkArray("a", int_sort, int_sort);
+        std::shared_ptr<SOMTParser::Sort> int_sort = SOMTParser::SortManager::INT_SORT;
+        std::shared_ptr<SOMTParser::DAGNode> array = parser->mkArray("a", int_sort, int_sort);
         std::cout << "Declared array: " << parser->toString(array) << std::endl;
         
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
-            std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+            std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
             assert(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
@@ -76,29 +76,29 @@ void test_quantifiers_with_arrays(SMTParser::ParserPtr& parser) {
 }
 
 // Test manual creation of quantifier variables and formulas
-void test_manual_quantifier_creation(SMTParser::ParserPtr& parser) {
+void test_manual_quantifier_creation(SOMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Manual Quantifier Creation ===" << std::endl;
     
     try {
         // Create sorts
-        std::shared_ptr<SMTParser::Sort> int_sort = SMTParser::SortManager::INT_SORT;
-        std::shared_ptr<SMTParser::Sort> bool_sort = SMTParser::SortManager::BOOL_SORT;
+        std::shared_ptr<SOMTParser::Sort> int_sort = SOMTParser::SortManager::INT_SORT;
+        std::shared_ptr<SOMTParser::Sort> bool_sort = SOMTParser::SortManager::BOOL_SORT;
         
         // Create quantifier variables
-        std::shared_ptr<SMTParser::DAGNode> x_var = parser->mkQuantVar("x", int_sort);
-        std::shared_ptr<SMTParser::DAGNode> y_var = parser->mkQuantVar("y", int_sort);
+        std::shared_ptr<SOMTParser::DAGNode> x_var = parser->mkQuantVar("x", int_sort);
+        std::shared_ptr<SOMTParser::DAGNode> y_var = parser->mkQuantVar("y", int_sort);
         
         // Create a formula: x > y
-        std::shared_ptr<SMTParser::DAGNode> x_gt_y = parser->mkGt(x_var, y_var);
+        std::shared_ptr<SOMTParser::DAGNode> x_gt_y = parser->mkGt(x_var, y_var);
         
         // Create a forall formula: forall x,y. x > y
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> forall_params = {x_var, y_var, x_gt_y};
-        std::shared_ptr<SMTParser::DAGNode> forall_formula = parser->mkForall(forall_params);
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> forall_params = {x_var, y_var, x_gt_y};
+        std::shared_ptr<SOMTParser::DAGNode> forall_formula = parser->mkForall(forall_params);
         
         assert(forall_formula && parser->toString(forall_formula).find("forall") != std::string::npos);
         std::cout << "Manually created forall formula: " << parser->toString(forall_formula) << std::endl;
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> exists_params = {x_var, y_var, x_gt_y};
-        std::shared_ptr<SMTParser::DAGNode> exists_formula = parser->mkExists(exists_params);
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> exists_params = {x_var, y_var, x_gt_y};
+        std::shared_ptr<SOMTParser::DAGNode> exists_formula = parser->mkExists(exists_params);
         assert(exists_formula && parser->toString(exists_formula).find("exists") != std::string::npos);
         std::cout << "Manually created exists formula: " << parser->toString(exists_formula) << std::endl;
     } catch (const std::exception& e) {
@@ -109,7 +109,7 @@ void test_manual_quantifier_creation(SMTParser::ParserPtr& parser) {
 }
 
 // Test real-world quantifier examples
-void test_practical_quantifier_examples(SMTParser::ParserPtr& parser) {
+void test_practical_quantifier_examples(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // Injectivity property
         "(forall ((x Int) (y Int)) (=> (= (f x) (f y)) (= x y)))",
@@ -131,15 +131,15 @@ void test_practical_quantifier_examples(SMTParser::ParserPtr& parser) {
     
     try {
         // Declare some necessary symbols for the examples
-        std::shared_ptr<SMTParser::Sort> int_sort = SMTParser::SortManager::INT_SORT;
+        std::shared_ptr<SOMTParser::Sort> int_sort = SOMTParser::SortManager::INT_SORT;
         
         // Function f: Int -> Int
-        std::vector<std::shared_ptr<SMTParser::Sort>> f_params = {int_sort};
+        std::vector<std::shared_ptr<SOMTParser::Sort>> f_params = {int_sort};
         parser->mkFuncDec("f", f_params, int_sort);
         
         // Relation R: Int, Int -> Bool
-        std::shared_ptr<SMTParser::Sort> bool_sort = SMTParser::SortManager::BOOL_SORT;
-        std::vector<std::shared_ptr<SMTParser::Sort>> r_params = {int_sort, int_sort};
+        std::shared_ptr<SOMTParser::Sort> bool_sort = SOMTParser::SortManager::BOOL_SORT;
+        std::vector<std::shared_ptr<SOMTParser::Sort>> r_params = {int_sort, int_sort};
         parser->mkFuncDec("R", r_params, bool_sort);
         
         // Variable n: Int
@@ -150,7 +150,7 @@ void test_practical_quantifier_examples(SMTParser::ParserPtr& parser) {
         
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
-            std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+            std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
             assert(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
@@ -163,7 +163,7 @@ void test_practical_quantifier_examples(SMTParser::ParserPtr& parser) {
 int main() {
     std::cout << "======= Quantifiers Test =======" << std::endl;
     
-    SMTParser::ParserPtr parser = SMTParser::newParser();
+    SOMTParser::ParserPtr parser = SOMTParser::newParser();
     
     test_basic_quantifiers(parser);
     test_nested_quantifiers(parser);

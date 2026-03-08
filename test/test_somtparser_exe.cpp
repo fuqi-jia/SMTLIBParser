@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <chrono>
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
@@ -66,8 +66,8 @@ int main(int argc, char* argv[]){
     int failed_parses = 0;
     
     for (const auto& input_file : smt2_files) {
-        std::shared_ptr<SMTParser::Parser> parser = 
-            std::make_shared<SMTParser::Parser>();
+        std::shared_ptr<SOMTParser::Parser> parser = 
+            std::make_shared<SOMTParser::Parser>();
         parser->setOption("keep_let", false);
         // parser->setOption("expand_functions", false);
 

@@ -25,13 +25,13 @@
 * DEALINGS IN THE SOFTWARE.
 */
 
-#include "smtparser/frontend/parser.h"
-#include "smtparser/core/timing.h"
+#include "somtparser/frontend/parser.h"
+#include "somtparser/core/timing.h"
 #include <queue>
 #include <stack>
-#include "smtparser/core/util.h"
+#include "somtparser/core/util.h"
 
-namespace SMTParser{
+namespace SOMTParser{
 
     bool isIntParam(std::shared_ptr<DAGNode> param){auto sort = param->getSort(); return sort && (sort->isInt() || sort->isIntOrReal());}
     bool isRealParam(std::shared_ptr<DAGNode> param){auto sort = param->getSort(); return sort && (sort->isReal() || sort->isIntOrReal());}

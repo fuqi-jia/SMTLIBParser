@@ -25,13 +25,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/ir/dag.h"
-#include "smtparser/core/timing.h"
+#include "somtparser/ir/dag.h"
+#include "somtparser/core/timing.h"
 #include <stack>
 #include <sstream>
 #include <unordered_set>
 
-namespace SMTParser{
+namespace SOMTParser{
     void DAGNode::updateFuncDef(std::shared_ptr<Sort> out_sort, std::shared_ptr<DAGNode> body, const std::vector<std::shared_ptr<DAGNode>> &params, bool is_rec){
         condAssert(out_sort == sort, "updateFuncDef: out_sort != sort");
         (void)out_sort;

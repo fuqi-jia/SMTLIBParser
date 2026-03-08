@@ -24,11 +24,11 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#include "smtparser/frontend/parser.h"
-#include "smtparser/core/timing.h"
+#include "somtparser/frontend/parser.h"
+#include "somtparser/core/timing.h"
 #include <stack>
 
-namespace SMTParser{
+namespace SOMTParser{
 
     // State of the parser
     enum class FrameState {
@@ -722,7 +722,7 @@ namespace SMTParser{
 	}
 
     NODE_KIND Parser::getKind(const std::string& s){
-        auto kind = SMTParser::getOperKind(s);
+        auto kind = SOMTParser::getOperKind(s);
         if(kind == NODE_KIND::NT_UNKNOWN && getSymbolManager()->resolveFun(s)){
             kind = NODE_KIND::NT_FUNC_APPLY;
         }
@@ -747,7 +747,7 @@ namespace SMTParser{
             return mkRootObj(expr, index);
         }
         
-		NODE_KIND kind = SMTParser::getOperKind(s);
+		NODE_KIND kind = SOMTParser::getOperKind(s);
 		switch(kind){
 			case NODE_KIND::NT_AND:
 				return mkAnd(oper_params);

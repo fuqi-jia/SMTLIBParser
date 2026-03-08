@@ -1,7 +1,7 @@
 # Used by root CMakeLists.txt when BUILD_TESTS=ON (add_subdirectory(test)).
-# Builds one executable per test/*.cpp and test/FP/*.cpp, linked with smtparser.
+# Builds one executable per test/*.cpp and test/FP/*.cpp, linked with somtparser.
 cmake_minimum_required(VERSION 3.10)
-project(SMTParser_Tests)
+project(SOMTParser_Tests)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -68,9 +68,9 @@ foreach(test_file ${TEST_SOURCES})
         ${MPFR_INCLUDE_DIRS}
     )
     
-    # Link against SMTParser library
+    # Link against SOMTParser library
     target_link_libraries(${test_name} PRIVATE 
-        smtparser
+        somtparser
         ${GMP_LIBRARIES}
         ${MPFR_LIBRARIES}
     )

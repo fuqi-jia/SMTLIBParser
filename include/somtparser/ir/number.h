@@ -28,13 +28,13 @@
 #ifndef NUMBER_HEADER
 #define NUMBER_HEADER
 
-#include "smtparser/core/asserting.h"
+#include "somtparser/core/asserting.h"
 #include <gmp.h>
 #include <gmpxx.h>
 #include <mpfr.h>
 #include <string>
 
-namespace SMTParser {
+namespace SOMTParser {
     class HighPrecisionInteger {
         public:
             // constants

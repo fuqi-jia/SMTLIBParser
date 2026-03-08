@@ -25,10 +25,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/ir/interval.h"
-#include "smtparser/core/asserting.h"
+#include "somtparser/ir/interval.h"
+#include "somtparser/core/asserting.h"
 
-namespace SMTParser{
+namespace SOMTParser{
 
     Interval::Interval(Number lower, Number upper, bool leftClosed, bool rightClosed)
         : lower(lower), upper(upper), leftClosed(leftClosed), rightClosed(rightClosed){

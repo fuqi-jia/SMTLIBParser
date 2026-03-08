@@ -7,11 +7,11 @@
  * Copyright (C) 2025 Fuqi Jia
  */
 
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <iostream>
 #include <cassert>
 
-using namespace SMTParser;
+using namespace SOMTParser;
 
 int main() {
     auto parser = newParser();

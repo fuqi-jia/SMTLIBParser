@@ -32,13 +32,13 @@
 #ifndef CONTEXT_HEADER
 #define CONTEXT_HEADER
 
-#include "smtparser/ir/dag.h"
-#include "smtparser/core/options.h"
-#include "smtparser/ir/sort.h"
+#include "somtparser/ir/dag.h"
+#include "somtparser/core/options.h"
+#include "somtparser/ir/sort.h"
 
 #include <memory>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 /**
  * Base context: holds NodeManager, SortManager, Options only.
@@ -69,6 +69,6 @@ public:
 class NullContext : public Context {
 };
 
-} // namespace SMTParser
+} // namespace SOMTParser
 
 #endif

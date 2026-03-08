@@ -28,20 +28,20 @@
 #ifndef PARSER_HEADER
 #define PARSER_HEADER
 
-#include "smtparser/ir/dag.h"
-#include "smtparser/core/util.h"
-#include "smtparser/core/options.h"
-#include "smtparser/frontend/objective.h"
-#include "smtparser/model/model.h"
-#include "smtparser/ir/node.h"
-#include "smtparser/passes/visitor.h"
-#include "smtparser/frontend/op_utils.h"
-#include "smtparser/frontend/parser_context.h"
-#include "smtparser/passes/op_dispatcher.h"
-#include "smtparser/frontend/symbol_manager.h"
+#include "somtparser/ir/dag.h"
+#include "somtparser/core/util.h"
+#include "somtparser/core/options.h"
+#include "somtparser/frontend/objective.h"
+#include "somtparser/model/model.h"
+#include "somtparser/ir/node.h"
+#include "somtparser/passes/visitor.h"
+#include "somtparser/frontend/op_utils.h"
+#include "somtparser/frontend/parser_context.h"
+#include "somtparser/passes/op_dispatcher.h"
+#include "somtparser/frontend/symbol_manager.h"
 #include <exception>
 
-namespace SMTParser{
+namespace SOMTParser{
     #undef assert
     enum class SCAN_MODE {
         SM_COMMON,

@@ -2,12 +2,12 @@
  * Test Rewriter: fixpoint rewrite with default NOT/AND/ADD rules.
  * Parses (assert (and true (not (not p)))), rewrites, asserts result == p.
  */
-#include "smtparser/frontend/parser.h"
-#include "smtparser/passes/rewriter.h"
+#include "somtparser/frontend/parser.h"
+#include "somtparser/passes/rewriter.h"
 #include <cassert>
 #include <iostream>
 
-using namespace SMTParser;
+using namespace SOMTParser;
 
 int main() {
     std::cout << "======= Rewriter (fixpoint) Test =======" << std::endl;

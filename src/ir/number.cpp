@@ -25,13 +25,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/ir/number.h"
+#include "somtparser/ir/number.h"
 #include <stdexcept>
 #include <string>
 #include <cmath>
 #include <climits> // For LLONG_MAX and LLONG_MIN
 
-namespace SMTParser {
+namespace SOMTParser {
 
 // -------------HighPrecisionReal-------------
 // Constants
@@ -1689,4 +1689,4 @@ bool Number::isNaN() const {
     return realValue.isNaN();
 }
 
-} // namespace SMTParser
+} // namespace SOMTParser

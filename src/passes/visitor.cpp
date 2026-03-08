@@ -7,12 +7,12 @@
  * Copyright (C) 2025 Fuqi Jia
  */
 
-#include "smtparser/passes/visitor.h"
+#include "somtparser/passes/visitor.h"
 
 #include <stack>
 #include <vector>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 void NodeVisitor::walk(Node root) {
     if (!root)
@@ -41,4 +41,4 @@ void NodeVisitor::walk(Node root) {
     }
 }
 
-}  // namespace SMTParser
+}  // namespace SOMTParser

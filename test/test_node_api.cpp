@@ -2,12 +2,12 @@
  * Phase 1: Node API and NodeRange unit test.
  * Exercises kind(), sort(), numChildren(), child(), children() and range-for.
  */
-#include "smtparser/ir/node.h"
-#include "smtparser/frontend/parser.h"
+#include "somtparser/ir/node.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 #include <iostream>
 
-using namespace SMTParser;
+using namespace SOMTParser;
 
 int main() {
     std::cout << "======= Node API (Phase 1) Test =======" << std::endl;

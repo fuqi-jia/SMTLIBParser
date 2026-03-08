@@ -31,16 +31,16 @@
 #ifndef PARSER_CONTEXT_HEADER
 #define PARSER_CONTEXT_HEADER
 
-#include "smtparser/context/context.h"
-#include "smtparser/ir/dag.h"
-#include "smtparser/frontend/objective.h"
-#include "smtparser/frontend/symbol_manager.h"
+#include "somtparser/context/context.h"
+#include "somtparser/ir/dag.h"
+#include "somtparser/frontend/objective.h"
+#include "somtparser/frontend/symbol_manager.h"
 
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 /**
  * Context implementation that holds parser data (symbols, objectives, assertions, etc.).
@@ -81,6 +81,6 @@ public:
     std::vector<std::shared_ptr<DAGNode>> getSplitLemmas() const;
 };
 
-} // namespace SMTParser
+} // namespace SOMTParser
 
 #endif

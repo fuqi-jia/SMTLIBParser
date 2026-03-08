@@ -25,9 +25,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/frontend/objective.h"
+#include "somtparser/frontend/objective.h"
 
-namespace SMTParser{
+namespace SOMTParser{
 
     COMP_KIND getDefaultCompareOperator(const std::string& logic, OPT_KIND opt_type){
         condAssert(opt_type == OPT_KIND::OPT_MINIMIZE || opt_type == OPT_KIND::OPT_MAXIMIZE, "getDefaultCompareOperator: opt_type is not minimize or maximize");

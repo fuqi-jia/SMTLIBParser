@@ -11,15 +11,15 @@
 #ifndef SYMBOL_MANAGER_HEADER
 #define SYMBOL_MANAGER_HEADER
 
-#include "smtparser/ir/dag.h"
-#include "smtparser/ir/sort.h"
+#include "somtparser/ir/dag.h"
+#include "somtparser/ir/sort.h"
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 /** Scope flags for resolve (Parser decides from let/quant state). */
 struct ResolveScope {
@@ -130,6 +130,6 @@ private:
     std::vector<std::shared_ptr<DAGNode>> static_functions_;
 };
 
-} // namespace SMTParser
+} // namespace SOMTParser
 
 #endif

@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 
 // Test bitvector constants
-void test_bitvector_constants(SMTParser::ParserPtr& parser) {
+void test_bitvector_constants(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "#b1010",                     // 4-bit binary
         "#x1A",                       // hexadecimal (26 in decimal)
@@ -16,7 +16,7 @@ void test_bitvector_constants(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Bitvector Constants ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -24,7 +24,7 @@ void test_bitvector_constants(SMTParser::ParserPtr& parser) {
 }
 
 // Test bitvector logical operations
-void test_bv_logical_operations(SMTParser::ParserPtr& parser) {
+void test_bv_logical_operations(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(bvnot #b1010)",
         "(bvand #b1010 #b1100)",
@@ -38,7 +38,7 @@ void test_bv_logical_operations(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Bitvector Logical Operations ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -46,7 +46,7 @@ void test_bv_logical_operations(SMTParser::ParserPtr& parser) {
 }
 
 // Test bitvector arithmetic operations
-void test_bv_arithmetic_operations(SMTParser::ParserPtr& parser) {
+void test_bv_arithmetic_operations(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(bvneg #b0101)",
         "(bvadd #b0101 #b0011)",
@@ -62,7 +62,7 @@ void test_bv_arithmetic_operations(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Bitvector Arithmetic Operations ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -70,7 +70,7 @@ void test_bv_arithmetic_operations(SMTParser::ParserPtr& parser) {
 }
 
 // Test bitvector comparison operations
-void test_bv_comparison_operations(SMTParser::ParserPtr& parser) {
+void test_bv_comparison_operations(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(bvult #b0101 #b1010)",     // unsigned less than
         "(bvule #b0101 #b0101)",     // unsigned less than or equal
@@ -85,7 +85,7 @@ void test_bv_comparison_operations(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Bitvector Comparison Operations ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && (result->isTrue() || result->isFalse()));
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -95,7 +95,7 @@ void test_bv_comparison_operations(SMTParser::ParserPtr& parser) {
 int main() {
     std::cout << "======= Bitvector Operations Test =======" << std::endl;
     
-    SMTParser::ParserPtr parser = SMTParser::newParser();
+    SOMTParser::ParserPtr parser = SOMTParser::newParser();
     
     test_bitvector_constants(parser);
     test_bv_logical_operations(parser);

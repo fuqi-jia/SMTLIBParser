@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(SMTParser VERSION 1.0.0 LANGUAGES CXX)
+project(SOMTParser VERSION 1.0.0 LANGUAGES CXX)
 
 # set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -55,95 +55,95 @@ if(NOT MPFR_FOUND)
     endif()
 endif()
 
-# collect all source files under src/ (mirrors include/smtparser/)
+# collect all source files under src/ (mirrors include/somtparser/)
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
-# collect all header files under include/smtparser/
-file(GLOB_RECURSE HEADERS "include/smtparser/*.h")
+# collect all header files under include/somtparser/
+file(GLOB_RECURSE HEADERS "include/somtparser/*.h")
 
 # create library
 if(BUILD_BOTH_LIBS)
     # create static library
-    add_library(smtparser_static STATIC ${SOURCES} ${HEADERS})
-    set_target_properties(smtparser_static PROPERTIES 
-        OUTPUT_NAME smtparser
+    add_library(somtparser_static STATIC ${SOURCES} ${HEADERS})
+    set_target_properties(somtparser_static PROPERTIES 
+        OUTPUT_NAME somtparser
         POSITION_INDEPENDENT_CODE ON
     )
     
     if(ENABLE_DEBUG_SYMBOLS)
-        target_compile_options(smtparser_static PRIVATE -g -O0)
+        target_compile_options(somtparser_static PRIVATE -g -O0)
     endif()
     
-    # set static library include directories (include root so that #include <smtparser/...> works)
-    target_include_directories(smtparser_static PUBLIC 
+    # set static library include directories (include root so that #include <somtparser/...> works)
+    target_include_directories(somtparser_static PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${GMP_INCLUDE_DIRS}
         ${MPFR_INCLUDE_DIRS}
     )
     
     # link static library dependencies
-    target_link_libraries(smtparser_static PUBLIC
+    target_link_libraries(somtparser_static PUBLIC
         ${GMP_LIBRARIES}
         ${MPFR_LIBRARIES}
     )
     
     # create shared library
-    add_library(smtparser_shared SHARED ${SOURCES} ${HEADERS})
-    set_target_properties(smtparser_shared PROPERTIES 
-        OUTPUT_NAME smtparser
+    add_library(somtparser_shared SHARED ${SOURCES} ${HEADERS})
+    set_target_properties(somtparser_shared PROPERTIES 
+        OUTPUT_NAME somtparser
         VERSION ${PROJECT_VERSION}
         SOVERSION ${PROJECT_VERSION_MAJOR}
     )
     
     if(ENABLE_DEBUG_SYMBOLS)
-        target_compile_options(smtparser_shared PRIVATE -g -O0)
+        target_compile_options(somtparser_shared PRIVATE -g -O0)
     endif()
     
     # set shared library include directories
-    target_include_directories(smtparser_shared PUBLIC 
+    target_include_directories(somtparser_shared PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${GMP_INCLUDE_DIRS}
         ${MPFR_INCLUDE_DIRS}
     )
     
     # link shared library dependencies
-    target_link_libraries(smtparser_shared PUBLIC
+    target_link_libraries(somtparser_shared PUBLIC
         ${GMP_LIBRARIES}
         ${MPFR_LIBRARIES}
     )
     
     # create alias target for compatibility
-    add_library(smtparser ALIAS smtparser_static)
+    add_library(somtparser ALIAS somtparser_static)
     
     # install configuration
-    install(TARGETS smtparser_static smtparser_shared
+    install(TARGETS somtparser_static somtparser_shared
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin
     )
 else()
     # create single library (static or shared, depending on BUILD_SHARED_LIBS)
-    add_library(smtparser ${SOURCES} ${HEADERS})
+    add_library(somtparser ${SOURCES} ${HEADERS})
     
     if(ENABLE_DEBUG_SYMBOLS)
-        target_compile_options(smtparser PRIVATE -g -O0)
+        target_compile_options(somtparser PRIVATE -g -O0)
     endif()
     
     # set library include directories
-    target_include_directories(smtparser PUBLIC 
+    target_include_directories(somtparser PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${GMP_INCLUDE_DIRS}
         ${MPFR_INCLUDE_DIRS}
     )
     
     # link library dependencies
-    target_link_libraries(smtparser PUBLIC
+    target_link_libraries(somtparser PUBLIC
         ${GMP_LIBRARIES}
         ${MPFR_LIBRARIES}
     )
     
     # install configuration
-    install(TARGETS smtparser
+    install(TARGETS somtparser
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin
@@ -151,7 +151,7 @@ else()
 endif()
 
 # install header files only (no .cpp)
-install(DIRECTORY include/smtparser DESTINATION include FILES_MATCHING PATTERN "*.h")
+install(DIRECTORY include/somtparser DESTINATION include FILES_MATCHING PATTERN "*.h")
 
 # if needed, add test subdirectory
 if(BUILD_TESTS)

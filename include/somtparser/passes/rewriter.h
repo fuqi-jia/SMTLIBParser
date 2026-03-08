@@ -29,18 +29,18 @@
 #ifndef REWRITER_HEADER
 #define REWRITER_HEADER
 
-#include "smtparser/context/context.h"
-#include "smtparser/ir/dag.h"
-#include "smtparser/core/kind.h"
-#include "smtparser/ir/node.h"
-#include "smtparser/passes/op_dispatcher.h"
-#include "smtparser/ir/sort.h"
+#include "somtparser/context/context.h"
+#include "somtparser/ir/dag.h"
+#include "somtparser/core/kind.h"
+#include "somtparser/ir/node.h"
+#include "somtparser/passes/op_dispatcher.h"
+#include "somtparser/ir/sort.h"
 
 #include <memory>
 #include <unordered_map>
 #include <cstddef>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 /**
  * Context for rewrite handlers: provides rebuildLike(old, newKids).
@@ -102,6 +102,6 @@ private:
 /** Install minimal default rules: NOT, AND, ADD (for fixpoint demo). */
 void installDefaultRewriteRules(Rewriter& r);
 
-} // namespace SMTParser
+} // namespace SOMTParser
 
 #endif /* REWRITER_HEADER */

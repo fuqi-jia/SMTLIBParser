@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 
 // Test string constants
-void test_string_constants(SMTParser::ParserPtr& parser) {
+void test_string_constants(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "\"\"",                       // Empty string
         "\"Hello, World!\"",          // Simple string
@@ -41,7 +41,7 @@ cvc5:
     std::cout << "=== Testing String Constants ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -49,7 +49,7 @@ cvc5:
 }
 
 // Test string operations
-void test_string_operations(SMTParser::ParserPtr& parser) {
+void test_string_operations(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(str.len \"Hello\")",
         "(str.++ \"Hello, \" \"World!\")",
@@ -65,7 +65,7 @@ void test_string_operations(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing String Operations ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -73,7 +73,7 @@ void test_string_operations(SMTParser::ParserPtr& parser) {
 }
 
 // Test string comparison operations
-void test_string_comparisons(SMTParser::ParserPtr& parser) {
+void test_string_comparisons(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(= \"Hello\" \"Hello\")",
         "(= \"Hello\" \"World\")",
@@ -86,7 +86,7 @@ void test_string_comparisons(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing String Comparison Operations ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         assert(result->isTrue() || result->isFalse());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
@@ -95,7 +95,7 @@ void test_string_comparisons(SMTParser::ParserPtr& parser) {
 }
 
 // Test regular expression operations
-void test_regex_operations(SMTParser::ParserPtr& parser) {
+void test_regex_operations(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(str.in_re \"abc\" (re.* (re.range \"a\" \"z\")))",
         "(str.in_re \"123\" (re.+ (re.range \"0\" \"9\")))",
@@ -107,7 +107,7 @@ void test_regex_operations(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Regular Expression Operations ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -117,7 +117,7 @@ void test_regex_operations(SMTParser::ParserPtr& parser) {
 int main() {
     std::cout << "======= String Operations Test =======" << std::endl;
     
-    SMTParser::ParserPtr parser = SMTParser::newParser();
+    SOMTParser::ParserPtr parser = SOMTParser::newParser();
     
     test_string_constants(parser);
     test_string_operations(parser);

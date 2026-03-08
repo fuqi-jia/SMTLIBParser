@@ -39,11 +39,11 @@
 #ifndef NODE_HEADER
 #define NODE_HEADER
 
-#include "smtparser/ir/dag.h"
+#include "somtparser/ir/dag.h"
 
 #include <cstddef>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 /** IR Node type: shared_ptr to DAGNode (same as NodePtr). */
 using Node = NodePtr;
@@ -133,6 +133,6 @@ inline NodeRange children(Node n) {
     return NodeRange(n);
 }
 
-}  // namespace SMTParser
+}  // namespace SOMTParser
 
 #endif /* NODE_HEADER */

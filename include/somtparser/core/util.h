@@ -27,9 +27,9 @@
 #ifndef UTIL_HEADER
 #define UTIL_HEADER
 
-#include "smtparser/core/kind.h"
-#include "smtparser/ir/number.h"
-#include "smtparser/core/asserting.h"
+#include "somtparser/core/kind.h"
+#include "somtparser/ir/number.h"
+#include "somtparser/core/asserting.h"
 
 #include <iostream>
 #include <iomanip>
@@ -37,7 +37,7 @@
 #include <vector>
 #include <cstdint>
 
-namespace SMTParser{
+namespace SOMTParser{
 
     // Type checking utilities
     class TypeChecker {

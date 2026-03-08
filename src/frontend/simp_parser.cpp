@@ -25,10 +25,10 @@
 * DEALINGS IN THE SOFTWARE.
 */
 
-#include "smtparser/frontend/parser.h"
-#include "smtparser/core/timing.h"
+#include "somtparser/frontend/parser.h"
+#include "somtparser/core/timing.h"
 
-namespace SMTParser{
+namespace SOMTParser{
     void precision_warning(const std::string& op){
         std::cerr << "Precision warning: " << op << " will use double precision" << std::endl;
     }

@@ -30,16 +30,16 @@
 #ifndef OP_DISPATCHER_HEADER
 #define OP_DISPATCHER_HEADER
 
-#include "smtparser/ir/node.h"
-#include "smtparser/core/kind.h"
-#include "smtparser/context/context.h"
+#include "somtparser/ir/node.h"
+#include "somtparser/core/kind.h"
+#include "somtparser/context/context.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <type_traits>
 
-namespace SMTParser {
+namespace SOMTParser {
 
 inline constexpr std::size_t to_index(NODE_KIND k) noexcept {
     return static_cast<std::size_t>(k);
@@ -49,7 +49,7 @@ inline constexpr std::size_t to_index(NODE_KIND k) noexcept {
  * Kind-based O(1) dispatcher: array index + one branch, no map/virtual.
  *
  * - Core: dispatch(Node, Context&). Handlers take (Node, Context&).
- * - Optional: dispatch(Node) only when Context is SMTParser::Context; uses NullContext.
+ * - Optional: dispatch(Node) only when Context is SOMTParser::Context; uses NullContext.
  * - Registration is fluent: on(...) and otherwise(...) return *this.
  * - Sugar APIs (onAND, onADD, onGT, ... one per oper_key_map kind) avoid exposing NODE_KIND.
  */
@@ -107,10 +107,10 @@ public:
 
     /**
      * Convenience: dispatch without context. Uses NullContext (bound as Context&).
-     * Enabled only when Context is SMTParser::Context.
+     * Enabled only when Context is SOMTParser::Context.
      */
     template <typename C = Context>
-    std::enable_if_t<std::is_same_v<C, ::SMTParser::Context>, Result> dispatch(Node n) const {
+    std::enable_if_t<std::is_same_v<C, ::SOMTParser::Context>, Result> dispatch(Node n) const {
         NullContext null_ctx;
         return dispatch(n, null_ctx);
     }
@@ -181,6 +181,6 @@ private:
     Handler fallback_;
 };
 
-} // namespace SMTParser
+} // namespace SOMTParser
 
 #endif

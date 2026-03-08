@@ -25,13 +25,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/frontend/parser.h"
-#include "smtparser/core/timing.h"
+#include "somtparser/frontend/parser.h"
+#include "somtparser/core/timing.h"
 #include <queue>
 #include <stack>
 #include <algorithm>
 
-namespace SMTParser{
+namespace SOMTParser{
 
 	Parser::Parser(){
 		buffer = nullptr;
@@ -2333,7 +2333,7 @@ namespace SMTParser{
 		}
 	}
 	NODE_KIND Parser::getNegatedKind(NODE_KIND kind){
-		return SMTParser::getNegatedKind(kind);
+		return SOMTParser::getNegatedKind(kind);
 	}
 	std::shared_ptr<DAGNode> Parser::getZero(std::shared_ptr<Sort> sort){
 		if(sort->isInt() || sort->isIntOrReal()){

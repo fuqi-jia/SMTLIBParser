@@ -25,10 +25,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <stack>
 
-namespace SMTParser {
+namespace SOMTParser {
 
     void Parser::collectAtoms(std::shared_ptr<DAGNode> expr, std::unordered_set<std::shared_ptr<DAGNode>>& atoms) {
         std::unordered_set<std::shared_ptr<DAGNode>> visited;

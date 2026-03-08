@@ -1,9 +1,9 @@
 /* -*- Source -*-
  * Rewriter: bottom-up + memo rewriteOnce; fixpoint in rewrite().
  */
-#include "smtparser/passes/rewriter.h"
+#include "somtparser/passes/rewriter.h"
 
-namespace SMTParser {
+namespace SOMTParser {
 
 // --- RewriteContext::rebuildLike ---
 Node RewriteContext::rebuildLike(Node old, const std::vector<Node>& newKids) const {
@@ -148,4 +148,4 @@ void installDefaultRewriteRules(Rewriter& r) {
         .otherwise(ruleFallback);
 }
 
-} // namespace SMTParser
+} // namespace SOMTParser

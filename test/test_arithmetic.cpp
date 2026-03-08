@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 
 // Test integer arithmetic operations
-void test_integer_arithmetic(SMTParser::ParserPtr& parser) {
+void test_integer_arithmetic(SOMTParser::ParserPtr& parser) {
     std::vector<std::pair<std::string, std::string>> cases = {
         {"42", "42"},
         {"-15", "-15"},
@@ -20,7 +20,7 @@ void test_integer_arithmetic(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Integer Arithmetic ===" << std::endl;
     for (const auto& p : cases) {
         std::cout << "Expression: " << p.first << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(p.first);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(p.first);
         assert(result);
         std::string got = parser->toString(result);
         std::cout << "  Result: " << got << std::endl;
@@ -30,7 +30,7 @@ void test_integer_arithmetic(SMTParser::ParserPtr& parser) {
 }
 
 // Test real number arithmetic operations
-void test_real_arithmetic(SMTParser::ParserPtr& parser) {
+void test_real_arithmetic(SOMTParser::ParserPtr& parser) {
     std::vector<std::pair<std::string, std::string>> cases = {
         {"3.14159", "3.14159"},
         {"-2.71828", "-2.71828"},
@@ -46,7 +46,7 @@ void test_real_arithmetic(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Real Number Arithmetic ===" << std::endl;
     for (const auto& p : cases) {
         std::cout << "Expression: " << p.first << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(p.first);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(p.first);
         assert(result);
         std::string got = parser->toString(result);
         std::cout << "  Result: " << got << std::endl;
@@ -56,7 +56,7 @@ void test_real_arithmetic(SMTParser::ParserPtr& parser) {
 }
 
 // Test arithmetic comparison operations
-void test_comparisons(SMTParser::ParserPtr& parser) {
+void test_comparisons(SOMTParser::ParserPtr& parser) {
     std::vector<std::pair<std::string, bool>> cases = {
         {"(< 5 10)", true},
         {"(<= 7 7)", true},
@@ -69,7 +69,7 @@ void test_comparisons(SMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Arithmetic Comparisons ===" << std::endl;
     for (const auto& p : cases) {
         std::cout << "Expression: " << p.first << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(p.first);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(p.first);
         assert(result);
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         assert(result->isTrue() == p.second && "comparison should evaluate to expected bool");
@@ -77,7 +77,7 @@ void test_comparisons(SMTParser::ParserPtr& parser) {
     }
 }
 
-void test_precision(SMTParser::ParserPtr& parser) {
+void test_precision(SOMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Precision ===" << std::endl;
     
     // Default precision (128 bits)
@@ -120,7 +120,7 @@ void test_precision(SMTParser::ParserPtr& parser) {
 int main() {
     std::cout << "======= Arithmetic Operations Test =======" << std::endl;
     
-    SMTParser::ParserPtr parser = SMTParser::newParser();
+    SOMTParser::ParserPtr parser = SOMTParser::newParser();
     
     test_integer_arithmetic(parser);
     test_real_arithmetic(parser);

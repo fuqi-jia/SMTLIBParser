@@ -28,12 +28,12 @@
 #ifndef _OBJECTIVE_H
 #define _OBJECTIVE_H
 
-#include "smtparser/ir/dag.h"
+#include "somtparser/ir/dag.h"
 
 #include <unordered_map>
 #include <vector>
 
-namespace SMTParser{
+namespace SOMTParser{
     enum class OPT_KIND{
         // single objective
         OPT_MINIMIZE, OPT_MAXIMIZE, OPT_MAXSAT, OPT_MINSAT, 

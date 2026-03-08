@@ -25,14 +25,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "smtparser/core/util.h"
+#include "somtparser/core/util.h"
 #include <vector>
 #include <sstream>
 #include <cmath>
 #include <iomanip>
 #include <algorithm>
 #include <string>
-namespace SMTParser{
+namespace SOMTParser{
 
     bool TypeChecker::isNumber(const std::string& str){
         return isInt(str) || isReal(str);
@@ -183,7 +183,7 @@ namespace SMTParser{
             Real exponent_val = Real(exponent_no_spaces);
             
             // calculate the result
-            Real result = mantissa_val * SMTParser::MathUtils::pow(Real(10.0), exponent_val);
+            Real result = mantissa_val * SOMTParser::MathUtils::pow(Real(10.0), exponent_val);
             
             // convert to string
             std::ostringstream oss;
@@ -273,7 +273,7 @@ namespace SMTParser{
     }
 
     Integer MathUtils::lcm(const Integer& a, const Integer& b){
-        return a * b / SMTParser::MathUtils::gcd(a, b);
+        return a * b / SOMTParser::MathUtils::gcd(a, b);
     }
 
 
@@ -644,7 +644,7 @@ namespace SMTParser{
                     quotient_bits.push_back('1');
                     
                     // subtract divisor from remainder
-                    std::string diff = SMTParser::BitVectorUtils::bvSub(remainder_bv, divisor_bv);
+                    std::string diff = SOMTParser::BitVectorUtils::bvSub(remainder_bv, divisor_bv);
                     remainder = diff.substr(2); // remove #b prefix
                 }
                 else{
@@ -673,14 +673,14 @@ namespace SMTParser{
         }
         std::string dividend = bv1;
         std::string divisor = bv2;
-        std::string quotient = SMTParser::BitVectorUtils::bvUdiv(bv1, bv2);
-        std::string res = SMTParser::BitVectorUtils::bvSub(dividend, SMTParser::BitVectorUtils::bvMul(quotient, bv2));
+        std::string quotient = SOMTParser::BitVectorUtils::bvUdiv(bv1, bv2);
+        std::string res = SOMTParser::BitVectorUtils::bvSub(dividend, SOMTParser::BitVectorUtils::bvMul(quotient, bv2));
         return res;
     }
     std::string BitVectorUtils::bvUmod(const std::string& bv1, const std::string& bv2){
         condAssert(bv1[0] == '#' && bv1[1] == 'b', "BitVectorUtils::bvUmod: invalid bitvector");
         condAssert(bv2[0] == '#' && bv2[1] == 'b', "BitVectorUtils::bvUmod: invalid bitvector");
-        std::string res = SMTParser::BitVectorUtils::bvUrem(bv1, bv2);
+        std::string res = SOMTParser::BitVectorUtils::bvUrem(bv1, bv2);
         return res;
     }
     // truncate-toward-zero division for arbitrary Integer
@@ -863,21 +863,21 @@ namespace SMTParser{
             case NODE_KIND::NT_DISTINCT_OTHER:
                 return bv1 != bv2;
             case NODE_KIND::NT_BV_ULT:
-                return SMTParser::BitVectorUtils::bvToNat(bv1) < SMTParser::BitVectorUtils::bvToNat(bv2);
+                return SOMTParser::BitVectorUtils::bvToNat(bv1) < SOMTParser::BitVectorUtils::bvToNat(bv2);
             case NODE_KIND::NT_BV_ULE:
-                return SMTParser::BitVectorUtils::bvToNat(bv1) <= SMTParser::BitVectorUtils::bvToNat(bv2);
+                return SOMTParser::BitVectorUtils::bvToNat(bv1) <= SOMTParser::BitVectorUtils::bvToNat(bv2);
             case NODE_KIND::NT_BV_UGT:
-                return SMTParser::BitVectorUtils::bvToNat(bv1) > SMTParser::BitVectorUtils::bvToNat(bv2);
+                return SOMTParser::BitVectorUtils::bvToNat(bv1) > SOMTParser::BitVectorUtils::bvToNat(bv2);
             case NODE_KIND::NT_BV_UGE:
-                return SMTParser::BitVectorUtils::bvToNat(bv1) >= SMTParser::BitVectorUtils::bvToNat(bv2);
+                return SOMTParser::BitVectorUtils::bvToNat(bv1) >= SOMTParser::BitVectorUtils::bvToNat(bv2);
             case NODE_KIND::NT_BV_SLT:
-                return SMTParser::BitVectorUtils::bvToInt(bv1) < SMTParser::BitVectorUtils::bvToInt(bv2);
+                return SOMTParser::BitVectorUtils::bvToInt(bv1) < SOMTParser::BitVectorUtils::bvToInt(bv2);
             case NODE_KIND::NT_BV_SLE:
-                return SMTParser::BitVectorUtils::bvToInt(bv1) <= SMTParser::BitVectorUtils::bvToInt(bv2);
+                return SOMTParser::BitVectorUtils::bvToInt(bv1) <= SOMTParser::BitVectorUtils::bvToInt(bv2);
             case NODE_KIND::NT_BV_SGT:
-                return SMTParser::BitVectorUtils::bvToInt(bv1) > SMTParser::BitVectorUtils::bvToInt(bv2);
+                return SOMTParser::BitVectorUtils::bvToInt(bv1) > SOMTParser::BitVectorUtils::bvToInt(bv2);
             case NODE_KIND::NT_BV_SGE:
-                return SMTParser::BitVectorUtils::bvToInt(bv1) >= SMTParser::BitVectorUtils::bvToInt(bv2);
+                return SOMTParser::BitVectorUtils::bvToInt(bv1) >= SOMTParser::BitVectorUtils::bvToInt(bv2);
             default:
                 return false;
         }

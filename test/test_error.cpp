@@ -3,7 +3,7 @@
 #include <vector>
 #include <cstdio>
 #include <algorithm>
-#include "smtparser/frontend/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 
 // Test function to check file existence
@@ -17,7 +17,7 @@ bool file_exists(const std::string& filename) {
 }
 
 // Test function to parse a specific SMT2 file and report results. Returns parse_success.
-bool test_parse_file(const std::string& filename, SMTParser::ParserPtr& parser, bool expect_success) {
+bool test_parse_file(const std::string& filename, SOMTParser::ParserPtr& parser, bool expect_success) {
     std::cout << "\n=== Testing file: " << filename << " ===" << std::endl;
     if (!file_exists(filename)) {
         std::cerr << "Error: Test file not found: " << filename << std::endl;
@@ -70,15 +70,15 @@ bool test_parse_file(const std::string& filename, SMTParser::ParserPtr& parser, 
 int main() {
     std::cout << "======= Parser Error Test =======" << std::endl;
 
-    SMTParser::ParserPtr parser = SMTParser::newParser();
+    SOMTParser::ParserPtr parser = SOMTParser::newParser();
     // Test 1: error_kind_mismatch.smt2 — 已解决，应解析成功
     test_parse_file("../test/instances/error_kind_mismatch.smt2", parser, true);
 
-    parser = SMTParser::newParser();
+    parser = SOMTParser::newParser();
     // Test 2: error_unknown_symbol.smt2 — 含 :named，解析器支持 :named 故期望成功
     test_parse_file("../test/instances/error_unknown_symbol.smt2", parser, true);
 
-    parser = SMTParser::newParser();
+    parser = SOMTParser::newParser();
     // Test 3: error_unknown_symbol_2.smt2 — 含 (declare-sort S 1) 等，可能成功或失败，按当前行为断言
     bool ok3 = test_parse_file("../test/instances/error_unknown_symbol_2.smt2", parser, true);
     (void)ok3;
