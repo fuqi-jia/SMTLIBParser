@@ -4,115 +4,115 @@
 #include "somtparser/frontend/parser.h"
 #include <cassert>
 
-// 测试基本的浮点数常量和表示
+// Test basic floating-point constants and representation
 void test_fp_constants(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
-        "(_ +zero 8 24)",        // IEEE 754单精度+0.0
-        "(_ -zero 8 24)",        // IEEE 754单精度-0.0
-        "(_ +oo 8 24)",          // IEEE 754单精度+∞
-        "(_ -oo 8 24)",          // IEEE 754单精度-∞
-        "(_ NaN 8 24)",          // IEEE 754单精度NaN
-        "(fp #b0 #b01111111 #b00000000000000000000000)", // IEEE 754单精度1.0的位表示
-        "(fp #b1 #b10000010 #b01100000000000000000000)"  // IEEE 754单精度-6.5的位表示
+        "(_ +zero 8 24)",        // IEEE 754 single-precision +0.0
+        "(_ -zero 8 24)",        // IEEE 754 single-precision -0.0
+        "(_ +oo 8 24)",          // IEEE 754 single-precision +inf
+        "(_ -oo 8 24)",          // IEEE 754 single-precision -inf
+        "(_ NaN 8 24)",          // IEEE 754 single-precision NaN
+        "(fp #b0 #b01111111 #b00000000000000000000000)", // IEEE 754 single-precision 1.0 bit representation
+        "(fp #b1 #b10000010 #b01100000000000000000000)"  // IEEE 754 single-precision -6.5 bit representation
     };
     
-    std::cout << "=== 测试浮点数常量 ===" << std::endl;
+    std::cout << "=== Test floating-point constants ===" << std::endl;
     for (const auto& expr : expressions) {
-        std::cout << "表达式: " << expr << std::endl;
+        std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
-        std::cout << "  结果: " << parser->toString(result) << std::endl;
+        std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
 }
 
-// 测试浮点数算术运算
+// Test floating-point arithmetic operations
 void test_fp_arithmetic(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
-        "(fp.add RNE ((_ to_fp 8 24) RNE 3.14) ((_ to_fp 8 24) RNE 2.71))",    // 加法，向最近取整
-        "(fp.sub RNE ((_ to_fp 8 24) RNE 10.5) ((_ to_fp 8 24) RNE 4.2))",     // 减法，向最近取整
-        "(fp.mul RNE ((_ to_fp 8 24) RNE 2.5) ((_ to_fp 8 24) RNE 4.0))",      // 乘法，向最近取整
-        "(fp.div RNE ((_ to_fp 8 24) RNE 15.0) ((_ to_fp 8 24) RNE 3.0))",     // 除法，向最近取整
-        "(fp.fma RNE ((_ to_fp 8 24) RNE 2.0) ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 1.0))", // 乘加融合
-        "(fp.sqrt RNE ((_ to_fp 8 24) RNE 16.0))",                              // 平方根
-        "(fp.rem ((_ to_fp 8 24) RNE 17.5) ((_ to_fp 8 24) RNE 5.2))",         // 取余
-        "(fp.roundToIntegral RNE ((_ to_fp 8 24) RNE 3.7))",                    // 向整数舍入
-        "(fp.min ((_ to_fp 8 24) RNE 4.2) ((_ to_fp 8 24) RNE 4.3))",          // 最小值
-        "(fp.max ((_ to_fp 8 24) RNE 4.2) ((_ to_fp 8 24) RNE 4.3))"           // 最大值
+        "(fp.add RNE ((_ to_fp 8 24) RNE 3.14) ((_ to_fp 8 24) RNE 2.71))",    // add, round to nearest even
+        "(fp.sub RNE ((_ to_fp 8 24) RNE 10.5) ((_ to_fp 8 24) RNE 4.2))",     // subtract, round to nearest even
+        "(fp.mul RNE ((_ to_fp 8 24) RNE 2.5) ((_ to_fp 8 24) RNE 4.0))",      // multiply, round to nearest even
+        "(fp.div RNE ((_ to_fp 8 24) RNE 15.0) ((_ to_fp 8 24) RNE 3.0))",     // divide, round to nearest even
+        "(fp.fma RNE ((_ to_fp 8 24) RNE 2.0) ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 1.0))", // fused multiply-add
+        "(fp.sqrt RNE ((_ to_fp 8 24) RNE 16.0))",                              // square root
+        "(fp.rem ((_ to_fp 8 24) RNE 17.5) ((_ to_fp 8 24) RNE 5.2))",         // remainder
+        "(fp.roundToIntegral RNE ((_ to_fp 8 24) RNE 3.7))",                    // round to integral
+        "(fp.min ((_ to_fp 8 24) RNE 4.2) ((_ to_fp 8 24) RNE 4.3))",          // minimum
+        "(fp.max ((_ to_fp 8 24) RNE 4.2) ((_ to_fp 8 24) RNE 4.3))"           // maximum
     };
     
-    std::cout << "=== 测试浮点数算术运算 ===" << std::endl;
+    std::cout << "=== Test floating-point arithmetic ===" << std::endl;
     for (const auto& expr : expressions) {
-        std::cout << "表达式: " << expr << std::endl;
+        std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
-        std::cout << "  结果: " << parser->toString(result) << std::endl;
+        std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
 }
 
-// 测试浮点数比较操作
+// Test floating-point comparison operations
 void test_fp_comparisons(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
-        "(fp.eq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))",           // 相等
-        "(fp.lt ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 4.0))",           // 小于
-        "(fp.gt ((_ to_fp 8 24) RNE 5.0) ((_ to_fp 8 24) RNE 4.0))",           // 大于
-        "(fp.leq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))",          // 小于等于
-        "(fp.geq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))",          // 大于等于
-        "(fp.isNormal ((_ to_fp 8 24) RNE 1.0))",                               // 是否为规格化数
-        "(fp.isSubnormal ((_ to_fp 11 53) RNE 0.0001))",                      // 是否为次规格化数
-        "(fp.isZero ((_ to_fp 8 24) RNE 0.0))",                                 // 是否为零
-        "(fp.isInfinite (_ +oo 8 24))",                                       // 是否为无穷大
-        "(fp.isNaN (_ NaN 8 24))",                                            // 是否为NaN
-        "(fp.isNegative ((_ to_fp 8 24) RNE -1.0))",                            // 是否为负数
-        "(fp.isPositive ((_ to_fp 8 24) RNE 1.0))"                              // 是否为正数
+        "(fp.eq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))",           // equal
+        "(fp.lt ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 4.0))",           // less than
+        "(fp.gt ((_ to_fp 8 24) RNE 5.0) ((_ to_fp 8 24) RNE 4.0))",           // greater than
+        "(fp.leq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))",          // less than or equal
+        "(fp.geq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))",          // greater than or equal
+        "(fp.isNormal ((_ to_fp 8 24) RNE 1.0))",                               // is normal
+        "(fp.isSubnormal ((_ to_fp 11 53) RNE 0.0001))",                      // is subnormal
+        "(fp.isZero ((_ to_fp 8 24) RNE 0.0))",                                 // is zero
+        "(fp.isInfinite (_ +oo 8 24))",                                       // is infinite
+        "(fp.isNaN (_ NaN 8 24))",                                            // is NaN
+        "(fp.isNegative ((_ to_fp 8 24) RNE -1.0))",                            // is negative
+        "(fp.isPositive ((_ to_fp 8 24) RNE 1.0))"                              // is positive
     };
     
-    std::cout << "=== 测试浮点数比较操作 ===" << std::endl;
+    std::cout << "=== Test floating-point comparisons ===" << std::endl;
     for (const auto& expr : expressions) {
-        std::cout << "表达式: " << expr << std::endl;
+        std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
-        std::cout << "  结果: " << parser->toString(result) << std::endl;
+        std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
 }
 
-// 测试浮点数转换操作
+// Test floating-point conversion operations
 void test_fp_conversions(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
-        // 从实数到浮点数
+        // real to floating-point
         "((_ to_fp 8 24) RNE 3.14159)",
-        // 从整数到浮点数
+        // integer to floating-point
         "((_ to_fp 8 24) RNE 42)",
-        // 从二进制字符串到浮点数
+        // binary string to floating-point
         "((_ to_fp 8 24) #b01000001001000000000000000000000)",
-        // 从浮点数到实数
+        // floating-point to real
         "(fp.to_real ((_ to_fp 8 24) RNE 3.14))",
-        // 从浮点数到有符号位向量（向零舍入）
+        // floating-point to signed bit-vector (round toward zero)
         "((_ fp.to_sbv 32) RTZ ((_ to_fp 8 24) RNE 3.14))",
-        // 从浮点数到无符号位向量（向零舍入）
+        // floating-point to unsigned bit-vector (round toward zero)
         "((_ fp.to_ubv 32) RTZ ((_ to_fp 8 24) RNE 3.14))",
-        // 从实数到不同精度浮点数
-        "((_ to_fp 11 53) RNE 3.14)",  // 实数到双精度
-        "((_ to_fp 5 11) RNE 3.14)",   // 实数到半精度
-        // 不同精度浮点数之间的转换
-        "((_ to_fp 11 53) RNE ((_ to_fp 8 24) RNE 3.14))",  // 单精度到双精度
-        "((_ to_fp 5 11) RNE ((_ to_fp 8 24) RNE 3.14))"    // 单精度到半精度
+        // real to different precision floating-point
+        "((_ to_fp 11 53) RNE 3.14)",  // real to double precision
+        "((_ to_fp 5 11) RNE 3.14)",   // real to half precision
+        // conversion between different precision floating-point
+        "((_ to_fp 11 53) RNE ((_ to_fp 8 24) RNE 3.14))",  // single to double precision
+        "((_ to_fp 5 11) RNE ((_ to_fp 8 24) RNE 3.14))"    // single to half precision
     };
 
-    std::cout << "=== 测试浮点数转换操作 ===" << std::endl;
+    std::cout << "=== Test floating-point conversions ===" << std::endl;
     for (const auto& expr : expressions) {
-        std::cout << "表达式: " << expr << std::endl;
+        std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
-        std::cout << "  结果: " << parser->toString(result) << std::endl;
+        std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
 }
 
 int main() {
-    std::cout << "======= 浮点数理论测试 =======" << std::endl;
+    std::cout << "======= Floating-point theory test =======" << std::endl;
     
     SOMTParser::ParserPtr parser = SOMTParser::newParser();
     

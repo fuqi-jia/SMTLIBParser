@@ -4,10 +4,10 @@
 #include <cassert>
 
 int main() {
-    // 创建解析器
+    // Create parser
     auto parser = SOMTParser::newParser();
     
-    // 测试用的SMT-LIB模型字符串
+    // SMT-LIB model strings for testing
     std::string model_str1 = R"(
 (model
   (define-fun v17 () Real
@@ -1240,70 +1240,87 @@ int main() {
 )
 )";
 
-    
+    // Basic interface: parse model from string then evaluate(phi, M)
+    {
+        parser->mkVarInt("x");
+        parser->mkVarInt("y");
+        auto phi = parser->mkExpr("(and (> x 0) (> y 0))");
+        assert(phi);
+        std::string modelStr = R"(
+(model
+  (define-fun x () Int 1)
+  (define-fun y () Int 2)
+))";
+        auto M = parser->parseModel(modelStr);
+        assert(M && M->size() >= 2);
+        auto psi = parser->evaluate(phi, M);
+        assert(psi && psi->isTrue() && "evaluate((and (> x 0) (> y 0)), M) with x=1,y=2 should be true");
+        std::cout << "Basic parseModel + evaluate: phi=(and (> x 0) (> y 0)), M={x->1,y->2} => " << parser->toString(psi) << " OK" << std::endl;
+    }
+
     try {
         auto model = parser->parseModel(model_str1);
         assert(model && "model1 should parse successfully");
-        std::cout << "模型1解析成功！" << std::endl;
-        std::cout << "模型1大小: " << model->size() << std::endl;
+        std::cout << "Model 1 parsed successfully!" << std::endl;
+        std::cout << "Model 1 size: " << model->size() << std::endl;
         assert(model->size() > 0);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
-            std::cout << "变量: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
+            std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
         }
         assert(pairs.size() == model->size());
     } catch (const std::exception& e) {
-        std::cout << "解析过程中出现异常: " << e.what() << std::endl;
+        std::cout << "Exception during parsing: " << e.what() << std::endl;
         assert(false && "model1 should not throw");
     }
 
     try {
         auto model = parser->parseModel(model_str2);
         assert(model && "model2 should parse successfully");
-        std::cout << "模型2解析成功！" << std::endl;
-        std::cout << "模型2大小: " << model->size() << std::endl;
+        std::cout << "Model 2 parsed successfully!" << std::endl;
+        std::cout << "Model 2 size: " << model->size() << std::endl;
         assert(model->size() > 0);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
-            std::cout << "变量: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
+            std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
         }
     } catch (const std::exception& e) {
-        std::cout << "解析过程中出现异常: " << e.what() << std::endl;
+        std::cout << "Exception during parsing: " << e.what() << std::endl;
         assert(false && "model2 should not throw");
     }
 
     try {
         auto model = parser->parseModel(model_str3_simple);
         assert(model && "model3 (simple as-array) should parse successfully");
-        std::cout << "模型3（简化版）解析成功！" << std::endl;
-        std::cout << "模型3大小: " << model->size() << std::endl;
+        std::cout << "Model 3 (simplified) parsed successfully!" << std::endl;
+        std::cout << "Model 3 size: " << model->size() << std::endl;
         assert(model->size() >= 1);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
-            std::cout << "变量: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
+            std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
         }
     } catch (const std::exception& e) {
-        std::cout << "解析过程中出现异常: " << e.what() << std::endl;
+        std::cout << "Exception during parsing: " << e.what() << std::endl;
         assert(false && "model3 should not throw");
     }
 
     try {
         auto model = parser->parseModel(model_str4_smtrat);
         assert(model && "model4 (smtrat) should parse successfully");
-        std::cout << "模型4（smtrat）解析成功！" << std::endl;
-        std::cout << "模型4大小: " << model->size() << std::endl;
+        std::cout << "Model 4 (smtrat) parsed successfully!" << std::endl;
+        std::cout << "Model 4 size: " << model->size() << std::endl;
         assert(model->size() >= 3);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
-            std::cout << "变量: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
+            std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
         }
     } catch (const std::exception& e) {
-        std::cout << "解析过程中出现异常: " << e.what() << std::endl;
+        std::cout << "Exception during parsing: " << e.what() << std::endl;
         assert(false && "model4 should not throw");
     }
 
     try {
-        // 解析模型5 - CVC5 real_algebraic_number 格式测试
+        // Parse model 5 - CVC5 real_algebraic_number format test
         std::string model_str5_cvc5 = R"(
 (model
   (define-fun x () Real
@@ -1313,21 +1330,21 @@ int main() {
         auto model = parser->parseModel(model_str5_cvc5);
         
         assert(model && "model5 (CVC5 real_algebraic_number) should parse successfully");
-        std::cout << "模型5（CVC5 real_algebraic_number）解析成功！" << std::endl;
-        std::cout << "模型5大小: " << model->size() << std::endl;
+        std::cout << "Model 5 (CVC5 real_algebraic_number) parsed successfully!" << std::endl;
+        std::cout << "Model 5 size: " << model->size() << std::endl;
         assert(model->size() == 1);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
-            std::cout << "变量: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
+            std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
             if (pair.second->isCRealAlgebraicNumber()) {
-                std::cout << "  -> 这是一个 real_algebraic_number 节点" << std::endl;
-                std::cout << "  -> 多项式: " << parser->toString(pair.second->getChild(0)) << std::endl;
-                std::cout << "  -> 下界: " << parser->toString(pair.second->getChild(1)) << std::endl;
-                std::cout << "  -> 上界: " << parser->toString(pair.second->getChild(2)) << std::endl;
+                std::cout << "  -> This is a real_algebraic_number node" << std::endl;
+                std::cout << "  -> Polynomial: " << parser->toString(pair.second->getChild(0)) << std::endl;
+                std::cout << "  -> Lower bound: " << parser->toString(pair.second->getChild(1)) << std::endl;
+                std::cout << "  -> Upper bound: " << parser->toString(pair.second->getChild(2)) << std::endl;
             }
         }
     } catch (const std::exception& e) {
-        std::cout << "解析过程中出现异常: " << e.what() << std::endl;
+        std::cout << "Exception during parsing: " << e.what() << std::endl;
         assert(false && "model5 should not throw");
     }
     return 0;

@@ -30,7 +30,7 @@ int main() {
     assert(count == 0);
     std::cout << "Leaf (42): kind=NT_CONST, numChildren=0, range size=0 OK" << std::endl;
 
-    // (+ 1 2)：解析器可能常量折叠为常数 3，也可能保留 ADD 节点，两种都正确测试 Node API
+    // (+ 1 2): parser may fold to constant 3 or keep ADD node; both are valid for testing Node API
     Node add = parser->mkExpr("(+ 1 2)");
     assert(add);
     std::cout << "(+ 1 2) -> " << parser->toString(add)
@@ -38,14 +38,14 @@ int main() {
               << ", numChildren=" << numChildren(add) << std::endl;
 
     if (kind(add) == NODE_KIND::NT_CONST) {
-        // 解析时已折叠为常数 3
+        // Folded to constant 3 at parse time
         assert(numChildren(add) == 0);
         count = 0;
         for (Node c : children(add)) { (void)c; ++count; }
         assert(count == 0);
         std::cout << "  (folded to constant: 0 children) OK" << std::endl;
     } else {
-        // 未折叠，仍为 ADD 节点，两个子节点为 1 和 2
+        // Not folded; still ADD node with two children 1 and 2
         assert(kind(add) == NODE_KIND::NT_ADD);
         assert(numChildren(add) == 2);
         Node a = child(add, 0), b = child(add, 1);
@@ -60,7 +60,7 @@ int main() {
         std::cout << "  (ADD with 2 children) OK" << std::endl;
     }
 
-    // (+ x 2)：含变量不会折叠，一定是 ADD，2 个子节点
+    // (+ x 2): with variable, no folding; must be ADD with 2 children
     parser->mkVarInt("x");
     Node addX = parser->mkExpr("(+ x 2)");
     assert(addX);

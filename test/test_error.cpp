@@ -71,15 +71,15 @@ int main() {
     std::cout << "======= Parser Error Test =======" << std::endl;
 
     SOMTParser::ParserPtr parser = SOMTParser::newParser();
-    // Test 1: error_kind_mismatch.smt2 — 已解决，应解析成功
+    // Test 1: error_kind_mismatch.smt2 — fixed, should parse successfully
     test_parse_file("../test/instances/error_kind_mismatch.smt2", parser, true);
 
     parser = SOMTParser::newParser();
-    // Test 2: error_unknown_symbol.smt2 — 含 :named，解析器支持 :named 故期望成功
+    // Test 2: error_unknown_symbol.smt2 — contains :named; parser supports :named so expect success
     test_parse_file("../test/instances/error_unknown_symbol.smt2", parser, true);
 
     parser = SOMTParser::newParser();
-    // Test 3: error_unknown_symbol_2.smt2 — 含 (declare-sort S 1) 等，可能成功或失败，按当前行为断言
+    // Test 3: error_unknown_symbol_2.smt2 — contains (declare-sort S 1) etc.; may succeed or fail; assert by current behavior
     bool ok3 = test_parse_file("../test/instances/error_unknown_symbol_2.smt2", parser, true);
     (void)ok3;
 

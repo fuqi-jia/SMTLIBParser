@@ -39,6 +39,37 @@ void test_let_expressions(SOMTParser::ParserPtr& parser) {
     }
 }
 
+// Example: NNF/CNF and getCNFBoolVar / getCNFAtom roundtrip
+void test_cnf_bool_var_atom_roundtrip(SOMTParser::ParserPtr& parser) {
+    std::cout << "=== Testing CNF BoolVar/Atom Roundtrip ===" << std::endl;
+    parser->mkVarInt("x");
+    parser->mkVarInt("y");
+
+    std::shared_ptr<SOMTParser::DAGNode> phi = parser->mkExpr("(and (> x 0) (< y 3))");
+    assert(phi);
+
+    std::shared_ptr<SOMTParser::DAGNode> nnf = parser->toNNF(phi);
+    assert(nnf);
+    std::vector<std::shared_ptr<SOMTParser::DAGNode>> expr_vec = {phi};
+    std::shared_ptr<SOMTParser::DAGNode> cnf = parser->toCNF(expr_vec);
+    assert(cnf);
+
+    std::shared_ptr<SOMTParser::DAGNode> atom_gt = parser->mkExpr("(> x 0)");
+    assert(atom_gt);
+    std::shared_ptr<SOMTParser::DAGNode> b = parser->getCNFBoolVar(atom_gt);
+    assert(b && "getCNFBoolVar( (> x 0) ) should return the CNF bool var");
+    std::shared_ptr<SOMTParser::DAGNode> a = parser->getCNFAtom(b);
+    assert(a == atom_gt);
+    assert(a && "getCNFAtom(b) should recover the atom");
+    assert(parser->toString(a) == parser->toString(atom_gt) && "recovered atom should be (> x 0)");
+
+    std::cout << "  phi: " << parser->toString(phi) << std::endl;
+    std::cout << "  NNF: " << parser->toString(nnf) << std::endl;
+    std::cout << "  CNF: " << parser->toString(cnf) << std::endl;
+    std::cout << "  getCNFBoolVar( (> x 0) ) -> bool var; getCNFAtom(bool var) -> " << parser->toString(a) << " OK" << std::endl;
+    std::cout << std::endl;
+}
+
 // Test normal forms (NNF, CNF, DNF)
 void test_normal_forms(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
@@ -299,6 +330,7 @@ int main() {
     SOMTParser::ParserPtr parser = SOMTParser::newParser();
     
     test_let_expressions(parser);
+    test_cnf_bool_var_atom_roundtrip(parser);
     test_normal_forms(parser);
     test_arithmetic_normalization(parser);
     test_binarization(parser);
