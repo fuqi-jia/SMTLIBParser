@@ -36,46 +36,42 @@ fi
 echo -e "${YELLOW}Running tests...${NC}"
 cd test
 
-# Find all test executables
-TEST_EXES=$(find . -type f -executable -name "test_*" 2>/dev/null | grep -v "\.o$" | grep -v "\.d$")
+# Find all test executables (built by CMake from test/*.cpp)
+TEST_EXES=$(find . -maxdepth 1 -type f -executable -name "test_*" 2>/dev/null | sort)
 
-# If no executables found, try explicit names
+# If no executables found, try explicit list (e.g. when find fails or cwd is wrong)
 if [ -z "$TEST_EXES" ]; then
-    echo -e "${YELLOW}No test executables found automatically, trying explicit filenames...${NC}"
-    
-    # List all potential test executables
+    echo -e "${YELLOW}No test executables found in current dir, trying explicit list...${NC}"
     POTENTIAL_TESTS=(
-        "./test_array_theory"
-        "./test_arithmetic"
-        "./test_bitvector"
-        "./test_boolean_logic"
-        "./test_expressions"
-        "./test_floating_point"
-        "./test_parser"
-        "./test_quantifiers"
-        "./test_readme"
-        "./test_smtparser_exe"
-        "./test_string_handling"
-        "./test_string_operations"
-        "./test_theory_combination"
-        "./test_parse_model"
-        "./test_options_config"
-        "./test_array_simplify"
-        "./test_node_api"
-        "./test_visitor_api"
-        "./test_context_dispatcher"
-        "./test_rewriter"
+        ./test_array_simplify
+        ./test_array_theory
+        ./test_arithmetic
+        ./test_bitvector
+        ./test_boolean_logic
+        ./test_context_dispatcher
+        ./test_error
+        ./test_expressions
+        ./test_floating_point
+        ./test_node_api
+        ./test_optimization
+        ./test_options_config
+        ./test_parse_model
+        ./test_parser
+        ./test_quantifiers
+        ./test_readme
+        ./test_rewriter
+        ./test_somtparser_exe
+        ./test_string_handling
+        ./test_string_operations
+        ./test_theory_combination
+        ./test_umbrella
+        ./test_visitor_api
     )
-    
-    # Check each potential test
-    for test in "${POTENTIAL_TESTS[@]}"; do
-        if [ -f "$test" ]; then
-            TEST_EXES="$TEST_EXES $test"
-        fi
+    for t in "${POTENTIAL_TESTS[@]}"; do
+        [ -x "$t" ] && TEST_EXES="$TEST_EXES $t"
     done
-    
     if [ -z "$TEST_EXES" ]; then
-        echo -e "${RED}No test executables found!${NC}"
+        echo -e "${RED}No test executables found! (Run from build/test after make)${NC}"
         exit 1
     fi
 fi
@@ -115,3 +111,31 @@ else
     echo -e "${RED}$FAILED_TESTS tests failed!${NC}"
     exit 1
 fi 
+
+
+
+[SMT-LIB file]      ┌──────────────────────── Frontend ────────────────────────┐
+[String input] ---> │ Lexer / command parser                                   │
+                    │          ↓                                                │
+                    │   Expression parser                                       │
+                    │      ↙        ↘                                           │
+                    │ Symbol manager   Node construction & typing  --->         │
+                    │      ↓                ↓                                   │
+                    │ Parser context   OMT handling                             │
+                    └────────────────────────────────────────────────────────────┘
+                                                     |
+                                                     v
+                    ┌──────────────────────── IR Core ───────────────────────────┐
+                    │ Typed DAG IR                                               │
+                    │     ↓                                                      │
+                    │   Context                                                  │
+                    │  ↙      ↘                                                  │
+                    │ Node manager   Sort manager                                │
+                    └────────────────────────────────────────────────────────────┘
+                              |                               |
+                              v                               v
+            ┌──────────── Utilities ────────────┐   ┌──── Pass Framework ─────┐
+            │ Formula conversion                │   │ Visitor                 │
+            │ Evaluation ----> Model interface │   │ Rewriter                │
+            └───────────────────────────────────┘   │ Kind-based dispatcher   │
+                                                    └─────────────────────────┘

@@ -1,4 +1,4 @@
-# SMTParser
+# SOMTParser
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -99,8 +99,8 @@ vcpkg install gmp:x64-windows mpfr:x64-windows
 
 ```bash
 # Clone the repository
-git clone https://github.com/fuqi-jia/SMTParser.git
-cd SMTParser
+git clone https://github.com/fuqi-jia/SOMTParser.git
+cd SOMTParser
 
 # Create and enter build directory
 mkdir build && cd build
@@ -117,11 +117,11 @@ sudo make install
 
 ### Integration as Git Submodule
 
-For projects using Git, SMTParser can be included as a submodule:
+For projects using Git, SOMTParser can be included as a submodule:
 
 ```bash
 # Add the repository as a submodule
-git submodule add https://github.com/fuqi-jia/SMTParser.git SMTParser
+git submodule add https://github.com/fuqi-jia/SOMTParser.git SOMTParser
 
 # Initialize the submodule
 git submodule update --init --recursive
@@ -176,10 +176,10 @@ cmake -DBUILD_SHARED_LIBS=ON -DBUILD_BOTH_LIBS=OFF ..
 
 ### Compiling Client Applications
 
-When building applications that use SMTParser, link against the library and its dependencies:
+When building applications that use SOMTParser, link against the library and its dependencies:
 
 ```bash
-g++ -std=c++17 -o application main.cpp -lsmtparser -lgmp -lmpfr
+g++ -std=c++17 -o application main.cpp -lsomtparser -lgmp -lmpfr
 ```
 
 For CMake projects, you can use:
@@ -197,18 +197,18 @@ pkg_check_modules(GMP REQUIRED gmp)
 pkg_check_modules(MPFR REQUIRED mpfr)
 
 # Method 1: Using as Git submodule (recommended)
-add_subdirectory(SMTParser)
+add_subdirectory(SOMTParser)
 
-# Method 2: If SMTParser is installed system-wide (alternative)
-# find_library(SMTPARSER_LIB smtparser REQUIRED)
-# find_path(SMTPARSER_INCLUDE_DIR parser.h PATH_SUFFIXES smtparser)
+# Method 2: If SOMTParser is installed system-wide (alternative)
+# find_library(SOMTPARSER_LIB somtparser REQUIRED)
+# find_path(SOMTPARSER_INCLUDE_DIR parser.h PATH_SUFFIXES somtparser)
 
 # Create your executable
 add_executable(your_application main.cpp)
 
 # Link libraries and set include directories
 target_link_libraries(your_application 
-    smtparser                # SMTParser target from submodule
+    somtparser               # SOMTParser target from submodule
     ${GMP_LIBRARIES} 
     ${MPFR_LIBRARIES}
 )
@@ -218,17 +218,17 @@ target_include_directories(your_application PRIVATE
     ${MPFR_INCLUDE_DIRS}
 )
 
-# Note: SMTParser headers are automatically included when using add_subdirectory
+# Note: SOMTParser headers are automatically included when using add_subdirectory
 ```
 
 ## Configuration Options
 
-SMTParser provides various configuration options through the `GlobalOptions` class to control parsing behavior, evaluation settings, and other aspects.
+SOMTParser provides various configuration options through the `GlobalOptions` class to control parsing behavior, evaluation settings, and other aspects.
 
 ### Quick Start
 
 ```cpp
-auto parser = SMTParser::newParser();
+auto parser = SOMTParser::newParser();
 
 // Set options via direct methods
 parser->getOptions()->setLogic("QF_LIA");
@@ -252,7 +252,7 @@ std::cout << parser->optionToString() << std::endl;
 | **float_evaluate** | bool | `true` | Use floating-point (true) or exact rational (false) arithmetic |
 | **keep_division** | bool | `true` | Preserve division if not exact (e.g., `(/ 5 2)` stays as-is) |
 | **keep_let** | bool | `true` | Preserve let-bindings instead of expanding inline |
-| **expand_functions** | bool | `true` | Inline function calls with definitions (when false, preserve as function applications) |
+| **expand_functions** | bool | `false` | When true, inline function calls with definitions; when false (default), preserve as function applications |
 | **Command Flags** | bool | `false` | Tracks encountered SMT-LIB2 commands: `check_sat`, `get_model`, `get_assertions`, `get_proof`, `get_unsat_core`, `get_objectives`, etc. |
 
 <!-- 
@@ -339,7 +339,7 @@ std::cout << parser->options.toString() << std::endl;
 
 int main() {
     // Initialize the parser
-    SMTParser::Parser parser;
+    SOMTParser::Parser parser;
 
     // Parse an SMT-LIB2 file
     if (!parser.parse("formula.smt2")) {
@@ -366,12 +366,12 @@ int main() {
 #include <iostream>
 
 int main() {
-    auto parser = SMTParser::newParser();
+    auto parser = SOMTParser::newParser();
     
     // Create variables and expressions
     auto x = parser->mkVarInt("x");
     auto y = parser->mkVarInt("y");
-    auto sum = parser->mkAdd(std::vector<std::shared_ptr<SMTParser::DAGNode>>{x, y});
+    auto sum = parser->mkAdd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{x, y});
     auto condition = parser->mkGt(sum, parser->mkConstInt(10));
     
     std::cout << "Sum expression: " << parser->toString(sum) << std::endl;
@@ -397,22 +397,22 @@ Analysis and manipulation of formulas:
 #include <unordered_set>
 
 int main() {
-    auto parser = SMTParser::newParser();
+    auto parser = SOMTParser::newParser();
     
     // Create variables and build complex formula
     auto x = parser->mkVarInt("x");
     auto y = parser->mkVarInt("y");
     auto z = parser->mkVarBool("z");
     
-    std::vector<std::shared_ptr<SMTParser::DAGNode>> parts = {
-        parser->mkGt(parser->mkAdd(std::vector<std::shared_ptr<SMTParser::DAGNode>>{x, y}), parser->mkConstInt(0)),
+    std::vector<std::shared_ptr<SOMTParser::DAGNode>> parts = {
+        parser->mkGt(parser->mkAdd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{x, y}), parser->mkConstInt(0)),
         parser->mkLt(x, parser->mkConstInt(10)),
         z
     };
     auto formula = parser->mkAnd(parts);
     
     // Collect atoms and variables
-    std::unordered_set<std::shared_ptr<SMTParser::DAGNode>> atoms, vars;
+    std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> atoms, vars;
     parser->collectAtoms(formula, atoms);
     parser->collectVars(formula, vars);
     
@@ -431,20 +431,20 @@ int main() {
 Convert formulas between different normal forms:
 
 ```cpp
-auto parser = SMTParser::newParser();
+auto parser = SOMTParser::newParser();
 auto a = parser->mkVarBool("a");
 auto b = parser->mkVarBool("b");
 auto c = parser->mkVarBool("c");
 
 // Build complex formula
-auto formula = parser->mkAnd(std::vector<std::shared_ptr<SMTParser::DAGNode>>{
+auto formula = parser->mkAnd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{
     parser->mkImplies(a, b),
-    parser->mkOr(std::vector<std::shared_ptr<SMTParser::DAGNode>>{b, c})
+    parser->mkOr(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{b, c})
 });
 
 // Convert to different normal forms
 auto nnf = parser->toNNF(formula);
-auto cnf = parser->toCNF(std::vector<std::shared_ptr<SMTParser::DAGNode>>{formula});
+auto cnf = parser->toCNF(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{formula});
 auto dnf = parser->toDNF(formula);
 
 std::cout << "Original: " << parser->toString(formula) << std::endl;
@@ -458,8 +458,8 @@ std::cout << "DNF: " << parser->toString(dnf) << std::endl;
 Evaluate logical formulas with mathematical functions and variable assignments:
 
 ```cpp
-auto parser = SMTParser::newParser();
-auto model = SMTParser::newModel();
+auto parser = SOMTParser::newParser();
+auto model = SOMTParser::newModel();
 
 // Create a formula: (sin(x) > 0) ∧ (y > 1) ∧ (z ⟹ (x + y > 3))
 auto x = parser->mkVarReal("x");
@@ -471,10 +471,10 @@ auto cond1 = parser->mkGt(sin_x, parser->mkConstReal(std::string("0")));        
 
 auto cond2 = parser->mkGt(y, parser->mkConstReal(std::string("1")));                 // y > 1
 
-auto sum_xy = parser->mkAdd(std::vector<std::shared_ptr<SMTParser::DAGNode>>{x, y});
+auto sum_xy = parser->mkAdd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{x, y});
 auto cond3 = parser->mkImplies(z, parser->mkGt(sum_xy, parser->mkConstReal(std::string("3"))));  // z ⟹ (x + y > 3)
 
-auto formula = parser->mkAnd(std::vector<std::shared_ptr<SMTParser::DAGNode>>{cond1, cond2, cond3});
+auto formula = parser->mkAnd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{cond1, cond2, cond3});
 
 // Assign values and evaluate
 model->add(x, parser->mkConstReal(std::string("1.5")));   // sin(1.5) ≈ 0.997 > 0 ✓
@@ -489,7 +489,7 @@ std::cout << "Result: " << parser->toString(result) << std::endl;  // true
 ### Let Expression Expansion
 
 ```cpp
-auto parser = SMTParser::newParser();
+auto parser = SOMTParser::newParser();
 auto x = parser->mkVarInt("x");
 auto y = parser->mkVarInt("y");
 auto let_expr = parser->mkExpr("(let ((temp (+ x 1))) (> temp y))");
@@ -502,7 +502,7 @@ std::cout << "Expanded: " << parser->toString(expanded) << std::endl;       // (
 ### Optimization Modulo Theories (OMT)
 
 ```cpp
-auto parser = SMTParser::newParser();
+auto parser = SOMTParser::newParser();
 
 // Parse OMT commands
 parser->parseStr("(declare-const x Int)");
@@ -558,7 +558,7 @@ brew install doxygen
 To generate the documentation, run:
 
 ```bash
-cd path/to/SMTParser
+cd path/to/SOMTParser
 doxygen Doxyfile
 ```
 
@@ -577,7 +577,7 @@ open docs/html/index.html
 start docs/html/index.html
 ```
 
-Or simply navigate to `SMTParser/docs/html/index.html` in your file browser and open it with any web browser.
+Or simply navigate to `SOMTParser/docs/html/index.html` in your file browser and open it with any web browser.
 
 ## License
 

@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "../include/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 
 // 测试基本的浮点数常量和表示
-void test_fp_constants(SMTParser::ParserPtr& parser) {
+void test_fp_constants(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(_ +zero 8 24)",        // IEEE 754单精度+0.0
         "(_ -zero 8 24)",        // IEEE 754单精度-0.0
@@ -19,7 +19,7 @@ void test_fp_constants(SMTParser::ParserPtr& parser) {
     std::cout << "=== 测试浮点数常量 ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "表达式: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  结果: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -27,7 +27,7 @@ void test_fp_constants(SMTParser::ParserPtr& parser) {
 }
 
 // 测试浮点数算术运算
-void test_fp_arithmetic(SMTParser::ParserPtr& parser) {
+void test_fp_arithmetic(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(fp.add RNE ((_ to_fp 8 24) RNE 3.14) ((_ to_fp 8 24) RNE 2.71))",    // 加法，向最近取整
         "(fp.sub RNE ((_ to_fp 8 24) RNE 10.5) ((_ to_fp 8 24) RNE 4.2))",     // 减法，向最近取整
@@ -44,7 +44,7 @@ void test_fp_arithmetic(SMTParser::ParserPtr& parser) {
     std::cout << "=== 测试浮点数算术运算 ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "表达式: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  结果: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -52,7 +52,7 @@ void test_fp_arithmetic(SMTParser::ParserPtr& parser) {
 }
 
 // 测试浮点数比较操作
-void test_fp_comparisons(SMTParser::ParserPtr& parser) {
+void test_fp_comparisons(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "(fp.eq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))",           // 相等
         "(fp.lt ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 4.0))",           // 小于
@@ -71,7 +71,7 @@ void test_fp_comparisons(SMTParser::ParserPtr& parser) {
     std::cout << "=== 测试浮点数比较操作 ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "表达式: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  结果: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -79,7 +79,7 @@ void test_fp_comparisons(SMTParser::ParserPtr& parser) {
 }
 
 // 测试浮点数转换操作
-void test_fp_conversions(SMTParser::ParserPtr& parser) {
+void test_fp_conversions(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // 从实数到浮点数
         "((_ to_fp 8 24) RNE 3.14159)",
@@ -104,7 +104,7 @@ void test_fp_conversions(SMTParser::ParserPtr& parser) {
     std::cout << "=== 测试浮点数转换操作 ===" << std::endl;
     for (const auto& expr : expressions) {
         std::cout << "表达式: " << expr << std::endl;
-        std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+        std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
         assert(result && !result->isErr());
         std::cout << "  结果: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
@@ -114,7 +114,7 @@ void test_fp_conversions(SMTParser::ParserPtr& parser) {
 int main() {
     std::cout << "======= 浮点数理论测试 =======" << std::endl;
     
-    SMTParser::ParserPtr parser = SMTParser::newParser();
+    SOMTParser::ParserPtr parser = SOMTParser::newParser();
     
     test_fp_constants(parser);
     test_fp_arithmetic(parser);

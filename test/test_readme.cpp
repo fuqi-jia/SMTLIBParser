@@ -3,7 +3,7 @@
  * Validates all C++ code examples shown in the README
  */
 
-#include "parser.h"
+#include "somtparser/frontend/parser.h"
 #include <iostream>
 #include <unordered_set>
 #include <cassert>
@@ -13,7 +13,7 @@ void test_basic_parsing() {
     
     try {
         // Initialize the parser
-        SMTParser::Parser parser;
+        SOMTParser::Parser parser;
         
         // Create a simple SMT-LIB2 string to parse
         std::string smt_content = R"(
@@ -39,12 +39,12 @@ void test_expression_building() {
     std::cout << "\n=== Testing Expression Building ===" << std::endl;
     
     try {
-        auto parser = SMTParser::newParser();
+        auto parser = SOMTParser::newParser();
         
         // Create variables and expressions
         auto x = parser->mkVarInt("x");
         auto y = parser->mkVarInt("y");
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> add_params = {x, y};
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> add_params = {x, y};
         auto sum = parser->mkAdd(add_params);
         auto condition = parser->mkGt(sum, parser->mkConstInt(10));
         
@@ -66,15 +66,15 @@ void test_formula_analysis() {
     std::cout << "\n=== Testing Formula Analysis ===" << std::endl;
     
     try {
-        auto parser = SMTParser::newParser();
+        auto parser = SOMTParser::newParser();
         
         // Create variables and build complex formula
         auto x = parser->mkVarInt("x");
         auto y = parser->mkVarInt("y");
         auto z = parser->mkVarBool("z");
         
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> xy_parts = {x, y};
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> parts = {
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> xy_parts = {x, y};
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> parts = {
             parser->mkGt(parser->mkAdd(xy_parts), parser->mkConstInt(0)),
             parser->mkLt(x, parser->mkConstInt(10)),
             z
@@ -82,7 +82,7 @@ void test_formula_analysis() {
         auto formula = parser->mkAnd(parts);
         
         // Collect atoms and variables
-        std::unordered_set<std::shared_ptr<SMTParser::DAGNode>> atoms, vars;
+        std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> atoms, vars;
         parser->collectAtoms(formula, atoms);
         parser->collectVars(formula, vars);
         
@@ -99,14 +99,14 @@ void test_formula_conversions() {
     std::cout << "\n=== Testing Formula Format Conversions ===" << std::endl;
     
     try {
-        auto parser = SMTParser::newParser();
+        auto parser = SOMTParser::newParser();
         auto a = parser->mkVarBool("a");
         auto b = parser->mkVarBool("b");
         auto c = parser->mkVarBool("c");
         
         // Build complex formula
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> or_parts = {b, c};
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> formula_parts = {
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> or_parts = {b, c};
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> formula_parts = {
             parser->mkImplies(a, b),
             parser->mkOr(or_parts)
         };
@@ -114,7 +114,7 @@ void test_formula_conversions() {
         
         // Convert to different normal forms
         auto nnf = parser->toNNF(formula);
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> formula_vec = {formula};
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> formula_vec = {formula};
         auto cnf = parser->toCNF(formula_vec);
         auto dnf = parser->toDNF(formula);
         
@@ -133,8 +133,8 @@ void test_model_evaluation() {
     std::cout << "\n=== Testing Model Evaluation ===" << std::endl;
     
     try {
-        auto parser = SMTParser::newParser();
-        auto model = SMTParser::newModel();
+        auto parser = SOMTParser::newParser();
+        auto model = SOMTParser::newModel();
         
         // Create a formula: (sin(x) > 0) ∧ (y > 1) ∧ (z ⟹ (x + y > 3))
         auto x = parser->mkVarReal("x");
@@ -146,11 +146,11 @@ void test_model_evaluation() {
         
         auto cond2 = parser->mkGt(y, parser->mkConstReal(std::string("1")));                 // y > 1
         
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> sum_xy_parts = {x, y};
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> sum_xy_parts = {x, y};
         auto sum_xy = parser->mkAdd(sum_xy_parts);
         auto cond3 = parser->mkImplies(z, parser->mkGt(sum_xy, parser->mkConstReal(std::string("3"))));  // z ⟹ (x + y > 3)
         
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> formula_parts = {cond1, cond2, cond3};
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> formula_parts = {cond1, cond2, cond3};
         auto formula = parser->mkAnd(formula_parts);
         
         // Assign values and evaluate
@@ -172,7 +172,7 @@ void test_let_expression_expansion() {
     std::cout << "\n=== Testing Let Expression Expansion ===" << std::endl;
     
     try {
-        auto parser = SMTParser::newParser();
+        auto parser = SOMTParser::newParser();
         
         auto x = parser->mkVarInt("x");
         auto y = parser->mkVarInt("y");
@@ -193,7 +193,7 @@ void test_enhanced_omt() {
     std::cout << "\n=== Testing Enhanced Optimization Modulo Theories (OMT) ===" << std::endl;
     
     try {
-        auto parser = SMTParser::newParser();
+        auto parser = SOMTParser::newParser();
         
         // Parse OMT commands
         parser->parseStr("(declare-const x Int)");
@@ -223,8 +223,8 @@ void test_comprehensive_features() {
     std::cout << "\n=== Testing Comprehensive Features ===" << std::endl;
     
     try {
-        auto parser = SMTParser::newParser();
-        auto model = SMTParser::newModel();
+        auto parser = SOMTParser::newParser();
+        auto model = SOMTParser::newModel();
         
         // Create variables for different theories
         auto x = parser->mkVarInt("x");
@@ -232,15 +232,15 @@ void test_comprehensive_features() {
         auto b = parser->mkVarBool("b");
         
         // Create complex expressions
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> arith_parts = {x, parser->mkConstInt(5)};
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> arith_parts = {x, parser->mkConstInt(5)};
         auto arithmetic_expr = parser->mkAdd(arith_parts);
         auto comparison_expr = parser->mkGt(arithmetic_expr, parser->mkConstInt(10));
         auto conditional_expr = parser->mkIte(b, x, parser->mkConstInt(0));
         
         // Build compound formula
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> compound_parts = {
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> compound_parts = {
             comparison_expr, 
-            parser->mkGt(y, parser->mkConstReal(SMTParser::Real(0.5)))
+            parser->mkGt(y, parser->mkConstReal(SOMTParser::Real(0.5)))
         };
         auto compound_formula = parser->mkAnd(compound_parts);
         
@@ -259,7 +259,7 @@ void test_comprehensive_features() {
         
         // Test format conversions
         auto formula_nnf = parser->toNNF(compound_formula);
-        std::vector<std::shared_ptr<SMTParser::DAGNode>> formula_vec;
+        std::vector<std::shared_ptr<SOMTParser::DAGNode>> formula_vec;
         formula_vec.push_back(compound_formula);
         auto formula_cnf = parser->toCNF(formula_vec);
         

@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "../include/parser.h"
+#include "somtparser/frontend/parser.h"
 #include <cassert>
 
 // Test combination of arithmetic and boolean logic
-void test_arithmetic_boolean_combination(SMTParser::ParserPtr& parser) {
+void test_arithmetic_boolean_combination(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // Arithmetic in boolean context
         "(and (> ab_x 0) (< ab_y 10))",
@@ -33,7 +33,7 @@ void test_arithmetic_boolean_combination(SMTParser::ParserPtr& parser) {
         
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
-            std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+            std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
             assert(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
@@ -44,7 +44,7 @@ void test_arithmetic_boolean_combination(SMTParser::ParserPtr& parser) {
 }
 
 // Test combination of arrays and arithmetic
-void test_array_arithmetic_combination(SMTParser::ParserPtr& parser) {
+void test_array_arithmetic_combination(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // Array access with arithmetic indices
         "(select aa_a (+ aa_i 1))",
@@ -66,7 +66,7 @@ void test_array_arithmetic_combination(SMTParser::ParserPtr& parser) {
     
     try {
         // Declare variables and array
-        std::shared_ptr<SMTParser::Sort> int_sort = SMTParser::SortManager::INT_SORT;
+        std::shared_ptr<SOMTParser::Sort> int_sort = SOMTParser::SortManager::INT_SORT;
         parser->mkArray("aa_a", int_sort, int_sort);
         parser->mkVarInt("aa_i");
         parser->mkVarInt("aa_j");
@@ -74,7 +74,7 @@ void test_array_arithmetic_combination(SMTParser::ParserPtr& parser) {
         
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
-            std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+            std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
             assert(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
@@ -85,7 +85,7 @@ void test_array_arithmetic_combination(SMTParser::ParserPtr& parser) {
 }
 
 // Test combination of bitvectors with other theories
-void test_bitvector_combination(SMTParser::ParserPtr& parser) {
+void test_bitvector_combination(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // Bitvector in boolean context
         "(= #b1010 #b1010)",
@@ -107,7 +107,7 @@ void test_bitvector_combination(SMTParser::ParserPtr& parser) {
     
     try {
         // Declare variables
-        std::shared_ptr<SMTParser::Sort> bv4_sort = parser->mkBVSort(4);
+        std::shared_ptr<SOMTParser::Sort> bv4_sort = parser->mkBVSort(4);
         parser->mkVarBv("bv_x", 4);
         parser->mkVarBv("bv_y", 4);
         
@@ -116,7 +116,7 @@ void test_bitvector_combination(SMTParser::ParserPtr& parser) {
         
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
-            std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+            std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
             assert(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
@@ -127,7 +127,7 @@ void test_bitvector_combination(SMTParser::ParserPtr& parser) {
 }
 
 // Test combination of strings with other theories
-void test_string_combination(SMTParser::ParserPtr& parser) {
+void test_string_combination(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // String in boolean context
         "(= \"hello\" \"world\")",
@@ -149,8 +149,8 @@ void test_string_combination(SMTParser::ParserPtr& parser) {
     
     try {
         // Declare variables
-        std::shared_ptr<SMTParser::Sort> str_sort = SMTParser::SortManager::STR_SORT;
-        std::shared_ptr<SMTParser::Sort> int_sort = SMTParser::SortManager::INT_SORT;
+        std::shared_ptr<SOMTParser::Sort> str_sort = SOMTParser::SortManager::STR_SORT;
+        std::shared_ptr<SOMTParser::Sort> int_sort = SOMTParser::SortManager::INT_SORT;
         
         parser->mkVarStr("str_s");
         parser->mkVarInt("str_i");
@@ -161,7 +161,7 @@ void test_string_combination(SMTParser::ParserPtr& parser) {
         
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
-            std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+            std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
             assert(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
@@ -172,7 +172,7 @@ void test_string_combination(SMTParser::ParserPtr& parser) {
 }
 
 // Test quantifiers with different theories
-void test_quantifier_combinations(SMTParser::ParserPtr& parser) {
+void test_quantifier_combinations(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // Quantifiers with arrays
         "(forall ((qt_i Int)) (=> (and (>= qt_i 0) (< qt_i 10)) (= (select qt_a qt_i) 0)))",
@@ -194,9 +194,9 @@ void test_quantifier_combinations(SMTParser::ParserPtr& parser) {
     
     try {
         // Declare variables
-        std::shared_ptr<SMTParser::Sort> int_sort = parser->mkIntSort();
-        std::shared_ptr<SMTParser::Sort> bv4_sort = parser->mkBVSort(4);
-        std::shared_ptr<SMTParser::Sort> str_sort = parser->mkStrSort();
+        std::shared_ptr<SOMTParser::Sort> int_sort = parser->mkIntSort();
+        std::shared_ptr<SOMTParser::Sort> bv4_sort = parser->mkBVSort(4);
+        std::shared_ptr<SOMTParser::Sort> str_sort = parser->mkStrSort();
         
         parser->mkArray("qt_a", int_sort, int_sort);
         parser->mkVarBv("qt_y", 4);
@@ -204,7 +204,7 @@ void test_quantifier_combinations(SMTParser::ParserPtr& parser) {
         
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
-            std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+            std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
             assert(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
@@ -215,7 +215,7 @@ void test_quantifier_combinations(SMTParser::ParserPtr& parser) {
 }
 
 // Test real-world combined theory examples
-void test_real_world_examples(SMTParser::ParserPtr& parser) {
+void test_real_world_examples(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // Simple symbolic execution constraint
         "(and (= rw_x (+ rw_y 5)) (= rw_z (* 2 rw_x)) (> rw_z 20))",
@@ -234,9 +234,9 @@ void test_real_world_examples(SMTParser::ParserPtr& parser) {
     
     try {
         // Declare variables
-        std::shared_ptr<SMTParser::Sort> int_sort = parser->mkIntSort();
-        std::shared_ptr<SMTParser::Sort> bv32_sort = parser->mkBVSort(32);
-        std::shared_ptr<SMTParser::Sort> str_sort = parser->mkStrSort();
+        std::shared_ptr<SOMTParser::Sort> int_sort = parser->mkIntSort();
+        std::shared_ptr<SOMTParser::Sort> bv32_sort = parser->mkBVSort(32);
+        std::shared_ptr<SOMTParser::Sort> str_sort = parser->mkStrSort();
         
         parser->mkVarInt("rw_x");
         parser->mkVarInt("rw_y");
@@ -253,7 +253,7 @@ void test_real_world_examples(SMTParser::ParserPtr& parser) {
         
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
-            std::shared_ptr<SMTParser::DAGNode> result = parser->mkExpr(expr);
+            std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
             assert(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
@@ -266,7 +266,7 @@ void test_real_world_examples(SMTParser::ParserPtr& parser) {
 int main() {
     std::cout << "======= Theory Combination Test =======" << std::endl;
     
-    SMTParser::ParserPtr parser = SMTParser::newParser();
+    SOMTParser::ParserPtr parser = SOMTParser::newParser();
     
     test_arithmetic_boolean_combination(parser);
     test_array_arithmetic_combination(parser);

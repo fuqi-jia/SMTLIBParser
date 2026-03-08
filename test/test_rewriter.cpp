@@ -2,12 +2,12 @@
  * Test Rewriter: fixpoint rewrite with default NOT/AND/ADD rules.
  * Parses (assert (and true (not (not p)))), rewrites, asserts result == p.
  */
-#include "parser.h"
-#include "rewriter.h"
+#include "somtparser/frontend/parser.h"
+#include "somtparser/passes/rewriter.h"
 #include <cassert>
 #include <iostream>
 
-using namespace SMTParser;
+using namespace SOMTParser;
 
 int main() {
     std::cout << "======= Rewriter (fixpoint) Test =======" << std::endl;
@@ -23,7 +23,7 @@ int main() {
     Node origVar = child(child(child(root, 1), 0), 0);  // p inside (not (not p))
     assert(origVar && kind(origVar) == NODE_KIND::NT_VAR);
 
-    Rewriter rewriter(parser.getNodeManagerShared());
+    Rewriter rewriter(parser.getNodeManager());
     installDefaultRewriteRules(rewriter);
 
     Node result = rewriter.rewrite(root);  // default fixpoint true

@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <cassert>
-#include "../include/parser.h"
+#include "somtparser/frontend/parser.h"
 
 // Restore assert after parser.h may have undefined it
 #ifdef assert
@@ -10,7 +10,7 @@
 #endif
 #include <cassert>
 
-using namespace SMTParser;
+using namespace SOMTParser;
 
 // Test array simplification: select rewrite
 void test_select_rewrite(ParserPtr& parser) {
