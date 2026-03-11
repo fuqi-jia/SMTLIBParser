@@ -2,25 +2,25 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A C++ library for parsing, manipulating, and processing SMT-LIB (Satisfiability Modulo Theories Library) and OMT (Optimization Modulo Theories) formulas. The library implements an efficient graph representation for formulas, enabling comprehensive support for various SMT theories and optimization problems.
+**SOMTParser** is a solver-independent C++17 front-end library for SMT-LIB and OMT (Optimization Modulo Theories). It parses input into a **typed DAG-based intermediate representation (IR)** and provides modular front-end functionality—parsing, type checking, traversals, rewriting, and formula-level processing—around this IR, separating reusable front-end logic from backend reasoning and reducing the effort to build new solvers and SMT-based tools.
+
+## Design Overview
+
+- **Frontend**: Command and term parsing, type checking, OMT-oriented input, and API-level expression construction feeding the same IR pipeline.
+- **IR core**: A unified typed DAG representation with structure sharing and canonicalization via `NodeManager`; equal subterms are stored once.
+- **Passes**: IR-based traversal (each node visited at most once) and rewriting (bottom-up, with fixpoint mode), plus a kind-based dispatch mechanism for extensions.
+- **Utilities**: Formula conversion (NNF, CNF, DNF, including CDCL(T)-style Boolean abstraction), model parsing, and evaluation under full or partial models.
 
 ## Key Features
 
-- **Comprehensive SMT-LIB2 Standard Support** - Fully compliant with the latest SMT-LIB2 specification
-- **Multi-Theory Integration** - Seamless support for:
-  - Core theory (Boolean operations)
-  - Arithmetic theories (Integer, Real)
-  - Bitvector theory with full operation support
-  - IEEE-754 compliant Floating Point theory
-  - String theory with Regular Expression operations
-  - Theory of Arrays
-- **DAG-Based Formula Representation** - Efficient memory usage and manipulation through shared subexpressions
-- **Programmatic Expression Builder** - Comprehensive API for constructing and transforming expressions
-- **Optimization Modulo Theories (OMT)** - Extended functionality for handling optimization objectives
-- **Smart Pointer Integration** - All major components use std::shared_ptr for safe memory management
-- **Advanced Formula Evaluation** - Support for partial model evaluation and expression simplification
-- **Formula Format Conversion** - Built-in support for CNF, DNF, NNF transformations with Tseitin encoding
-- **Formula Analysis Tools** - Atom collection, variable substitution, Let expansion, and more
+- **SMT-LIB2 support**: Compliant with the SMT-LIB2 specification; multiple logics and theories.
+- **Multi-theory**: Booleans, integer/real arithmetic, bitvectors, IEEE-754 floating point, strings and regular expressions, arrays.
+- **Typed DAG IR**: Structure sharing and canonicalization for a more compact representation and easier analysis/transformation.
+- **OMT support**: Parses intermediate syntax such as `assert-soft`, `maximize`/`minimize`, `define-objective`, `lex-optimize`/`pareto-optimize`/`box-optimize`, `maxsat`/`minsat`, managed by `ObjectiveManager`.
+- **Programmatic construction**: Build terms and formulas via API, sharing the same IR as parsed input.
+- **Formula conversion**: NNF, CNF, DNF; CNF supports theory-atom-to-Boolean abstraction and bidirectional mapping for CDCL(T)-style reasoning.
+- **Model interface**: Parse solver-produced model output and evaluate formulas/terms under full or partial models.
+- **Rewriting and traversal**: Extensible rewrite rules, kind-based dispatcher, visit-once traversal over the DAG.
 
 ## System Requirements
 
@@ -228,19 +228,25 @@ SOMTParser provides various configuration options through the `GlobalOptions` cl
 ### Quick Start
 
 ```cpp
-auto parser = SOMTParser::newParser();
+#include "somtparser/parser.h"
+#include <iostream>
 
-// Set options via direct methods
-parser->getOptions()->setLogic("QF_LIA");
-parser->getOptions()->setKeepLet(false);
-parser->getOptions()->setEvaluatePrecision(256);
+int main() {
+    auto parser = SOMTParser::newParser();
 
-// Or via string interface
-parser->getOptions()->setOption("keep_let", "false");
-parser->getOptions()->setOption("precision", "256");
+    // Set options via direct methods
+    parser->getOptions()->setLogic("QF_LIA");
+    parser->getOptions()->setKeepLet(false);
+    parser->getOptions()->setEvaluatePrecision(256);
 
-// Print detailed configuration report
-std::cout << parser->optionToString() << std::endl;
+    // Or via string interface
+    parser->getOptions()->setOption("keep_let", "false");
+    parser->getOptions()->setOption("precision", "256");
+
+    // Print detailed configuration report
+    std::cout << parser->optionToString() << std::endl;
+    return 0;
+}
 ```
 
 ### Available Options
@@ -266,16 +272,24 @@ are preserved as-is in their original form.
 ### Setting Options
 
 ```cpp
-// Method 1: Direct setters (recommended)
-parser->getOptions()->setLogic("QF_LIA");
-parser->getOptions()->setEvaluatePrecision(256);
-parser->getOptions()->setKeepLet(false);
-parser->getOptions()->setExpandFunctions(false); // Preserve function applications
+#include "somtparser/parser.h"
 
-// Method 2: String interface (useful for SMT-LIB2 compatibility)
-parser->setOption("precision", "256");
-parser->setOption("keep_let", "false");
-parser->setOption("expand_functions", "false");
+int main() {
+    auto parser = SOMTParser::newParser();
+
+    // Method 1: Direct setters (recommended)
+    parser->getOptions()->setLogic("QF_LIA");
+    parser->getOptions()->setEvaluatePrecision(256);
+    parser->getOptions()->setKeepLet(false);
+    parser->getOptions()->setExpandFunctions(false);  // Preserve function applications
+
+    // Method 2: String interface (useful for SMT-LIB2 compatibility)
+    parser->setOption("precision", "256");
+    parser->setOption("keep_let", "false");
+    parser->setOption("expand_functions", "false");
+
+    return 0;
+}
 ```
 
 ### Configuration Report
@@ -283,8 +297,14 @@ parser->setOption("expand_functions", "false");
 The `toString()` method generates a comprehensive report with all settings, defaults, and descriptions:
 
 ```cpp
-std::cout << parser->options.toString() << std::endl;
-// Outputs: Logic, precision, all options with current/default values, and descriptions
+#include "somtparser/parser.h"
+#include <iostream>
+
+int main() {
+    auto parser = SOMTParser::newParser();
+    std::cout << parser->optionToString() << std::endl;
+    return 0;
+}
 ```
 
 ## API Reference
@@ -331,10 +351,20 @@ std::cout << parser->options.toString() << std::endl;
 
 ## Usage Examples
 
+All public APIs (parser, passes, visitor, rewriter, op-dispatcher, etc.) are exposed through a single **umbrella header**. Include it once; no need to include individual component headers.
+
+```cpp
+#include "somtparser/parser.h"
+using namespace SOMTParser;
+// Parser parser; ...
+```
+
+The examples below assume this include (and optionally `using namespace SOMTParser`).
+
 ### Basic Parsing and Expression Building
 
 ```cpp
-#include "parser.h"
+#include "somtparser/parser.h"
 #include <iostream>
 
 int main() {
@@ -362,7 +392,7 @@ int main() {
 ### Expression Building
 
 ```cpp
-#include "parser.h"
+#include "somtparser/parser.h"
 #include <iostream>
 
 int main() {
@@ -392,7 +422,7 @@ int main() {
 Analysis and manipulation of formulas:
 
 ```cpp
-#include "parser.h"
+#include "somtparser/parser.h"
 #include <iostream>
 #include <unordered_set>
 
@@ -431,26 +461,57 @@ int main() {
 Convert formulas between different normal forms:
 
 ```cpp
-auto parser = SOMTParser::newParser();
-auto a = parser->mkVarBool("a");
-auto b = parser->mkVarBool("b");
-auto c = parser->mkVarBool("c");
+#include "somtparser/parser.h"
+#include <iostream>
 
-// Build complex formula
-auto formula = parser->mkAnd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{
-    parser->mkImplies(a, b),
-    parser->mkOr(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{b, c})
-});
+int main() {
+    auto parser = SOMTParser::newParser();
+    auto a = parser->mkVarBool("a");
+    auto b = parser->mkVarBool("b");
+    auto c = parser->mkVarBool("c");
 
-// Convert to different normal forms
-auto nnf = parser->toNNF(formula);
-auto cnf = parser->toCNF(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{formula});
-auto dnf = parser->toDNF(formula);
+    // Build complex formula
+    auto formula = parser->mkAnd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{
+        parser->mkImplies(a, b),
+        parser->mkOr(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{b, c})
+    });
 
-std::cout << "Original: " << parser->toString(formula) << std::endl;
-std::cout << "NNF: " << parser->toString(nnf) << std::endl;
-std::cout << "CNF: " << parser->toString(cnf) << std::endl;
-std::cout << "DNF: " << parser->toString(dnf) << std::endl;
+    // Convert to different normal forms
+    auto nnf = parser->toNNF(formula);
+    auto cnf = parser->toCNF(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{formula});
+    auto dnf = parser->toDNF(formula);
+
+    std::cout << "Original: " << parser->toString(formula) << std::endl;
+    std::cout << "NNF: " << parser->toString(nnf) << std::endl;
+    std::cout << "CNF: " << parser->toString(cnf) << std::endl;
+    std::cout << "DNF: " << parser->toString(dnf) << std::endl;
+    return 0;
+}
+```
+
+### CNF and Boolean abstraction
+
+The CNF conversion can associate theory atoms with fresh Boolean variables and maintain the mapping in both directions (useful for CDCL(T)-style reasoning). After building CNF, you can get the abstraction variable for an atom and recover the atom from a CNF Boolean variable:
+
+```cpp
+#include "somtparser/parser.h"
+#include <iostream>
+
+int main() {
+    SOMTParser::Parser parser;
+    parser.parseStr("(declare-const x Int)");
+    parser.parseStr("(declare-const y Int)");
+
+    SOMTParser::Node phi = parser.mkExpr("(and (> x 0) (< y 3))");
+    SOMTParser::Node nnf = parser.toNNF(phi);
+    SOMTParser::Node cnf = parser.toCNF({phi});  // vector of assertions
+
+    SOMTParser::Node b = parser.getCNFBoolVar(parser.mkExpr("(> x 0)"));
+    SOMTParser::Node a = parser.getCNFAtom(b);   // recovers (> x 0)
+
+    std::cout << "Atom from CNF bool var: " << parser.toString(a) << std::endl;
+    return 0;
+}
 ```
 
 ### Model Evaluation
@@ -458,79 +519,208 @@ std::cout << "DNF: " << parser->toString(dnf) << std::endl;
 Evaluate logical formulas with mathematical functions and variable assignments:
 
 ```cpp
-auto parser = SOMTParser::newParser();
-auto model = SOMTParser::newModel();
+#include "somtparser/parser.h"
+#include <iostream>
 
-// Create a formula: (sin(x) > 0) ∧ (y > 1) ∧ (z ⟹ (x + y > 3))
-auto x = parser->mkVarReal("x");
-auto y = parser->mkVarReal("y");
-auto z = parser->mkVarBool("z");
+int main() {
+    auto parser = SOMTParser::newParser();
+    auto model = SOMTParser::newModel();
 
-auto sin_x = parser->mkSin(x);
-auto cond1 = parser->mkGt(sin_x, parser->mkConstReal(std::string("0")));             // sin(x) > 0
+    // Create a formula: (sin(x) > 0) ∧ (y > 1) ∧ (z ⟹ (x + y > 3))
+    auto x = parser->mkVarReal("x");
+    auto y = parser->mkVarReal("y");
+    auto z = parser->mkVarBool("z");
 
-auto cond2 = parser->mkGt(y, parser->mkConstReal(std::string("1")));                 // y > 1
+    auto sin_x = parser->mkSin(x);
+    auto cond1 = parser->mkGt(sin_x, parser->mkConstReal(std::string("0")));
+    auto cond2 = parser->mkGt(y, parser->mkConstReal(std::string("1")));
+    auto sum_xy = parser->mkAdd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{x, y});
+    auto cond3 = parser->mkImplies(z, parser->mkGt(sum_xy, parser->mkConstReal(std::string("3"))));
+    auto formula = parser->mkAnd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{cond1, cond2, cond3});
 
-auto sum_xy = parser->mkAdd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{x, y});
-auto cond3 = parser->mkImplies(z, parser->mkGt(sum_xy, parser->mkConstReal(std::string("3"))));  // z ⟹ (x + y > 3)
+    // Assign values and evaluate
+    model->add(x, parser->mkConstReal(std::string("1.5")));
+    model->add(y, parser->mkConstReal(std::string("2.0")));
+    model->add(z, parser->mkTrue());
 
-auto formula = parser->mkAnd(std::vector<std::shared_ptr<SOMTParser::DAGNode>>{cond1, cond2, cond3});
+    auto result = parser->evaluate(formula, model);
+    std::cout << "Formula: " << parser->toString(formula) << std::endl;
+    std::cout << "Result: " << parser->toString(result) << std::endl;
+    return 0;
+}
+```
 
-// Assign values and evaluate
-model->add(x, parser->mkConstReal(std::string("1.5")));   // sin(1.5) ≈ 0.997 > 0 ✓
-model->add(y, parser->mkConstReal(std::string("2.0")));   // 2.0 > 1 ✓
-model->add(z, parser->mkTrue());                          // x + y = 3.5 > 3 ✓
+You can also parse solver-produced model output and then evaluate a formula under that model:
 
-auto result = parser->evaluate(formula, model);
-std::cout << "Formula: " << parser->toString(formula) << std::endl;
-std::cout << "Result: " << parser->toString(result) << std::endl;  // true
+```cpp
+#include "somtparser/parser.h"
+#include <iostream>
+
+int main() {
+    SOMTParser::Parser parser;
+    parser.parseStr("(declare-const x Int)");
+    parser.parseStr("(declare-const y Int)");
+    SOMTParser::Node phi = parser.mkExpr("(and (> x 0) (> y 0))");
+
+    std::string modelStr = R"(
+(model
+  (define-fun x () Int 1)
+  (define-fun y () Int 2)
+))";
+
+    auto M = parser.parseModel(modelStr);
+    SOMTParser::Node psi = parser.evaluate(phi, M);
+    std::cout << "Evaluated: " << parser.toString(psi) << std::endl;
+    return 0;
+}
 ```
 
 ### Let Expression Expansion
 
 ```cpp
-auto parser = SOMTParser::newParser();
-auto x = parser->mkVarInt("x");
-auto y = parser->mkVarInt("y");
-auto let_expr = parser->mkExpr("(let ((temp (+ x 1))) (> temp y))");
-auto expanded = parser->expandLet(let_expr);
+#include "somtparser/parser.h"
+#include <iostream>
 
-std::cout << "Let expression: " << parser->toString(let_expr) << std::endl; // (let ((temp (+ x 1))) (> temp y))
-std::cout << "Expanded: " << parser->toString(expanded) << std::endl;       // (> (+ x 1) y)
+int main() {
+    auto parser = SOMTParser::newParser();
+    auto x = parser->mkVarInt("x");
+    auto y = parser->mkVarInt("y");
+    auto let_expr = parser->mkExpr("(let ((temp (+ x 1))) (> temp y))");
+    auto expanded = parser->expandLet(let_expr);
+
+    std::cout << "Let expression: " << parser->toString(let_expr) << std::endl;
+    std::cout << "Expanded: " << parser->toString(expanded) << std::endl;
+    return 0;
+}
 ```
 
 ### Optimization Modulo Theories (OMT)
 
 ```cpp
-auto parser = SOMTParser::newParser();
+#include "somtparser/parser.h"
+#include <iostream>
 
-// Parse OMT commands
-parser->parseStr("(declare-const x Int)");
-parser->parseStr("(declare-const y Int)");
-parser->parseStr("(assert (> x 0))");
-parser->parseStr("(assert (> y 0))");
-parser->parseStr("(assert-soft (< x 100) :weight 1.0)");
-parser->parseStr("(assert-soft (< y 50) :weight 2.0)");
+int main() {
+    auto parser = SOMTParser::newParser();
 
-// Access soft assertions and objectives
-auto soft_assertions = parser->getSoftAssertions();
-auto soft_weights = parser->getSoftWeights();
+    parser->parseStr("(declare-const x Int)");
+    parser->parseStr("(declare-const y Int)");
+    parser->parseStr("(assert (> x 0))");
+    parser->parseStr("(assert (> y 0))");
+    parser->parseStr("(assert-soft (< x 100) :weight 1.0)");
+    parser->parseStr("(assert-soft (< y 50) :weight 2.0)");
 
-std::cout << "Found " << soft_assertions.size() << " soft assertions" << std::endl;
-for (size_t i = 0; i < soft_assertions.size(); ++i) {
-    std::cout << "Soft assertion " << i << " (weight " << soft_weights[i] << "): " 
-              << parser->toString(soft_assertions[i]) << std::endl;
+    auto soft_assertions = parser->getSoftAssertions();
+    auto soft_weights = parser->getSoftWeights();
+
+    std::cout << "Found " << soft_assertions.size() << " soft assertions" << std::endl;
+    for (size_t i = 0; i < soft_assertions.size(); ++i) {
+        std::cout << "Soft assertion " << i << " (weight " << soft_weights[i] << "): "
+                  << parser->toString(soft_assertions[i]) << std::endl;
+    }
+    return 0;
 }
 ```
 
-### Key Performance Features
+### DAG traversal (visit-once)
 
-- **DAG Representation**: Automatic sharing of common subexpressions reduces memory usage
-- **Incremental Evaluation**: Efficient partial model evaluation with caching
-- **Tseitin CNF Encoding**: Memory-efficient formula conversion for SAT solvers
-- **High-Precision Arithmetic**: Configurable floating-point precision using MPFR
-- **Smart Pointer Management**: Automatic memory management with std::shared_ptr
-- **Expression Simplification**: Built-in simplification rules for common patterns
+Because the IR is a DAG, the same subterm may appear in many places. The traversal API visits each distinct node at most once. For example, for `(and (or a b) (or a b))` the shared subterm `(or a b)` is visited once, so the walk sees exactly 4 nodes:
+
+```cpp
+#include "somtparser/parser.h"
+#include <iostream>
+#include <map>
+
+using namespace SOMTParser;
+
+class KindCounter : public NodeVisitor {
+public:
+    void visit(Node n) override { counts[kind(n)]++; }
+    std::map<NODE_KIND, size_t> counts;
+};
+
+int main() {
+    Parser parser;
+    parser.parseStr("(declare-const a Bool)");
+    parser.parseStr("(declare-const b Bool)");
+    Node phi = parser.mkExpr("(and (or a b) (or a b))");
+
+    KindCounter c;
+    c.walk(phi);
+    std::cout << "Total nodes (visit-once): " << c.counts.size() << " kinds" << std::endl;
+    return 0;
+}
+```
+
+### Rewriting
+
+The rewriter performs bottom-up transformations; you can install default rules and run fixpoint rewriting so that a formula like `(and true (not (not p)))` simplifies to `p`:
+
+```cpp
+#include "somtparser/parser.h"
+#include <iostream>
+
+using namespace SOMTParser;
+
+int main() {
+    Parser parser;
+    parser.parseStr("(declare-const p Bool)");
+    parser.parseStr("(assert (and true (not (not p))))");
+
+    Rewriter rw(parser.getNodeManager());
+    installDefaultRewriteRules(rw);
+
+    Node result = rw.rewrite(parser.getAssertions().back());
+    std::cout << "Rewritten to: " << parser.toString(result) << std::endl;
+    return 0;
+}
+```
+
+### Kind-based dispatch (term depth)
+
+Analysis or transformation logic can be organized by node kind using `OpDispatcher`: register handlers per kind and use `otherwise` for the default recursive behavior. Below, a small context holds the dispatcher so handlers can recurse to compute term depth:
+
+```cpp
+#include "somtparser/parser.h"
+#include <iostream>
+
+using namespace SOMTParser;
+
+struct DepthContext : Context {
+    OpDispatcher<int, Context>* disp = nullptr;
+};
+
+static int depthDefault(Node n, Context& ctx) {
+    auto& dc = static_cast<DepthContext&>(ctx);
+    int d = 0;
+    for (Node c : children(n))
+        if (c) d = std::max(d, dc.disp->dispatch(c, ctx));
+    return 1 + d;
+}
+
+int main() {
+    Parser parser;
+    parser.parseStr("(declare-const x Int)");
+    parser.parseStr("(assert (and (> x 0) (< x 10)))");
+    Node root = parser.getAssertions().back();
+
+    OpDispatcher<int, Context> disp;
+    disp.onAND(depthDefault).onGT(depthDefault).onLT(depthDefault).otherwise(depthDefault);
+    DepthContext dctx;
+    dctx.disp = &disp;
+    int depth = disp.dispatch(root, dctx);
+    std::cout << "Term depth: " << depth << std::endl;
+    return 0;
+}
+```
+
+### Key Performance and Implementation Notes
+
+- **DAG and canonicalization**: `NodeManager` interns nodes at construction time; structurally equal subterms are shared for a more compact IR.
+- **Partial model evaluation**: Evaluate formulas/terms under partial models; under-specified subterms can be simplified.
+- **Tseitin CNF**: Formula conversion suited for integration with SAT/CDCL(T)-style reasoning.
+- **High-precision arithmetic**: Configurable MPFR precision.
+- **Rewriting**: Single-round and fixpoint modes; rewritten results are rebuilt via `NodeManager` to preserve canonicalization.
 
 ## API Documentation
 
@@ -589,7 +779,7 @@ We welcome contributions from the community! Please see our [CONTRIBUTORS.md](CO
 
 ## Development Status
 
-**Active Development** - This project is under continuous improvement and development. New features and optimizations are being added regularly.
+**Active Development** — The project is under continuous maintenance and development; new features and optimizations are added regularly.
 
 ## Contact
 
