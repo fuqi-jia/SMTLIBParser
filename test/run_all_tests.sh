@@ -66,6 +66,7 @@ if [ -z "$TEST_EXES" ]; then
         ./test_theory_combination
         ./test_umbrella
         ./test_visitor_api
+        ./test_define_fun_assert_roundtrip
     )
     for t in "${POTENTIAL_TESTS[@]}"; do
         [ -x "$t" ] && TEST_EXES="$TEST_EXES $t"
@@ -111,31 +112,3 @@ else
     echo -e "${RED}$FAILED_TESTS tests failed!${NC}"
     exit 1
 fi 
-
-
-
-[SMT-LIB file]      ┌──────────────────────── Frontend ────────────────────────┐
-[String input] ---> │ Lexer / command parser                                   │
-                    │          ↓                                                │
-                    │   Expression parser                                       │
-                    │      ↙        ↘                                           │
-                    │ Symbol manager   Node construction & typing  --->         │
-                    │      ↓                ↓                                   │
-                    │ Parser context   OMT handling                             │
-                    └────────────────────────────────────────────────────────────┘
-                                                     |
-                                                     v
-                    ┌──────────────────────── IR Core ───────────────────────────┐
-                    │ Typed DAG IR                                               │
-                    │     ↓                                                      │
-                    │   Context                                                  │
-                    │  ↙      ↘                                                  │
-                    │ Node manager   Sort manager                                │
-                    └────────────────────────────────────────────────────────────┘
-                              |                               |
-                              v                               v
-            ┌──────────── Utilities ────────────┐   ┌──── Pass Framework ─────┐
-            │ Formula conversion                │   │ Visitor                 │
-            │ Evaluation ----> Model interface │   │ Rewriter                │
-            └───────────────────────────────────┘   │ Kind-based dispatcher   │
-                                                    └─────────────────────────┘
