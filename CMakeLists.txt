@@ -27,31 +27,36 @@ if(ENABLE_TIMING)
     add_compile_definitions(ENABLE_TIMING)
 endif()
 
-# use pkg-config to find GMP and MPFR
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GMP REQUIRED gmp)
-pkg_check_modules(MPFR REQUIRED mpfr)
+# Find GMP and MPFR libraries
+# First try pkg-config, then fall back to manual search
+find_package(PkgConfig QUIET)
 
-# if pkg-config doesn't find the libraries, try manually finding them
+if(PKG_CONFIG_FOUND)
+    pkg_check_modules(GMP QUIET gmp)
+    pkg_check_modules(MPFR QUIET mpfr)
+endif()
+
+# if pkg-config doesn't find GMP, try manually finding it
 if(NOT GMP_FOUND)
-    # try searching for library files directly
     find_library(GMP_LIBRARIES NAMES gmp libgmp)
     find_path(GMP_INCLUDE_DIRS NAMES gmp.h)
     if(GMP_LIBRARIES AND GMP_INCLUDE_DIRS)
         set(GMP_FOUND TRUE)
+        message(STATUS "Found GMP via manual search: ${GMP_LIBRARIES}")
     else()
-        message(FATAL_ERROR "GMP library not found. Please install GMP development package.")
+        message(FATAL_ERROR "GMP library not found. Please install GMP development package (e.g., libgmp-dev).")
     endif()
 endif()
 
+# if pkg-config doesn't find MPFR, try manually finding it
 if(NOT MPFR_FOUND)
-    # try searching for library files directly
     find_library(MPFR_LIBRARIES NAMES mpfr libmpfr)
     find_path(MPFR_INCLUDE_DIRS NAMES mpfr.h)
     if(MPFR_LIBRARIES AND MPFR_INCLUDE_DIRS)
         set(MPFR_FOUND TRUE)
+        message(STATUS "Found MPFR via manual search: ${MPFR_LIBRARIES}")
     else()
-        message(FATAL_ERROR "MPFR library not found. Please install MPFR development package.")
+        message(FATAL_ERROR "MPFR library not found. Please install MPFR development package (e.g., libmpfr-dev).")
     endif()
 endif()
 
@@ -156,4 +161,30 @@ install(DIRECTORY include/somtparser DESTINATION include FILES_MATCHING PATTERN 
 # if needed, add test subdirectory
 if(BUILD_TESTS)
     add_subdirectory(test)
-endif() 
+endif()
+
+# ===== Python Bindings (Optional) =====
+option(BUILD_PYTHON "Build Python bindings" OFF)
+
+if(BUILD_PYTHON)
+    find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
+    find_package(pybind11 CONFIG REQUIRED)
+    
+    pybind11_add_module(_somtparser python/bindings.cpp)
+    
+    # Link against the static library
+    target_link_libraries(_somtparser PRIVATE 
+        somtparser_static
+        ${GMP_LIBRARIES}
+        ${MPFR_LIBRARIES}
+    )
+    
+    target_include_directories(_somtparser PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${GMP_INCLUDE_DIRS}
+        ${MPFR_INCLUDE_DIRS}
+    )
+    
+    # Install the Python module (destination relative to wheel.install-dir in pyproject.toml)
+    install(TARGETS _somtparser LIBRARY DESTINATION .)
+endif()

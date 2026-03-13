@@ -130,6 +130,41 @@ git submodule update --init --recursive
 git submodule update --remote --merge
 ```
 
+### Python Installation
+
+SOMTParser also provides Python bindings. Install with pip:
+
+```bash
+# Requires Python 3.9+ and system dependencies (GMP, MPFR)
+pip install .
+
+# Or install with test dependencies
+pip install ".[test]"
+```
+
+#### Quick Start (Python)
+
+```python
+import somtparser as sp
+
+# Parse SMT-LIB2 text
+p = sp.parse("(set-logic QF_LIA)(declare-const x Int)(assert (> x 0))")
+
+# Access assertions
+for node in p.assertions:
+    print(node.kind, node.sort)
+
+# Build expressions programmatically
+x = p.var_int("x")
+y = p.var_int("y")
+sum_expr = p.add(x, y)
+constraint = p.eq(sum_expr, p.const_int("10"))
+
+# Iterate over children
+for child in sum_expr:
+    print(child.name)
+```
+
 ### Build TEST
 
 To build and run the tests:
