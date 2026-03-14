@@ -11,6 +11,16 @@ Example:
     1
 """
 
+import os
+import sys
+
+if sys.platform == "win32":
+    _package_dir = os.path.dirname(os.path.abspath(__file__))
+    _bin_dir = os.path.join(_package_dir, "bin")
+    if os.path.isdir(_bin_dir):
+        os.add_dll_directory(_bin_dir)
+        os.environ["PATH"] = _bin_dir + os.pathsep + os.environ.get("PATH", "")
+
 from ._somtparser import (
     Parser,
     Node,

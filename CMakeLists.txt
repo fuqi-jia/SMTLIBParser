@@ -225,4 +225,43 @@ if(BUILD_PYTHON)
     
     # Install the Python module (destination relative to wheel.install-dir in pyproject.toml)
     install(TARGETS _somtparser LIBRARY DESTINATION .)
+    
+    # On Windows, copy runtime DLLs (GMP, MPFR) to the bin directory
+    if(WIN32)
+        # Determine vcpkg bin directory from multiple sources
+        # 1. Try vcpkg toolchain variables first
+        if(DEFINED _VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+            set(_VCPKG_BIN_DIR "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+        # 2. Fall back to deriving from GMP library path
+        elseif(GMP_LIBRARIES)
+            get_filename_component(_GMP_LIB_DIR ${GMP_LIBRARIES} DIRECTORY)
+            # Path could be .../x64-windows/lib or .../x64-windows/debug/lib
+            string(REGEX REPLACE "/(debug/)?lib$" "" _VCPKG_INSTALLED ${_GMP_LIB_DIR})
+            set(_VCPKG_BIN_DIR "${_VCPKG_INSTALLED}/bin")
+        endif()
+        
+        message(STATUS "Looking for DLLs in: ${_VCPKG_BIN_DIR}")
+        
+        # Find and install GMP DLL
+        find_file(GMP_DLL NAMES gmp.dll libgmp-10.dll
+            HINTS ${_VCPKG_BIN_DIR}
+            NO_DEFAULT_PATH)
+        if(GMP_DLL)
+            message(STATUS "Found GMP DLL: ${GMP_DLL}")
+            install(FILES ${GMP_DLL} DESTINATION bin)
+        else()
+            message(WARNING "GMP DLL not found in ${_VCPKG_BIN_DIR}")
+        endif()
+        
+        # Find and install MPFR DLL
+        find_file(MPFR_DLL NAMES mpfr.dll libmpfr-6.dll
+            HINTS ${_VCPKG_BIN_DIR}
+            NO_DEFAULT_PATH)
+        if(MPFR_DLL)
+            message(STATUS "Found MPFR DLL: ${MPFR_DLL}")
+            install(FILES ${MPFR_DLL} DESTINATION bin)
+        else()
+            message(WARNING "MPFR DLL not found in ${_VCPKG_BIN_DIR}")
+        endif()
+    endif()
 endif()
