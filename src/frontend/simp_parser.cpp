@@ -2060,8 +2060,8 @@ namespace SOMTParser{
             }
         }
         std::sort(cf.writes.begin(), cf.writes.end(),
-            [this](const std::pair<std::shared_ptr<DAGNode>, std::shared_ptr<DAGNode>>& a,
-                   const std::pair<std::shared_ptr<DAGNode>, std::shared_ptr<DAGNode>>& b) {
+            [](const std::pair<std::shared_ptr<DAGNode>, std::shared_ptr<DAGNode>>& a,
+               const std::pair<std::shared_ptr<DAGNode>, std::shared_ptr<DAGNode>>& b) {
                 // Sort by hash code for deterministic ordering (same values -> same hash -> same order)
                 // If hashes are equal, compare by pointer as tie-breaker
                 size_t hash_a = a.first ? a.first->hashCode() : 0;
