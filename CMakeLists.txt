@@ -28,9 +28,11 @@ if(ENABLE_TIMING)
 endif()
 
 # use pkg-config to find GMP and MPFR
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GMP REQUIRED gmp)
-pkg_check_modules(MPFR REQUIRED mpfr)
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(GMP QUIET gmp)
+    pkg_check_modules(MPFR QUIET mpfr)
+endif()
 
 # if pkg-config doesn't find the libraries, try manually finding them
 if(NOT GMP_FOUND)
