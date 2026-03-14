@@ -197,6 +197,7 @@ install(DIRECTORY include/somtparser DESTINATION include FILES_MATCHING PATTERN 
 
 # if needed, add test subdirectory
 if(BUILD_TESTS)
+    enable_testing()
     add_subdirectory(test)
 endif()
 

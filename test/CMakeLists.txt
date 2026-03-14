@@ -79,8 +79,7 @@ foreach(test_file ${TEST_SOURCES})
 endforeach()
 
 # ===== CTest Support (cross-platform) =====
-# Enable CTest for cross-platform testing (ctest command)
-enable_testing()
+# Note: enable_testing() is called in root CMakeLists.txt before add_subdirectory(test)
 
 # Register each test with CTest
 if(TEST_TARGETS)
