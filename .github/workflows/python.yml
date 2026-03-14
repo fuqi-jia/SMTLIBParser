@@ -35,6 +35,9 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install gmp mpfr pkg-config
+        echo "CMAKE_PREFIX_PATH=$(brew --prefix)" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=$(brew --prefix)/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+        echo "CPATH=$(brew --prefix)/include:$CPATH" >> $GITHUB_ENV
     
     - name: Setup Python
       uses: actions/setup-python@v5

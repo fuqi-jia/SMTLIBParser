@@ -48,15 +48,33 @@ find_package(PkgConfig QUIET)
 if(PKG_CONFIG_FOUND)
     pkg_check_modules(GMP QUIET gmp)
     pkg_check_modules(MPFR QUIET mpfr)
+    
+    # Add library directories from pkg-config for the linker
+    if(GMP_LIBRARY_DIRS)
+        link_directories(${GMP_LIBRARY_DIRS})
+    endif()
+    if(MPFR_LIBRARY_DIRS)
+        link_directories(${MPFR_LIBRARY_DIRS})
+    endif()
+endif()
+
+# macOS Homebrew paths (Apple Silicon and Intel)
+if(APPLE)
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew" "/usr/local")
 endif()
 
 # if pkg-config doesn't find GMP, try manually finding it
 if(NOT GMP_FOUND)
-    find_library(GMP_LIBRARIES NAMES gmp libgmp)
-    find_path(GMP_INCLUDE_DIRS NAMES gmp.h)
+    find_library(GMP_LIBRARIES NAMES gmp libgmp
+        HINTS /opt/homebrew/lib /usr/local/lib)
+    find_path(GMP_INCLUDE_DIRS NAMES gmp.h
+        HINTS /opt/homebrew/include /usr/local/include)
     if(GMP_LIBRARIES AND GMP_INCLUDE_DIRS)
         set(GMP_FOUND TRUE)
         message(STATUS "Found GMP via manual search: ${GMP_LIBRARIES}")
+        # Extract library directory for linker
+        get_filename_component(GMP_LIB_DIR ${GMP_LIBRARIES} DIRECTORY)
+        link_directories(${GMP_LIB_DIR})
     else()
         message(FATAL_ERROR "GMP library not found. Please install GMP development package (e.g., libgmp-dev).")
     endif()
@@ -64,11 +82,16 @@ endif()
 
 # if pkg-config doesn't find MPFR, try manually finding it
 if(NOT MPFR_FOUND)
-    find_library(MPFR_LIBRARIES NAMES mpfr libmpfr)
-    find_path(MPFR_INCLUDE_DIRS NAMES mpfr.h)
+    find_library(MPFR_LIBRARIES NAMES mpfr libmpfr
+        HINTS /opt/homebrew/lib /usr/local/lib)
+    find_path(MPFR_INCLUDE_DIRS NAMES mpfr.h
+        HINTS /opt/homebrew/include /usr/local/include)
     if(MPFR_LIBRARIES AND MPFR_INCLUDE_DIRS)
         set(MPFR_FOUND TRUE)
         message(STATUS "Found MPFR via manual search: ${MPFR_LIBRARIES}")
+        # Extract library directory for linker
+        get_filename_component(MPFR_LIB_DIR ${MPFR_LIBRARIES} DIRECTORY)
+        link_directories(${MPFR_LIB_DIR})
     else()
         message(FATAL_ERROR "MPFR library not found. Please install MPFR development package (e.g., libmpfr-dev).")
     endif()

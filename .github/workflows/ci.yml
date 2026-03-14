@@ -2,7 +2,7 @@ name: CI Tests
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, python ]
     paths:
       - '**.h'
       - '**.hpp'
@@ -18,7 +18,7 @@ on:
       - 'requirements.txt'
       - '.github/workflows/**'
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, python ]
     paths:
       - '**.h'
       - '**.hpp'
