@@ -48,6 +48,8 @@ namespace SOMTParser {
             HighPrecisionInteger(int i);
             HighPrecisionInteger(long i);
             HighPrecisionInteger(unsigned long i);
+            HighPrecisionInteger(long long i);
+            HighPrecisionInteger(unsigned long long i);  // Handles size_t on Windows x64
             HighPrecisionInteger(double d);
             HighPrecisionInteger(const std::string& s, int base = 10);
             HighPrecisionInteger(const char* s, int base = 10);
@@ -269,7 +271,7 @@ namespace SOMTParser {
             // Constant
             static Number ZERO;
             static Number ONE;
-            static Number INFINITY;
+            static Number INF;  // Note: Cannot use INFINITY as it's a macro on Windows
             static Number pi(size_t precision = 128);
             static Number e(size_t precision = 128);
             static Number phi(size_t precision = 128);

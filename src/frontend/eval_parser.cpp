@@ -51,523 +51,237 @@ namespace SOMTParser{
             result = expr;
             return false;
         }
-        if(expr->isUnknown()){
+        
+        // Use switch-case to avoid MSVC C1061 "blocks nested too deeply" error
+        switch(expr->getKind()) {
+        // Special cases with custom logic
+        case NODE_KIND::NT_UNKNOWN:
             return false;
-        }
-        else if(expr->isErr()){
+        case NODE_KIND::NT_ERROR:
             return false;
-        }
-        else if(expr->isConst()){
+        case NODE_KIND::NT_CONST:
+        case NODE_KIND::NT_CONST_TRUE:
+        case NODE_KIND::NT_CONST_FALSE:
+        case NODE_KIND::NT_CONST_PI:
+        case NODE_KIND::NT_CONST_E:
+        case NODE_KIND::NT_CONST_ARRAY:
             result = expr;
             return false;
-        }
-        else if(expr->isVar()){
+        case NODE_KIND::NT_VAR:
+        case NODE_KIND::NT_TEMP_VAR:
             result = model->get(expr);
             if(result->isUnknown()){
                 result = expr;
                 return false;
             }
-            else{
-                return true;
-            }
+            return true;
+            
+        // Boolean operators
+        case NODE_KIND::NT_AND: return evaluateAnd(expr, model, result);
+        case NODE_KIND::NT_OR: return evaluateOr(expr, model, result);
+        case NODE_KIND::NT_NOT: return evaluateNot(expr, model, result);
+        case NODE_KIND::NT_IMPLIES: return evaluateImpl(expr, model, result);
+        case NODE_KIND::NT_XOR: return evaluateXor(expr, model, result);
+        
+        // Core operators
+        case NODE_KIND::NT_EQ:
+        case NODE_KIND::NT_EQ_BOOL:
+        case NODE_KIND::NT_EQ_OTHER: return evaluateEq(expr, model, result);
+        case NODE_KIND::NT_DISTINCT:
+        case NODE_KIND::NT_DISTINCT_BOOL:
+        case NODE_KIND::NT_DISTINCT_OTHER: return evaluateDistinct(expr, model, result);
+        case NODE_KIND::NT_ITE: return evaluateIte(expr, model, result);
+        
+        // Arithmetic operators
+        case NODE_KIND::NT_ADD: return evaluateAdd(expr, model, result);
+        case NODE_KIND::NT_NEG: return evaluateNeg(expr, model, result);
+        case NODE_KIND::NT_SUB: return evaluateSub(expr, model, result);
+        case NODE_KIND::NT_MUL: return evaluateMul(expr, model, result);
+        case NODE_KIND::NT_DIV_INT: return evaluateDivInt(expr, model, result);
+        case NODE_KIND::NT_DIV_REAL: return evaluateDivReal(expr, model, result);
+        case NODE_KIND::NT_MOD: return evaluateMod(expr, model, result);
+        case NODE_KIND::NT_POW: return evaluatePow(expr, model, result);
+        case NODE_KIND::NT_POW2: return evaluatePow2(expr, model, result);
+        case NODE_KIND::NT_IAND: return evaluateIand(expr, model, result);
+        case NODE_KIND::NT_ABS: return evaluateAbs(expr, model, result);
+        case NODE_KIND::NT_SQRT: return evaluateSqrt(expr, model, result);
+        case NODE_KIND::NT_SAFESQRT: return evaluateSafeSqrt(expr, model, result);
+        case NODE_KIND::NT_CEIL: return evaluateCeil(expr, model, result);
+        case NODE_KIND::NT_FLOOR: return evaluateFloor(expr, model, result);
+        case NODE_KIND::NT_ROUND: return evaluateRound(expr, model, result);
+        
+        // Transcendental functions
+        case NODE_KIND::NT_EXP: return evaluateExp(expr, model, result);
+        case NODE_KIND::NT_LN: return evaluateLn(expr, model, result);
+        case NODE_KIND::NT_LG: return evaluateLg(expr, model, result);
+        case NODE_KIND::NT_LB: return evaluateLb(expr, model, result);
+        case NODE_KIND::NT_LOG: return evaluateLog(expr, model, result);
+        case NODE_KIND::NT_SIN: return evaluateSin(expr, model, result);
+        case NODE_KIND::NT_COS: return evaluateCos(expr, model, result);
+        case NODE_KIND::NT_TAN: return evaluateTan(expr, model, result);
+        case NODE_KIND::NT_ASIN: return evaluateAsin(expr, model, result);
+        case NODE_KIND::NT_ACOS: return evaluateAcos(expr, model, result);
+        case NODE_KIND::NT_ATAN: return evaluateAtan(expr, model, result);
+        case NODE_KIND::NT_SINH: return evaluateSinh(expr, model, result);
+        case NODE_KIND::NT_COSH: return evaluateCosh(expr, model, result);
+        case NODE_KIND::NT_TANH: return evaluateTanh(expr, model, result);
+        case NODE_KIND::NT_ASINH: return evaluateAsinh(expr, model, result);
+        case NODE_KIND::NT_ACOSH: return evaluateAcosh(expr, model, result);
+        case NODE_KIND::NT_ATANH: return evaluateAtanh(expr, model, result);
+        case NODE_KIND::NT_ASECH: return evaluateAsech(expr, model, result);
+        case NODE_KIND::NT_ACSCH: return evaluateAcsch(expr, model, result);
+        case NODE_KIND::NT_ACOTH: return evaluateAcoth(expr, model, result);
+        case NODE_KIND::NT_ATAN2: return evaluateAtan2(expr, model, result);
+        
+        // Arithmetic comparison
+        case NODE_KIND::NT_LE: return evaluateLe(expr, model, result);
+        case NODE_KIND::NT_LT: return evaluateLt(expr, model, result);
+        case NODE_KIND::NT_GE: return evaluateGe(expr, model, result);
+        case NODE_KIND::NT_GT: return evaluateGt(expr, model, result);
+        
+        // Arithmetic conversion
+        case NODE_KIND::NT_TO_REAL: return evaluateToReal(expr, model, result);
+        case NODE_KIND::NT_TO_INT: return evaluateToInt(expr, model, result);
+        
+        // Arithmetic properties
+        case NODE_KIND::NT_IS_INT: return evaluateIsInt(expr, model, result);
+        case NODE_KIND::NT_IS_DIVISIBLE: return evaluateIsDivisible(expr, model, result);
+        case NODE_KIND::NT_IS_PRIME: return evaluateIsPrime(expr, model, result);
+        case NODE_KIND::NT_IS_EVEN: return evaluateIsEven(expr, model, result);
+        case NODE_KIND::NT_IS_ODD: return evaluateIsOdd(expr, model, result);
+        
+        // Arithmetic functions
+        case NODE_KIND::NT_GCD: return evaluateGcd(expr, model, result);
+        case NODE_KIND::NT_LCM: return evaluateLcm(expr, model, result);
+        case NODE_KIND::NT_FACT: return evaluateFact(expr, model, result);
+        
+        // Bitvector operators
+        case NODE_KIND::NT_BV_NOT: return evaluateBvNot(expr, model, result);
+        case NODE_KIND::NT_BV_NEG: return evaluateBvNeg(expr, model, result);
+        case NODE_KIND::NT_BV_AND: return evaluateBvAnd(expr, model, result);
+        case NODE_KIND::NT_BV_OR: return evaluateBvOr(expr, model, result);
+        case NODE_KIND::NT_BV_XOR: return evaluateBvXor(expr, model, result);
+        case NODE_KIND::NT_BV_NAND: return evaluateBvNand(expr, model, result);
+        case NODE_KIND::NT_BV_NOR: return evaluateBvNor(expr, model, result);
+        case NODE_KIND::NT_BV_XNOR: return evaluateBvXnor(expr, model, result);
+        case NODE_KIND::NT_BV_COMP: return evaluateBvComp(expr, model, result);
+        case NODE_KIND::NT_BV_ADD: return evaluateBvAdd(expr, model, result);
+        case NODE_KIND::NT_BV_SUB: return evaluateBvSub(expr, model, result);
+        case NODE_KIND::NT_BV_MUL: return evaluateBvMul(expr, model, result);
+        case NODE_KIND::NT_BV_UDIV: return evaluateBvUdiv(expr, model, result);
+        case NODE_KIND::NT_BV_UREM: return evaluateBvUrem(expr, model, result);
+        case NODE_KIND::NT_BV_SDIV: return evaluateBvSdiv(expr, model, result);
+        case NODE_KIND::NT_BV_SREM: return evaluateBvSrem(expr, model, result);
+        case NODE_KIND::NT_BV_SMOD: return evaluateBvSmod(expr, model, result);
+        case NODE_KIND::NT_BV_SHL: return evaluateBvShl(expr, model, result);
+        case NODE_KIND::NT_BV_LSHR: return evaluateBvLshr(expr, model, result);
+        case NODE_KIND::NT_BV_ASHR: return evaluateBvAshr(expr, model, result);
+        case NODE_KIND::NT_BV_ULT: return evaluateBvUlt(expr, model, result);
+        case NODE_KIND::NT_BV_ULE: return evaluateBvUle(expr, model, result);
+        case NODE_KIND::NT_BV_UGT: return evaluateBvUgt(expr, model, result);
+        case NODE_KIND::NT_BV_UGE: return evaluateBvUge(expr, model, result);
+        case NODE_KIND::NT_BV_SLT: return evaluateBvSlt(expr, model, result);
+        case NODE_KIND::NT_BV_SLE: return evaluateBvSle(expr, model, result);
+        case NODE_KIND::NT_BV_SGT: return evaluateBvSgt(expr, model, result);
+        case NODE_KIND::NT_BV_SGE: return evaluateBvSge(expr, model, result);
+        case NODE_KIND::NT_BV_CONCAT: return evaluateBvConcat(expr, model, result);
+        case NODE_KIND::NT_BV_TO_NAT: return evaluateBvToNat(expr, model, result);
+        case NODE_KIND::NT_NAT_TO_BV: return evaluateBvNatToBv(expr, model, result);
+        case NODE_KIND::NT_INT_TO_BV: return evaluateBvIntToBv(expr, model, result);
+        case NODE_KIND::NT_BV_TO_INT: return evaluateBvToInt(expr, model, result);
+        
+        // Floating point operators
+        case NODE_KIND::NT_FP_ABS: return evaluateFpAbs(expr, model, result);
+        case NODE_KIND::NT_FP_NEG: return evaluateFpNeg(expr, model, result);
+        case NODE_KIND::NT_FP_ADD: return evaluateFpAdd(expr, model, result);
+        case NODE_KIND::NT_FP_SUB: return evaluateFpSub(expr, model, result);
+        case NODE_KIND::NT_FP_MUL: return evaluateFpMul(expr, model, result);
+        case NODE_KIND::NT_FP_DIV: return evaluateFpDiv(expr, model, result);
+        case NODE_KIND::NT_FP_FMA: return evaluateFpFma(expr, model, result);
+        case NODE_KIND::NT_FP_SQRT: return evaluateFpSqrt(expr, model, result);
+        case NODE_KIND::NT_FP_REM: return evaluateFpRem(expr, model, result);
+        case NODE_KIND::NT_FP_ROUND_TO_INTEGRAL: return evaluateFpRoundToIntegral(expr, model, result);
+        case NODE_KIND::NT_FP_MIN: return evaluateFpMin(expr, model, result);
+        case NODE_KIND::NT_FP_MAX: return evaluateFpMax(expr, model, result);
+        case NODE_KIND::NT_FP_LE: return evaluateFpLe(expr, model, result);
+        case NODE_KIND::NT_FP_LT: return evaluateFpLt(expr, model, result);
+        case NODE_KIND::NT_FP_GE: return evaluateFpGe(expr, model, result);
+        case NODE_KIND::NT_FP_GT: return evaluateFpGt(expr, model, result);
+        case NODE_KIND::NT_FP_EQ: return evaluateFpEq(expr, model, result);
+        case NODE_KIND::NT_FP_TO_UBV: return evaluateFpToUbv(expr, model, result);
+        case NODE_KIND::NT_FP_TO_SBV: return evaluateFpToSbv(expr, model, result);
+        case NODE_KIND::NT_FP_TO_REAL: return evaluateFpToReal(expr, model, result);
+        case NODE_KIND::NT_FP_TO_FP:
+        case NODE_KIND::NT_FP_TO_FP_UNSIGNED: return evaluateToFp(expr, model, result);
+        case NODE_KIND::NT_FP_IS_NORMAL: return evaluateFpIsNormal(expr, model, result);
+        case NODE_KIND::NT_FP_IS_SUBNORMAL: return evaluateFpIsSubnormal(expr, model, result);
+        case NODE_KIND::NT_FP_IS_ZERO: return evaluateFpIsZero(expr, model, result);
+        case NODE_KIND::NT_FP_IS_INF: return evaluateFpIsInf(expr, model, result);
+        case NODE_KIND::NT_FP_IS_NAN: return evaluateFpIsNaN(expr, model, result);
+        case NODE_KIND::NT_FP_IS_NEG: return evaluateFpIsNeg(expr, model, result);
+        case NODE_KIND::NT_FP_IS_POS: return evaluateFpIsPos(expr, model, result);
+        
+        // Array operators
+        case NODE_KIND::NT_SELECT: return evaluateSelect(expr, model, result);
+        case NODE_KIND::NT_STORE: return evaluateStore(expr, model, result);
+        
+        // String operators
+        case NODE_KIND::NT_STR_LEN: return evaluateStrLen(expr, model, result);
+        case NODE_KIND::NT_STR_CONCAT: return evaluateStrConcat(expr, model, result);
+        case NODE_KIND::NT_STR_SUBSTR: return evaluateStrSubstr(expr, model, result);
+        case NODE_KIND::NT_STR_PREFIXOF: return evaluateStrPrefixof(expr, model, result);
+        case NODE_KIND::NT_STR_SUFFIXOF: return evaluateStrSuffixof(expr, model, result);
+        case NODE_KIND::NT_STR_INDEXOF: return evaluateStrIndexof(expr, model, result);
+        case NODE_KIND::NT_STR_CHARAT: return evaluateStrCharat(expr, model, result);
+        case NODE_KIND::NT_STR_UPDATE: return evaluateStrUpdate(expr, model, result);
+        case NODE_KIND::NT_STR_REPLACE: return evaluateStrReplace(expr, model, result);
+        case NODE_KIND::NT_STR_REPLACE_ALL: return evaluateStrReplaceAll(expr, model, result);
+        case NODE_KIND::NT_STR_TO_LOWER: return evaluateStrToLower(expr, model, result);
+        case NODE_KIND::NT_STR_TO_UPPER: return evaluateStrToUpper(expr, model, result);
+        case NODE_KIND::NT_STR_REV: return evaluateStrRev(expr, model, result);
+        case NODE_KIND::NT_STR_SPLIT: return evaluateStrSplit(expr, model, result);
+        case NODE_KIND::NT_STR_SPLIT_REST: return evaluateStrSplitRest(expr, model, result);
+        case NODE_KIND::NT_STR_SPLIT_AT_RE: return evaluateStrSplitAtRe(expr, model, result);
+        case NODE_KIND::NT_STR_SPLIT_REST_RE: return evaluateStrSplitRestRe(expr, model, result);
+        case NODE_KIND::NT_STR_NUM_SPLITS_RE: return evaluateStrNumSplitsRe(expr, model, result);
+        case NODE_KIND::NT_STR_LT: return evaluateStrLt(expr, model, result);
+        case NODE_KIND::NT_STR_LE: return evaluateStrLe(expr, model, result);
+        case NODE_KIND::NT_STR_GT: return evaluateStrGt(expr, model, result);
+        case NODE_KIND::NT_STR_GE: return evaluateStrGe(expr, model, result);
+        case NODE_KIND::NT_STR_IN_REG: return evaluateStrInReg(expr, model, result);
+        case NODE_KIND::NT_STR_CONTAINS: return evaluateStrContains(expr, model, result);
+        case NODE_KIND::NT_STR_IS_DIGIT: return evaluateStrIsDigit(expr, model, result);
+        case NODE_KIND::NT_STR_FROM_INT: return evaluateStrFromInt(expr, model, result);
+        case NODE_KIND::NT_STR_TO_INT: return evaluateStrToInt(expr, model, result);
+        case NODE_KIND::NT_STR_TO_REG: return evaluateStrToReg(expr, model, result);
+        case NODE_KIND::NT_STR_TO_CODE: return evaluateStrToCode(expr, model, result);
+        case NODE_KIND::NT_STR_FROM_CODE: return evaluateStrFromCode(expr, model, result);
+        
+        // Regular expression operators
+        case NODE_KIND::NT_REG_CONCAT: return evaluateRegConcat(expr, model, result);
+        case NODE_KIND::NT_REG_UNION: return evaluateRegUnion(expr, model, result);
+        case NODE_KIND::NT_REG_INTER: return evaluateRegInter(expr, model, result);
+        case NODE_KIND::NT_REG_DIFF: return evaluateRegDiff(expr, model, result);
+        case NODE_KIND::NT_REG_STAR: return evaluateRegStar(expr, model, result);
+        case NODE_KIND::NT_REG_PLUS: return evaluateRegPlus(expr, model, result);
+        case NODE_KIND::NT_REG_OPT: return evaluateRegOpt(expr, model, result);
+        case NODE_KIND::NT_REG_RANGE: return evaluateRegRange(expr, model, result);
+        case NODE_KIND::NT_REG_REPEAT: return evaluateRegRepeat(expr, model, result);
+        case NODE_KIND::NT_REG_COMPLEMENT: return evaluateRegComplement(expr, model, result);
+        
+        // Function operators
+        case NODE_KIND::NT_FUNC_APPLY:
+        case NODE_KIND::NT_UF_APPLY: return evaluateApplyFun(expr, model, result);
+        
+        // Let expressions
+        case NODE_KIND::NT_LET:
+        case NODE_KIND::NT_LET_CHAIN: return evaluateLet(expr, model, result);
+        
+        // Default case
+        default:
+            result = expr;
+            return false;
         }
-        else if(expr->isAnd()){
-            return evaluateAnd(expr, model, result);
-        }
-        else if(expr->isOr()){
-            return evaluateOr(expr, model, result);
-        }
-        else if(expr->isNot()){
-            return evaluateNot(expr, model, result);
-        }
-        else if(expr->isImplies()){
-            return evaluateImpl(expr, model, result);
-        }
-        else if(expr->isXor()){
-            return evaluateXor(expr, model, result);
-        }
-        else if(expr->isEq()){
-            return evaluateEq(expr, model, result);
-        }
-        else if(expr->isDistinct()){
-            return evaluateDistinct(expr, model, result);
-        }
-        else if(expr->isIte()){
-            return evaluateIte(expr, model, result);
-        }
-        else if(expr->isAdd()){
-            return evaluateAdd(expr, model, result);
-        }
-        else if(expr->isNeg()){
-            return evaluateNeg(expr, model, result);
-        }
-        else if(expr->isSub()){
-            return evaluateSub(expr, model, result);
-        }
-        else if(expr->isMul()){
-            return evaluateMul(expr, model, result);
-        }
-        else if(expr->isDivInt()){
-            return evaluateDivInt(expr, model, result);
-        }
-        else if(expr->isDivReal()){
-            return evaluateDivReal(expr, model, result);
-        }
-        else if(expr->isMod()){
-            return evaluateMod(expr, model, result);
-        }
-        else if(expr->isPow()){
-            return evaluatePow(expr, model, result);
-        }
-        else if(expr->isPow2()){
-            return evaluatePow2(expr, model, result);
-        }
-        else if(expr->isIAnd()){
-            return evaluateIand(expr, model, result);
-        }
-        else if(expr->isAbs()){
-            return evaluateAbs(expr, model, result);
-        }
-        else if(expr->isSqrt()){
-            return evaluateSqrt(expr, model, result);
-        }
-        else if(expr->isSafeSqrt()){
-            return evaluateSafeSqrt(expr, model, result);
-        }
-        else if(expr->isCeil()){
-            return evaluateCeil(expr, model, result);
-        }
-        else if(expr->isFloor()){
-            return evaluateFloor(expr, model, result);
-        }
-        else if(expr->isRound()){
-            return evaluateRound(expr, model, result);
-        }
-        else if(expr->isExp()){
-            return evaluateExp(expr, model, result);
-        }
-        else if(expr->isLn()){
-            return evaluateLn(expr, model, result);
-        }
-        else if(expr->isLg()){
-            return evaluateLg(expr, model, result);
-        }
-        else if(expr->isLn()){
-            return evaluateLn(expr, model, result);
-        }
-        else if(expr->isLog()){
-            return evaluateLog(expr, model, result);
-        }
-        else if(expr->isLb()){
-            return evaluateLb(expr, model, result);
-        }
-        else if(expr->isSin()){
-            return evaluateSin(expr, model, result);
-        }
-        else if(expr->isCos()){
-            return evaluateCos(expr, model, result);
-        }
-        else if(expr->isTan()){
-            return evaluateTan(expr, model, result);
-        }
-        else if(expr->isAsin()){
-            return evaluateAsin(expr, model, result);
-        }
-        else if(expr->isAcos()){
-            return evaluateAcos(expr, model, result);
-        }
-        else if(expr->isAtan()){
-            return evaluateAtan(expr, model, result);
-        }
-        else if(expr->isSinh()){
-            return evaluateSinh(expr, model, result);
-        }
-        else if(expr->isCosh()){
-            return evaluateCosh(expr, model, result);
-        }
-        else if(expr->isTanh()){
-            return evaluateTanh(expr, model, result);
-        }
-        else if(expr->isAsinh()){
-            return evaluateAsinh(expr, model, result);
-        }
-        else if(expr->isAcosh()){
-            return evaluateAcosh(expr, model, result);
-        }
-        else if(expr->isAtanh()){
-            return evaluateAtanh(expr, model, result);
-        }
-        else if(expr->isAsech()){
-            return evaluateAsech(expr, model, result);
-        }
-        else if(expr->isAcsch()){
-            return evaluateAcsch(expr, model, result);
-        }
-        else if(expr->isAcoth()){
-            return evaluateAcoth(expr, model, result);
-        }
-        else if(expr->isAtan2()){
-            return evaluateAtan2(expr, model, result);
-        }
-        else if(expr->isLe()){
-            return evaluateLe(expr, model, result);
-        }
-        else if(expr->isLt()){
-            return evaluateLt(expr, model, result);
-        }
-        else if(expr->isGe()){
-            return evaluateGe(expr, model, result);
-        }
-        else if(expr->isGt()){
-            return evaluateGt(expr, model, result);
-        }
-        else if(expr->isToReal()){
-            return evaluateToReal(expr, model, result);
-        }
-        else if(expr->isToInt()){
-            return evaluateToInt(expr, model, result);
-        }
-        else if(expr->isInt()){
-            return evaluateIsInt(expr, model, result);
-        }
-        else if(expr->isDivisible()){
-            return evaluateIsDivisible(expr, model, result);
-        }
-        else if(expr->isPrime()){
-            return evaluateIsPrime(expr, model, result);
-        }
-        else if(expr->isEven()){
-            return evaluateIsEven(expr, model, result);
-        }
-        else if(expr->isOdd()){
-            return evaluateIsOdd(expr, model, result);
-        }
-        else if(expr->isGcd()){
-            return evaluateGcd(expr, model, result);
-        }
-        else if(expr->isLcm()){
-            return evaluateLcm(expr, model, result);
-        }
-        else if(expr->isFact()){
-            return evaluateFact(expr, model, result);
-        }
-        else if(expr->isBVNot()){
-            return evaluateBvNot(expr, model, result);
-        }
-        else if(expr->isBVNeg()){
-            return evaluateBvNeg(expr, model, result);
-        }
-        else if(expr->isBVAnd()){
-            return evaluateBvAnd(expr, model, result);
-        }
-        else if(expr->isBVOr()){
-            return evaluateBvOr(expr, model, result);
-        }
-        else if(expr->isBVXor()){
-            return evaluateBvXor(expr, model, result);
-        }
-        else if(expr->isBVNand()){
-            return evaluateBvNand(expr, model, result);
-        }
-        else if(expr->isBVNor()){
-            return evaluateBvNor(expr, model, result);
-        }
-        else if(expr->isBVXnor()){
-            return evaluateBvXnor(expr, model, result);
-        }
-        else if(expr->isBVComp()){
-            return evaluateBvComp(expr, model, result);
-        }
-        else if(expr->isBVAdd()){
-            return evaluateBvAdd(expr, model, result);
-        }
-        else if(expr->isBVSub()){
-            return evaluateBvSub(expr, model, result);
-        }
-        else if(expr->isBVMul()){
-            return evaluateBvMul(expr, model, result);
-        }
-        else if(expr->isBVUDiv()){
-            return evaluateBvUdiv(expr, model, result);
-        }
-        else if(expr->isBVURem()){
-            return evaluateBvUrem(expr, model, result);
-        }
-        else if(expr->isBVSDiv()){
-            return evaluateBvSdiv(expr, model, result);
-        }
-        else if(expr->isBVSRem()){
-            return evaluateBvSrem(expr, model, result);
-        }
-        else if(expr->isBVSMod()){
-            return evaluateBvSmod(expr, model, result);
-        }
-        else if(expr->isBVShl()){
-            return evaluateBvShl(expr, model, result);
-        }
-        else if(expr->isBVLSHR()){
-            return evaluateBvLshr(expr, model, result);
-        }
-        else if(expr->isBVASHR()){
-            return evaluateBvAshr(expr, model, result);
-        }
-        else if(expr->isBVUlt()){
-            return evaluateBvUlt(expr, model, result);
-        }
-        else if(expr->isBVUle()){
-            return evaluateBvUle(expr, model, result);
-        }
-        else if(expr->isBVUgt()){
-            return evaluateBvUgt(expr, model, result);
-        }
-        else if(expr->isBVUge()){
-            return evaluateBvUge(expr, model, result);
-        }
-        else if(expr->isBVSlt()){
-            return evaluateBvSlt(expr, model, result);
-        }
-        else if(expr->isBVSle()){
-            return evaluateBvSle(expr, model, result);
-        }
-        else if(expr->isBVSgt()){
-            return evaluateBvSgt(expr, model, result);
-        }
-        else if(expr->isBVSge()){
-            return evaluateBvSge(expr, model, result);
-        }
-        else if(expr->isBVConcat()){
-            return evaluateBvConcat(expr, model, result);
-        }
-        else if(expr->isBVToNat()){
-            return evaluateBvToNat(expr, model, result);
-        }
-        else if(expr->isNatToBV()){
-            return evaluateBvNatToBv(expr, model, result);
-        }
-        else if(expr->isIntToBV()){
-            return evaluateBvIntToBv(expr, model, result);
-        }
-        else if(expr->isBVToInt()){
-            return evaluateBvToInt(expr, model, result);
-        }
-        else if(expr->isFPAbs()){
-            return evaluateFpAbs(expr, model, result);
-        }
-        else if(expr->isFPNeg()){
-            return evaluateFpNeg(expr, model, result);
-        }
-        else if(expr->isFPAdd()){
-            return evaluateFpAdd(expr, model, result);
-        }
-        else if(expr->isFPSub()){
-            return evaluateFpSub(expr, model, result);
-        }
-        else if(expr->isFPMul()){
-            return evaluateFpMul(expr, model, result);
-        }
-        else if(expr->isFPDiv()){
-            return evaluateFpDiv(expr, model, result);
-        }
-        else if(expr->isFPFMA()){
-            return evaluateFpFma(expr, model, result);
-        }
-        else if(expr->isFPSqrt()){
-            return evaluateFpSqrt(expr, model, result);
-        }
-        else if(expr->isFPRem()){
-            return evaluateFpRem(expr, model, result);
-        }
-        else if(expr->isFPRoundToIntegral()){
-            return evaluateFpRoundToIntegral(expr, model, result);
-        }
-        else if(expr->isFPMin()){
-            return evaluateFpMin(expr, model, result);
-        }
-        else if(expr->isFPMax()){
-            return evaluateFpMax(expr, model, result);
-        }
-        else if(expr->isFPLe()){
-            return evaluateFpLe(expr, model, result);
-        }
-        else if(expr->isFPLt()){
-            return evaluateFpLt(expr, model, result);
-        }
-        else if(expr->isFPGe()){
-            return evaluateFpGe(expr, model, result);
-        }
-        else if(expr->isFPGt()){
-            return evaluateFpGt(expr, model, result);
-        }
-        else if(expr->isFPEq()){
-            return evaluateFpEq(expr, model, result);
-        }
-        else if(expr->isFPToUBV()){
-            return evaluateFpToUbv(expr, model, result);
-        }
-        else if(expr->isFPToSBV()){
-            return evaluateFpToSbv(expr, model, result);
-        }
-        else if(expr->isFPToReal()){
-            return evaluateFpToReal(expr, model, result);
-        }
-        else if(expr->isToFP()){
-            return evaluateToFp(expr, model, result);
-        }
-        else if(expr->isFPIsNormal()){
-            return evaluateFpIsNormal(expr, model, result);
-        }
-        else if(expr->isFPIsSubnormal()){
-            return evaluateFpIsSubnormal(expr, model, result);
-        }
-        else if(expr->isFPIsZero()){
-            return evaluateFpIsZero(expr, model, result);
-        }
-        else if(expr->isFPIsInf()){
-            return evaluateFpIsInf(expr, model, result);
-        }
-        else if(expr->isFPIsNaN()){
-            return evaluateFpIsNaN(expr, model, result);
-        }
-        else if(expr->isFPIsNeg()){
-            return evaluateFpIsNeg(expr, model, result);
-        }
-        else if(expr->isFPIsPos()){
-            return evaluateFpIsPos(expr, model, result);
-        }
-        else if(expr->isSelect()){
-            return evaluateSelect(expr, model, result);
-        }
-        else if(expr->isStore()){
-            return evaluateStore(expr, model, result);
-        }
-        else if(expr->isStrLen()){
-            return evaluateStrLen(expr, model, result);
-        }
-        else if(expr->isStrConcat()){
-            return evaluateStrConcat(expr, model, result);
-        }
-        else if(expr->isStrSubstr()){
-            return evaluateStrSubstr(expr, model, result);
-        }
-        else if(expr->isStrPrefixof()){
-            return evaluateStrPrefixof(expr, model, result);
-        }
-        else if(expr->isStrSuffixof()){
-            return evaluateStrSuffixof(expr, model, result);
-        }
-        else if(expr->isStrIndexof()){
-            return evaluateStrIndexof(expr, model, result);
-        }
-        else if(expr->isStrCharat()){
-            return evaluateStrCharat(expr, model, result);
-        }
-        else if(expr->isStrUpdate()){
-            return evaluateStrUpdate(expr, model, result);
-        }
-        else if(expr->isStrReplace()){
-            return evaluateStrReplace(expr, model, result);
-        }
-        else if(expr->isStrReplaceAll()){
-            return evaluateStrReplaceAll(expr, model, result);
-        }
-        else if(expr->isStrToLower()){
-            return evaluateStrToLower(expr, model, result);
-        }
-        else if(expr->isStrToUpper()){
-            return evaluateStrToUpper(expr, model, result);
-        }
-        else if(expr->isStrRev()){
-            return evaluateStrRev(expr, model, result);
-        }
-        else if(expr->isStrSplit()){
-            return evaluateStrSplit(expr, model, result);
-        }
-        else if(expr->isStrSplitRest()){
-            return evaluateStrSplitRest(expr, model, result);
-        }
-        else if(expr->isStrSplitAtRe()){
-            return evaluateStrSplitAtRe(expr, model, result);
-        }
-        else if(expr->isStrSplitRestRe()){
-            return evaluateStrSplitRestRe(expr, model, result);
-        }
-        else if(expr->isStrNumSplitsRe()){
-            return evaluateStrNumSplitsRe(expr, model, result);
-        }
-        else if(expr->isStrLt()){
-            return evaluateStrLt(expr, model, result);
-        }
-        else if(expr->isStrLe()){
-            return evaluateStrLe(expr, model, result);
-        }
-        else if(expr->isStrGt()){
-            return evaluateStrGt(expr, model, result);
-        }
-        else if(expr->isStrGe()){
-            return evaluateStrGe(expr, model, result);
-        }
-        else if(expr->isStrInReg()){
-            return evaluateStrInReg(expr, model, result);
-        }
-        else if(expr->isStrContains()){
-            return evaluateStrContains(expr, model, result);
-        }
-        else if(expr->isStrIsDigit()){
-            return evaluateStrIsDigit(expr, model, result);
-        }
-        else if(expr->isStrFromInt()){
-            return evaluateStrFromInt(expr, model, result);
-        }
-        else if(expr->isStrToInt()){
-            return evaluateStrToInt(expr, model, result);
-        }
-        else if(expr->isStrToReg()){
-            return evaluateStrToReg(expr, model, result);
-        }
-        else if(expr->isStrToCode()){
-            return evaluateStrToCode(expr, model, result);
-        }
-        else if(expr->isStrFromCode()){
-            return evaluateStrFromCode(expr, model, result);
-        }
-        else if(expr->isRegConcat()){
-            return evaluateRegConcat(expr, model, result);
-        }
-        else if(expr->isRegUnion()){
-            return evaluateRegUnion(expr, model, result);
-        }
-        else if(expr->isRegInter()){
-            return evaluateRegInter(expr, model, result);
-        }
-        else if(expr->isRegDiff()){
-            return evaluateRegDiff(expr, model, result);
-        }
-        else if(expr->isRegStar()){
-            return evaluateRegStar(expr, model, result);
-        }
-        else if(expr->isRegPlus()){
-            return evaluateRegPlus(expr, model, result);
-        }
-        else if(expr->isRegOpt()){
-            return evaluateRegOpt(expr, model, result);
-        }
-        else if(expr->isRegRange()){
-            return evaluateRegRange(expr, model, result);
-        }
-        else if(expr->isRegRepeat()){
-            return evaluateRegRepeat(expr, model, result);
-        }
-        else if(expr->isRegComplement()){
-            return evaluateRegComplement(expr, model, result);
-        }
-        else if(expr->isFuncApplication()){
-            return evaluateApplyFun(expr, model, result);
-        }
-        else if(expr->isLet()){
-            return evaluateLet(expr, model, result);
-        }
-        result = expr;
-        return false;
     }
 
     bool Parser::evaluateSimpleOp(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result, NODE_KIND op){

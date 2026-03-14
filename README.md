@@ -132,7 +132,12 @@ git submodule update --remote --merge
 
 ### Python Installation
 
-SOMTParser also provides Python bindings. Install with pip:
+SOMTParser also provides Python bindings.
+
+**Supported Platforms:**
+- Linux (Ubuntu, Debian, Fedora, etc.)
+- macOS (Intel and Apple Silicon)
+- Windows (requires Visual Studio and vcpkg for GMP/MPFR)
 
 ```bash
 # Requires Python 3.9+ and system dependencies (GMP, MPFR)

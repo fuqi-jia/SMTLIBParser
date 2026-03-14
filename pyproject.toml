@@ -20,6 +20,9 @@ classifiers = [
     "Programming Language :: C++",
     "Topic :: Scientific/Engineering",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
 ]
 
 [project.optional-dependencies]

@@ -731,6 +731,20 @@ HighPrecisionInteger::HighPrecisionInteger(long i) : value(i) {}
 
 HighPrecisionInteger::HighPrecisionInteger(unsigned long i) : value(i) {}
 
+HighPrecisionInteger::HighPrecisionInteger(long long i) : value(static_cast<long>(i)) {
+    // For values outside long range, use string conversion
+    if (i > LONG_MAX || i < LONG_MIN) {
+        value = mpz_class(std::to_string(i));
+    }
+}
+
+HighPrecisionInteger::HighPrecisionInteger(unsigned long long i) : value(static_cast<unsigned long>(i)) {
+    // For values outside unsigned long range, use string conversion
+    if (i > ULONG_MAX) {
+        value = mpz_class(std::to_string(i));
+    }
+}
+
 HighPrecisionInteger::HighPrecisionInteger(double d) : value(d) {}
 
 HighPrecisionInteger::HighPrecisionInteger(const std::string& s, int base) {

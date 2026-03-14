@@ -13,10 +13,12 @@ if(NOT DEFINED ENABLE_DEBUG_SYMBOLS)
 endif()
 
 
-# Use pkg-config to find GMP and MPFR
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GMP REQUIRED gmp)
-pkg_check_modules(MPFR REQUIRED mpfr)
+# Use pkg-config to find GMP and MPFR (QUIET to allow fallback to manual search)
+find_package(PkgConfig QUIET)
+if(PKG_CONFIG_FOUND)
+    pkg_check_modules(GMP QUIET gmp)
+    pkg_check_modules(MPFR QUIET mpfr)
+endif()
 
 # If pkg-config fails to find libraries, try manual search
 if(NOT GMP_FOUND)
@@ -76,6 +78,25 @@ foreach(test_file ${TEST_SOURCES})
     )
 endforeach()
 
+# ===== CTest Support (cross-platform) =====
+# Enable CTest for cross-platform testing (ctest command)
+enable_testing()
+
+# Register each test with CTest
+if(TEST_TARGETS)
+    foreach(test_name ${TEST_TARGETS})
+        add_test(
+            NAME ${test_name}
+            COMMAND ${test_name}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        )
+    endforeach()
+    message(STATUS "Registered ${CMAKE_CURRENT_LIST_DIR} tests with CTest: ${TEST_TARGETS}")
+else()
+    message(STATUS "No test files found in test directory")
+endif()
+
+# ===== Legacy targets (for local development) =====
 # Add a convenience target to build all tests
 if(TEST_TARGETS)
     add_custom_target(build_all_tests DEPENDS ${TEST_TARGETS})
@@ -89,8 +110,6 @@ if(TEST_TARGETS)
             COMMENT "Running test ${test_name}"
         )
     endforeach()
-else()
-    message(STATUS "No test files found in test directory")
 endif()
 
 # Add a custom target to run all tests sequentially
