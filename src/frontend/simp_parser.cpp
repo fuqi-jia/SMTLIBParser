@@ -36,6 +36,9 @@ namespace SOMTParser{
     // Helper function to check if a node can be used in arithmetic operations
     // root-obj and root-of-with-interval nodes cannot be directly used in arithmetic operations
     static bool canPerformArithmeticOp(std::shared_ptr<DAGNode> node){
+        if(!node){
+            return false;
+        }
         if(node->isCRootObj() || node->isCRootOfWithInterval()){
             return false;
         }
@@ -43,6 +46,9 @@ namespace SOMTParser{
     }
     
     std::shared_ptr<DAGNode> Parser::simp_oper(const NODE_KIND& t, std::shared_ptr<DAGNode> p){
+        if(!p){
+            return mkUnknown();
+        }
         switch(t){
             // Unary operation - accepts one parameter
             case NODE_KIND::NT_NOT:{
@@ -796,6 +802,9 @@ namespace SOMTParser{
         return mkUnknown();
     }
     std::shared_ptr<DAGNode> Parser::simp_oper(const NODE_KIND& t, std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> r){
+        if(!l || !r){
+            return mkUnknown();
+        }
         switch(t){
             // Binary operation - accepts two parameters
             case NODE_KIND::NT_EQ:
@@ -1510,6 +1519,9 @@ namespace SOMTParser{
         return mkUnknown();
     }
     std::shared_ptr<DAGNode> Parser::simp_oper(const NODE_KIND& t, std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> m, std::shared_ptr<DAGNode> r){
+        if(!l || !m || !r){
+            return mkUnknown();
+        }
         switch(t){
             // Ternary operation - accepts three parameters
             case NODE_KIND::NT_ITE:{
@@ -1679,6 +1691,14 @@ namespace SOMTParser{
         return mkUnknown();
     }
     std::shared_ptr<DAGNode> Parser::simp_oper(const NODE_KIND& t, const std::vector<std::shared_ptr<DAGNode>> &p){
+        if(p.empty()){
+            return mkUnknown();
+        }
+        for(const auto& e : p){
+            if(!e){
+                return mkUnknown();
+            }
+        }
         switch(t){
             // Multi-parameter operation - accepts arbitrary number of parameters
             case NODE_KIND::NT_EQ:
