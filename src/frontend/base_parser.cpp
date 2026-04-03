@@ -882,6 +882,98 @@ namespace SOMTParser{
 			return CMD_TYPE::CT_DECLARE_SORT;
 		}
 
+		// (declare-datatypes (<sort-dec>+) (<datatype-dec>+))
+		// where:
+		//   <sort-dec>    ::= (<symbol> <numeral>)
+		//   <datatype-dec>::= (<constructor-dec>+)
+		//   <constructor-dec>::= (<symbol> <selector-dec>*)
+		//   <selector-dec>::= (<symbol> <sort>)
+		if (command == "declare-datatypes") {
+			// -- Phase 1: read sort names so we can register forward references --
+			parseLpar(); // outer '(' for sort list
+			std::vector<std::pair<std::string, size_t>> sort_decls;
+			while(*bufptr != ')') {
+				parseLpar();
+				std::string dt_name = getSymbol();
+				std::string arity_str = getSymbol();
+				size_t dt_arity = static_cast<size_t>(std::stoi(arity_str));
+				sort_decls.emplace_back(dt_name, dt_arity);
+				parseRpar();
+			}
+			parseRpar(); // close sort list
+
+			// Pre-register placeholder sorts so mutual recursion works
+			std::vector<std::shared_ptr<Sort>> placeholder_sorts;
+			for(auto& sd : sort_decls) {
+				auto ps = getSortManager()->createSort(SORT_KIND::SK_DATATYPE, sd.first, sd.second);
+				getSymbolManager()->registerSort(sd.first, ps);
+				placeholder_sorts.push_back(ps);
+			}
+
+			// -- Phase 2: parse constructor lists --
+			parseLpar(); // outer '(' for datatype list
+			for(size_t ti = 0; ti < sort_decls.size(); ++ti) {
+				parseLpar(); // '(' for this datatype
+				const std::string& dt_name = sort_decls[ti].first;
+				auto dt_sort = placeholder_sorts[ti];
+				
+				std::vector<Sort::DtConstructor> constructors;
+
+				while(*bufptr != ')') {
+					parseLpar(); // '(' for constructor
+					std::string ctor_name = getSymbol();
+					Sort::DtConstructor ctor;
+					ctor.name = ctor_name;
+
+					// Parse selectors until ')'
+					while(*bufptr != ')') {
+						parseLpar();
+						std::string sel_name = getSymbol();
+						std::shared_ptr<Sort> sel_sort = parseSort();
+						parseRpar();
+						ctor.selectors.push_back({sel_name, sel_sort});
+					}
+					parseRpar(); // close constructor
+					constructors.push_back(ctor);
+				}
+				parseRpar(); // close datatype
+
+				// Rebuild sort with constructor info
+				dt_sort->dt_constructors = std::make_shared<std::vector<Sort::DtConstructor>>(constructors);
+
+				// Register constructors as functions
+				for(auto& ctor : constructors) {
+					std::vector<std::shared_ptr<Sort>> sel_sorts;
+					for(auto& sel : ctor.selectors)
+						sel_sorts.push_back(sel.sort);
+					// Constructor: takes selector-sort args, returns DT sort
+					auto ctor_node = mkFuncDec(ctor.name, sel_sorts, dt_sort);
+					if(!ctor_node->isErr()) {
+						getSymbolManager()->addFunctionName(ctor.name);
+					}
+					// Selector functions: takes DT sort, returns selector sort
+					for(auto& sel : ctor.selectors) {
+						std::vector<std::shared_ptr<Sort>> sel_params = {dt_sort};
+						auto sel_node = mkFuncDec(sel.name, sel_params, sel.sort);
+						if(!sel_node->isErr()) {
+							getSymbolManager()->addFunctionName(sel.name);
+						}
+					}
+					// Tester function: is-<ctor_name> takes DT sort, returns Bool
+					std::string tester_name = "is-" + ctor.name;
+					std::vector<std::shared_ptr<Sort>> tester_params = {dt_sort};
+					auto tester_node = mkFuncDec(tester_name, tester_params, SortManager::BOOL_SORT);
+					if(!tester_node->isErr()) {
+						getSymbolManager()->addFunctionName(tester_name);
+					}
+				}
+			}
+			parseRpar(); // close outer datatype list
+			skipToRpar(); // close the declare-datatypes command
+
+			return CMD_TYPE::CT_DECLARE_DATATYPES;
+		}
+
 		// (define-const <symbol> <sort> <expr>)
 		if (command == "define-const") {
 			// get name
@@ -1852,8 +1944,9 @@ namespace SOMTParser{
 
 		// For declare-fun (uninterpreted functions), create a function application node
 		if(fun->getFuncBody()->isNull()){
-			// Create a function application node with proper structure
-			std::shared_ptr<DAGNode> result = getNodeManager()->createNode(fun->getSort(), NODE_KIND::NT_UF_APPLY, fun->getName(), params);
+			// Determine if this is a datatype constructor/selector/tester
+			NODE_KIND nk = getDtFunctionKind(fun->getSort(), fun->getName(), params);
+			std::shared_ptr<DAGNode> result = getNodeManager()->createNode(fun->getSort(), nk, fun->getName(), params);
 			return result;
 		}
 
@@ -1868,7 +1961,7 @@ namespace SOMTParser{
 		// Otherwise, fall through to expand it like define-fun
 	}
 	else if(fun->isFuncDec()){
-		// a only declared function, i.e., uninterpreted function
+		// a only declared function, i.e., uninterpreted function or datatype function
 		return mkApplyUF(fun->getSort(), fun->getName(), params);
 	}
 
@@ -1932,8 +2025,8 @@ namespace SOMTParser{
 					
 				// Create a new node with processed children
 				std::shared_ptr<DAGNode> result;
-				if (current->isUFApplication()) {
-					// NT_UF_APPLY: Must preserve function name when recreating node
+				if (current->isUFApplication() || current->isConstructorApp() || current->isSelectorApp() || current->isTesterApp()) {
+					// NT_UF_APPLY or NT_DT_*: Must preserve function name when recreating node
 					result = mkApplyUF(current->getSort(), current->getName(), childResults);
 				} else if (current->isFuncRecApplication() && !getOptions()->getExpandRecursiveFunctions()) {
 					// NT_FUNC_REC_APPLY: Recursive function call when not expanding
@@ -2015,8 +2108,29 @@ namespace SOMTParser{
 		return res;
     }
 
+    NODE_KIND Parser::getDtFunctionKind(const std::shared_ptr<Sort>& return_sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params) {
+        // Constructor: return sort is DT and has a constructor with this name
+        if(return_sort && return_sort->isDatatype() && return_sort->hasDtConstructor(name)) {
+            return NODE_KIND::NT_DT_CONSTRUCTOR;
+        }
+        // Selector: first param sort is DT and has a selector with this name
+        if(!params.empty()) {
+            auto first_sort = params[0]->getSort();
+            if(first_sort && first_sort->isDatatype()) {
+                if(first_sort->hasDtSelector(name)) {
+                    return NODE_KIND::NT_DT_SELECTOR;
+                }
+                if(first_sort->hasDtTester(name)) {
+                    return NODE_KIND::NT_DT_TESTER;
+                }
+            }
+        }
+        return NODE_KIND::NT_UF_APPLY;
+    }
+
     std::shared_ptr<DAGNode> Parser::mkApplyUF(const std::shared_ptr<Sort>& sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params){
-        return getNodeManager()->createNode(sort, NODE_KIND::NT_UF_APPLY, name, params);
+        NODE_KIND nk = getDtFunctionKind(sort, name, params);
+        return getNodeManager()->createNode(sort, nk, name, params);
     }
 
 

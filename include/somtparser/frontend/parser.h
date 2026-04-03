@@ -66,7 +66,7 @@ namespace SOMTParser{
         CT_UNKNOWN, CT_EOF,
         // COMMANDS
         CT_ASSERT, CT_CHECK_SAT, CT_CHECK_SAT_ASSUMING,
-        CT_DECLARE_CONST, CT_DECLARE_FUN, CT_DECLARE_SORT,
+        CT_DECLARE_CONST, CT_DECLARE_FUN, CT_DECLARE_SORT, CT_DECLARE_DATATYPES,
         CT_DEFINE_FUN, CT_DEFINE_FUN_REC, CT_DEFINE_FUNS_REC, CT_DEFINE_SORT,
         CT_ECHO, CT_EXIT,
         CT_GET_ASSERTIONS, CT_GET_ASSIGNMENT, CT_GET_INFO,
@@ -688,6 +688,13 @@ namespace SOMTParser{
          * @return Uninterpreted function application node
          */
         std::shared_ptr<DAGNode> mkApplyUF(const std::shared_ptr<Sort>& sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params);
+
+        /**
+         * @brief Determine the correct NODE_KIND for a function application.
+         * Returns NT_DT_CONSTRUCTOR, NT_DT_SELECTOR, NT_DT_TESTER if the
+         * function is a datatype function, otherwise NT_UF_APPLY.
+         */
+        NODE_KIND getDtFunctionKind(const std::shared_ptr<Sort>& return_sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params);
 
         // mk sort
         /**
@@ -4102,6 +4109,12 @@ namespace SOMTParser{
         bool		evaluateBvNatToBv(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateBvIntToBv(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateBvToInt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvExtract(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvRepeat(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvZeroExt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvSignExt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvRotLeft(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvRotRight(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpAbs(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpNeg(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpAdd(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
@@ -4169,6 +4182,10 @@ namespace SOMTParser{
         bool		evaluateRegRepeat(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateRegComplement(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateApplyFun(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateUFApply(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateDtConstructor(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateDtSelector(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateDtTester(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateLet(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool        evaluateMax(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool        evaluateMin(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);

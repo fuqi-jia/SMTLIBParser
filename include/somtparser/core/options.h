@@ -89,11 +89,14 @@ namespace SOMTParser{
                 logic_name == "QF_ANIA" ||
                 logic_name == "QF_AUFBV" ||
                 logic_name == "QF_AUFBVFP" ||
+                logic_name == "QF_AUFBVLIA" ||
+                logic_name == "QF_AUFBVNIA" ||
                 logic_name == "QF_AUFLIA" ||
                 logic_name == "QF_AUFNIA" ||
                 logic_name == "QF_AX" ||
                 logic_name == "QF_BV" ||
                 logic_name == "QF_BVFP" ||
+                logic_name == "QF_BVLRA" ||
                 logic_name == "QF_DT" ||
                 logic_name == "QF_BVFPLRA" ||
                 logic_name == "QF_FP" ||
@@ -112,6 +115,7 @@ namespace SOMTParser{
                 logic_name == "QF_UF" ||
                 logic_name == "QF_UFBV" ||
                 logic_name == "QF_UFBVDT" ||
+                logic_name == "QF_UFBVLIA" ||
                 logic_name == "QF_UFDT" ||
                 logic_name == "QF_UFDTLIA" ||
                 logic_name == "QF_UFDTLIRA" ||

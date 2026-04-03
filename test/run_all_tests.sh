@@ -67,6 +67,9 @@ if [ -z "$TEST_EXES" ]; then
         ./test_umbrella
         ./test_visitor_api
         ./test_define_fun_assert_roundtrip
+        ./test_datatype_eval
+        ./test_fp_util_wrappers
+        ./test_uf_model_api
     )
     for t in "${POTENTIAL_TESTS[@]}"; do
         [ -x "$t" ] && TEST_EXES="$TEST_EXES $t"

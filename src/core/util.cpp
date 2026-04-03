@@ -26,12 +26,14 @@
  */
 
 #include "somtparser/core/util.h"
+#include "somtparser/ir/dag.h"
 #include <vector>
 #include <sstream>
 #include <cmath>
 #include <iomanip>
 #include <algorithm>
 #include <string>
+#include <mpfr.h>
 namespace SOMTParser{
 
     bool TypeChecker::isNumber(const std::string& str){
@@ -1367,4 +1369,706 @@ namespace SOMTParser{
         }
         return result;
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — FPValue methods
+    // ═══════════════════════════════════════════════════════════════════════
+
+    bool FloatingPointUtils::FPValue::isNaN() const {
+        uint64_t max_exp = (1ULL << eb) - 1;
+        return exponent == max_exp && significand != 0;
+    }
+    bool FloatingPointUtils::FPValue::isInf() const {
+        uint64_t max_exp = (1ULL << eb) - 1;
+        return exponent == max_exp && significand == 0;
+    }
+    bool FloatingPointUtils::FPValue::isZero() const {
+        return exponent == 0 && significand == 0;
+    }
+    bool FloatingPointUtils::FPValue::isNeg() const {
+        return sign == 1;
+    }
+    bool FloatingPointUtils::FPValue::isNormal() const {
+        uint64_t max_exp = (1ULL << eb) - 1;
+        return exponent != 0 && exponent != max_exp;
+    }
+    bool FloatingPointUtils::FPValue::isSubnormal() const {
+        return exponent == 0 && significand != 0;
+    }
+
+    std::string FloatingPointUtils::FPValue::toSMTFP() const {
+        return "(fp " + uint64ToBinStr(sign, 1)
+             + " "    + uint64ToBinStr(exponent, eb)
+             + " "    + uint64ToBinStr(significand, sb - 1) + ")";
+    }
+
+    std::optional<float> FloatingPointUtils::FPValue::toFloat32() const {
+        if(eb != 8 || sb != 24) return std::nullopt;
+        uint32_t bits = (static_cast<uint32_t>(sign) << 31)
+                      | (static_cast<uint32_t>(exponent) << 23)
+                      | static_cast<uint32_t>(significand);
+        float f;
+        std::memcpy(&f, &bits, sizeof(f));
+        return f;
+    }
+
+    std::optional<double> FloatingPointUtils::FPValue::toFloat64() const {
+        if(eb != 11 || sb != 53) return std::nullopt;
+        uint64_t bits = (sign << 63) | (exponent << 52) | significand;
+        double d;
+        std::memcpy(&d, &bits, sizeof(d));
+        return d;
+    }
+
+    FloatingPointUtils::FPValue FloatingPointUtils::FPValue::fromFloat32(float f) {
+        uint32_t bits;
+        std::memcpy(&bits, &f, sizeof(bits));
+        FPValue v;
+        v.sign = (bits >> 31) & 1u;
+        v.exponent = (bits >> 23) & 0xFFu;
+        v.significand = bits & 0x7FFFFFu;
+        v.eb = 8;
+        v.sb = 24;
+        return v;
+    }
+
+    FloatingPointUtils::FPValue FloatingPointUtils::FPValue::fromFloat64(double d) {
+        uint64_t bits;
+        std::memcpy(&bits, &d, sizeof(bits));
+        FPValue v;
+        v.sign = (bits >> 63) & 1ull;
+        v.exponent = (bits >> 52) & 0x7FFull;
+        v.significand = bits & 0x000FFFFFFFFFFFFFull;
+        v.eb = 11;
+        v.sb = 53;
+        return v;
+    }
+
+    FloatingPointUtils::FPValue FloatingPointUtils::FPValue::abs() const {
+        FPValue r = *this;
+        r.sign = 0;
+        return r;
+    }
+
+    FloatingPointUtils::FPValue FloatingPointUtils::FPValue::neg() const {
+        FPValue r = *this;
+        r.sign = sign ^ 1;
+        return r;
+    }
+
+    bool FloatingPointUtils::FPValue::toMpfr(mpfr_t out) const {
+        if(isNaN()) {
+            mpfr_set_nan(out);
+            return false; // caller must handle NaN specially
+        }
+        if(isInf()) {
+            mpfr_set_inf(out, sign ? -1 : 1);
+            return true;
+        }
+        if(isZero()) {
+            mpfr_set_zero(out, sign ? -1 : 1);
+            return true;
+        }
+
+        // bias = 2^(eb-1) - 1
+        int64_t bias = (1LL << (eb - 1)) - 1;
+        size_t mant_bits = sb - 1; // number of explicit significand bits
+
+        if(isSubnormal()) {
+            // value = (-1)^sign × 0.significand × 2^(1 - bias)
+            // = (-1)^sign × significand × 2^(1 - bias - mant_bits)
+            mpfr_set_ui(out, 0, MPFR_RNDN);
+            if(significand != 0) {
+                mpfr_set_uj(out, significand, MPFR_RNDN);
+                // exponent for subnormal: 1 - bias - mant_bits
+                int64_t exp_val = 1 - bias - static_cast<int64_t>(mant_bits);
+                mpfr_mul_2si(out, out, exp_val, MPFR_RNDN);
+            }
+        } else {
+            // Normal: value = (-1)^sign × 1.significand × 2^(exponent - bias)
+            // = (-1)^sign × (2^mant_bits + significand) × 2^(exponent - bias - mant_bits)
+            uint64_t full_mant = (1ULL << mant_bits) | significand;
+            mpfr_set_uj(out, full_mant, MPFR_RNDN);
+            int64_t exp_val = static_cast<int64_t>(exponent) - bias - static_cast<int64_t>(mant_bits);
+            mpfr_mul_2si(out, out, exp_val, MPFR_RNDN);
+        }
+
+        if(sign) mpfr_neg(out, out, MPFR_RNDN);
+        return true;
+    }
+
+    FloatingPointUtils::FPValue FloatingPointUtils::FPValue::fromMpfr(const mpfr_t val, size_t eb, size_t sb) {
+        FPValue v;
+        v.eb = eb;
+        v.sb = sb;
+        size_t mant_bits = sb - 1;
+        uint64_t max_exp = (1ULL << eb) - 1;
+        int64_t bias = (1LL << (eb - 1)) - 1;
+
+        // NaN
+        if(mpfr_nan_p(val)) {
+            v.sign = 0;
+            v.exponent = max_exp;
+            v.significand = 1; // canonical quiet NaN
+            return v;
+        }
+
+        // Inf
+        if(mpfr_inf_p(val)) {
+            v.sign = mpfr_signbit(val) ? 1 : 0;
+            v.exponent = max_exp;
+            v.significand = 0;
+            return v;
+        }
+
+        // Zero
+        if(mpfr_zero_p(val)) {
+            v.sign = mpfr_signbit(val) ? 1 : 0;
+            v.exponent = 0;
+            v.significand = 0;
+            return v;
+        }
+
+        v.sign = mpfr_signbit(val) ? 1 : 0;
+
+        // Work with absolute value
+        mpfr_t abs_val;
+        mpfr_init2(abs_val, mpfr_get_prec(val));
+        mpfr_abs(abs_val, val, MPFR_RNDN);
+
+        // Get the exponent: val = m × 2^exp where 0.5 <= m < 1
+        mpfr_exp_t raw_exp;
+        mpfr_t frac;
+        mpfr_init2(frac, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_frexp(&raw_exp, frac, abs_val, MPFR_RNDN);
+        // Now frac ∈ [0.5, 1), val = frac × 2^raw_exp
+        // IEEE: val = 1.mantissa × 2^(biased_exp - bias)
+        // So: 1.mantissa = frac × 2, and biased_exp = raw_exp - 1 + bias
+
+        int64_t biased_exp = raw_exp - 1 + bias;
+
+        if(biased_exp >= static_cast<int64_t>(max_exp)) {
+            // Overflow → infinity
+            v.exponent = max_exp;
+            v.significand = 0;
+        } else if(biased_exp >= 1) {
+            // Normal number
+            v.exponent = static_cast<uint64_t>(biased_exp);
+            // Extract mantissa bits: frac × 2 gives 1.xxxx, we want the xxxx part
+            // frac × 2^(mant_bits+1) gives (1.xxxx) × 2^mant_bits = integer with hidden bit
+            mpfr_mul_2ui(frac, frac, mant_bits + 1, MPFR_RNDN);
+            uint64_t full_mant = mpfr_get_uj(frac, MPFR_RNDZ);
+            v.significand = full_mant & ((1ULL << mant_bits) - 1); // remove hidden bit
+        } else {
+            // Subnormal or underflow to zero
+            // Subnormal: biased_exp would be 0, actual exp is 1 - bias
+            // val = 0.significand × 2^(1-bias)
+            // significand = val × 2^(bias-1+mant_bits) = val × 2^(bias-1+mant_bits)
+            int64_t shift = bias - 1 + static_cast<int64_t>(mant_bits);
+            mpfr_t sub_val;
+            mpfr_init2(sub_val, static_cast<mpfr_prec_t>(sb + 4));
+            mpfr_mul_2si(sub_val, abs_val, shift, MPFR_RNDN);
+            uint64_t sub_mant = mpfr_get_uj(sub_val, MPFR_RNDZ);
+            mpfr_clear(sub_val);
+            if(sub_mant == 0) {
+                // Underflow to zero
+                v.exponent = 0;
+                v.significand = 0;
+            } else {
+                v.exponent = 0;
+                v.significand = sub_mant & ((1ULL << mant_bits) - 1);
+            }
+        }
+
+        mpfr_clear(abs_val);
+        mpfr_clear(frac);
+        return v;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — rounding mode
+    // ═══════════════════════════════════════════════════════════════════════
+
+    int FloatingPointUtils::smtRMToFeround(const std::string& rm_name) {
+        if(rm_name == "roundNearestTiesToEven" || rm_name == "RNE") return FE_TONEAREST;
+        if(rm_name == "roundNearestTiesToAway" || rm_name == "RNA") return FE_TONEAREST; // best effort
+        if(rm_name == "roundTowardPositive"    || rm_name == "RTP") return FE_UPWARD;
+        if(rm_name == "roundTowardNegative"    || rm_name == "RTN") return FE_DOWNWARD;
+        if(rm_name == "roundTowardZero"        || rm_name == "RTZ") return FE_TOWARDZERO;
+        return FE_TONEAREST;
+    }
+
+    int FloatingPointUtils::getFPRoundingMode(const std::shared_ptr<DAGNode>& rm_node) {
+        if(!rm_node || rm_node->isNull()) return FE_TONEAREST;
+        return smtRMToFeround(rm_node->getName());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — MPFR rounding mode
+    // ═══════════════════════════════════════════════════════════════════════
+
+    mpfr_rnd_t FloatingPointUtils::smtRMToMpfrRound(const std::string& rm_name) {
+        if(rm_name == "roundNearestTiesToEven" || rm_name == "RNE") return MPFR_RNDN;
+        if(rm_name == "roundNearestTiesToAway" || rm_name == "RNA") return MPFR_RNDA;
+        if(rm_name == "roundTowardPositive"    || rm_name == "RTP") return MPFR_RNDU;
+        if(rm_name == "roundTowardNegative"    || rm_name == "RTN") return MPFR_RNDD;
+        if(rm_name == "roundTowardZero"        || rm_name == "RTZ") return MPFR_RNDZ;
+        return MPFR_RNDN;
+    }
+
+    mpfr_rnd_t FloatingPointUtils::getFPRoundingModeMpfr(const std::shared_ptr<DAGNode>& rm_node) {
+        if(!rm_node || rm_node->isNull()) return MPFR_RNDN;
+        return smtRMToMpfrRound(rm_node->getName());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — Generic MPFR-based FP operations
+    // ═══════════════════════════════════════════════════════════════════════
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::fpUnaryOp(const FPValue& a, size_t eb, size_t sb,
+                                   mpfr_rnd_t rnd, MpfrUnaryFn op) {
+        // Handle NaN input
+        if(a.isNaN()) {
+            FPValue nan_v;
+            nan_v.eb = eb; nan_v.sb = sb; nan_v.sign = 0;
+            nan_v.exponent = (1ULL << eb) - 1; nan_v.significand = 1;
+            return nan_v;
+        }
+        mpfr_t ma, mr;
+        mpfr_init2(ma, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mr, static_cast<mpfr_prec_t>(sb + 4));
+        a.toMpfr(ma);
+        op(mr, ma, rnd);
+        FPValue result = FPValue::fromMpfr(mr, eb, sb);
+        mpfr_clear(ma);
+        mpfr_clear(mr);
+        return result;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::fpBinaryOp(const FPValue& a, const FPValue& b,
+                                    size_t eb, size_t sb,
+                                    mpfr_rnd_t rnd, MpfrBinaryFn op) {
+        // NaN propagation: if either is NaN, result is NaN
+        if(a.isNaN() || b.isNaN()) {
+            FPValue nan_v;
+            nan_v.eb = eb; nan_v.sb = sb; nan_v.sign = 0;
+            nan_v.exponent = (1ULL << eb) - 1; nan_v.significand = 1;
+            return nan_v;
+        }
+        mpfr_t ma, mb, mr;
+        mpfr_init2(ma, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mb, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mr, static_cast<mpfr_prec_t>(sb + 4));
+        a.toMpfr(ma);
+        b.toMpfr(mb);
+        op(mr, ma, mb, rnd);
+        FPValue result = FPValue::fromMpfr(mr, eb, sb);
+        mpfr_clear(ma);
+        mpfr_clear(mb);
+        mpfr_clear(mr);
+        return result;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::fpTernaryOp(const FPValue& a, const FPValue& b,
+                                     const FPValue& c, size_t eb, size_t sb,
+                                     mpfr_rnd_t rnd, MpfrTernaryFn op) {
+        if(a.isNaN() || b.isNaN() || c.isNaN()) {
+            FPValue nan_v;
+            nan_v.eb = eb; nan_v.sb = sb; nan_v.sign = 0;
+            nan_v.exponent = (1ULL << eb) - 1; nan_v.significand = 1;
+            return nan_v;
+        }
+        mpfr_t ma, mb, mc, mr;
+        mpfr_init2(ma, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mb, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mc, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mr, static_cast<mpfr_prec_t>(sb + 4));
+        a.toMpfr(ma);
+        b.toMpfr(mb);
+        c.toMpfr(mc);
+        op(mr, ma, mb, mc, rnd);
+        FPValue result = FPValue::fromMpfr(mr, eb, sb);
+        mpfr_clear(ma);
+        mpfr_clear(mb);
+        mpfr_clear(mc);
+        mpfr_clear(mr);
+        return result;
+    }
+
+    int FloatingPointUtils::fpCompare(const FPValue& a, const FPValue& b) {
+        // NaN is unordered with everything (including itself)
+        if(a.isNaN() || b.isNaN()) return 2;
+
+        // Both zeros: +0 == -0
+        if(a.isZero() && b.isZero()) return 0;
+
+        mpfr_t ma, mb;
+        mpfr_init2(ma, static_cast<mpfr_prec_t>(std::max(a.sb, b.sb) + 4));
+        mpfr_init2(mb, static_cast<mpfr_prec_t>(std::max(a.sb, b.sb) + 4));
+        a.toMpfr(ma);
+        b.toMpfr(mb);
+        int cmp = mpfr_cmp(ma, mb);
+        mpfr_clear(ma);
+        mpfr_clear(mb);
+        if(cmp < 0) return -1;
+        if(cmp > 0) return 1;
+        return 0;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::fpRemainder(const FPValue& a, const FPValue& b,
+                                     size_t eb, size_t sb) {
+        if(a.isNaN() || b.isNaN()) {
+            FPValue nan_v;
+            nan_v.eb = eb; nan_v.sb = sb; nan_v.sign = 0;
+            nan_v.exponent = (1ULL << eb) - 1; nan_v.significand = 1;
+            return nan_v;
+        }
+        // remainder(±Inf, y) = NaN; remainder(x, ±0) = NaN
+        if(a.isInf() || b.isZero()) {
+            FPValue nan_v;
+            nan_v.eb = eb; nan_v.sb = sb; nan_v.sign = 0;
+            nan_v.exponent = (1ULL << eb) - 1; nan_v.significand = 1;
+            return nan_v;
+        }
+        mpfr_t ma, mb, mr;
+        mpfr_init2(ma, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mb, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mr, static_cast<mpfr_prec_t>(sb + 4));
+        a.toMpfr(ma);
+        b.toMpfr(mb);
+        mpfr_remainder(mr, ma, mb, MPFR_RNDN);
+        FPValue result = FPValue::fromMpfr(mr, eb, sb);
+        mpfr_clear(ma);
+        mpfr_clear(mb);
+        mpfr_clear(mr);
+        return result;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::fpRoundToIntegral(const FPValue& a,
+                                           size_t eb, size_t sb, mpfr_rnd_t rnd) {
+        if(a.isNaN()) {
+            FPValue nan_v;
+            nan_v.eb = eb; nan_v.sb = sb; nan_v.sign = 0;
+            nan_v.exponent = (1ULL << eb) - 1; nan_v.significand = 1;
+            return nan_v;
+        }
+        if(a.isInf() || a.isZero()) return a; // ±Inf and ±0 round to themselves
+        mpfr_t ma, mr;
+        mpfr_init2(ma, static_cast<mpfr_prec_t>(sb + 4));
+        mpfr_init2(mr, static_cast<mpfr_prec_t>(sb + 4));
+        a.toMpfr(ma);
+        mpfr_rint(mr, ma, rnd);
+        FPValue result = FPValue::fromMpfr(mr, eb, sb);
+        mpfr_clear(ma);
+        mpfr_clear(mr);
+        return result;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::fpMin(const FPValue& a, const FPValue& b) {
+        // IEEE 754 / SMT-LIB: if either is NaN, return the other
+        if(a.isNaN() && b.isNaN()) return a; // both NaN → NaN
+        if(a.isNaN()) return b;
+        if(b.isNaN()) return a;
+
+        int cmp = fpCompare(a, b);
+        if(cmp <= 0) return a; // a <= b or a == b
+        return b;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::fpMax(const FPValue& a, const FPValue& b) {
+        if(a.isNaN() && b.isNaN()) return a;
+        if(a.isNaN()) return b;
+        if(b.isNaN()) return a;
+
+        int cmp = fpCompare(a, b);
+        if(cmp >= 0) return a; // a >= b or a == b
+        return b;
+    }
+
+    std::optional<double> FloatingPointUtils::fpToDouble(const FPValue& v) {
+        if(v.isNaN() || v.isInf()) return std::nullopt;
+        if(v.isZero()) return v.sign ? -0.0 : 0.0;
+        mpfr_t m;
+        mpfr_init2(m, static_cast<mpfr_prec_t>(v.sb + 4));
+        v.toMpfr(m);
+        double d = mpfr_get_d(m, MPFR_RNDN);
+        mpfr_clear(m);
+        return d;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — bit-level helpers
+    // ═══════════════════════════════════════════════════════════════════════
+
+    uint64_t FloatingPointUtils::parseBVBits(const std::string& bv_name) {
+        if(bv_name.size() < 2) return 0;
+        if(bv_name[0] == '#' && bv_name[1] == 'b') {
+            uint64_t val = 0;
+            for(size_t i = 2; i < bv_name.size(); ++i)
+                val = (val << 1) | (bv_name[i] == '1' ? 1u : 0u);
+            return val;
+        }
+        if(bv_name[0] == '#' && bv_name[1] == 'x') {
+            uint64_t val = 0;
+            for(size_t i = 2; i < bv_name.size(); ++i) {
+                val <<= 4;
+                char c = bv_name[i];
+                if(c >= '0' && c <= '9') val |= static_cast<uint64_t>(c - '0');
+                else if(c >= 'a' && c <= 'f') val |= static_cast<uint64_t>(c - 'a' + 10);
+                else if(c >= 'A' && c <= 'F') val |= static_cast<uint64_t>(c - 'A' + 10);
+            }
+            return val;
+        }
+        return 0;
+    }
+
+    std::string FloatingPointUtils::uint64ToBinStr(uint64_t val, size_t width) {
+        std::string s(width, '0');
+        for(size_t i = 0; i < width; ++i)
+            s[width - 1 - i] = ((val >> i) & 1u) ? '1' : '0';
+        return "#b" + s;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — float reconstruction
+    // ═══════════════════════════════════════════════════════════════════════
+
+    float FloatingPointUtils::reconstructFloat32(uint32_t sign_bit, uint32_t exp_bits, uint32_t mant_bits) {
+        uint32_t bits = (sign_bit << 31) | (exp_bits << 23) | mant_bits;
+        float f;
+        std::memcpy(&f, &bits, sizeof(f));
+        return f;
+    }
+
+    double FloatingPointUtils::reconstructFloat64(uint64_t sign_bit, uint64_t exp_bits, uint64_t mant_bits) {
+        uint64_t bits = (sign_bit << 63) | (exp_bits << 52) | mant_bits;
+        double d;
+        std::memcpy(&d, &bits, sizeof(d));
+        return d;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — float → SMT-LIB string
+    // ═══════════════════════════════════════════════════════════════════════
+
+    std::string FloatingPointUtils::float32ToSMTFP(float f) {
+        return FPValue::fromFloat32(f).toSMTFP();
+    }
+
+    std::string FloatingPointUtils::float64ToSMTFP(double d) {
+        return FPValue::fromFloat64(d).toSMTFP();
+    }
+
+    std::string FloatingPointUtils::fpValueToSMTFP(const FPValue& v) {
+        return v.toSMTFP();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — DAGNode → FPValue / float / double
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Generic: parse any FP constant node into an FPValue
+    std::optional<FloatingPointUtils::FPValue> FloatingPointUtils::fpNodeToValue(const std::shared_ptr<DAGNode>& node) {
+        if(!node) return std::nullopt;
+        auto sort = node->getSort();
+        if(!sort || !sort->isFp()) return std::nullopt;
+
+        size_t eb = sort->getExponentWidth();
+        size_t sb = sort->getSignificandWidth();
+        FPValue v;
+        v.eb = eb;
+        v.sb = sb;
+
+        // Check node kinds for special constants
+        if(node->isNaN()) {
+            v.sign = 0;
+            v.exponent = (1ULL << eb) - 1;
+            v.significand = 1; // canonical quiet NaN
+            return v;
+        }
+        if(node->isPosInfinity()) {
+            v.sign = 0;
+            v.exponent = (1ULL << eb) - 1;
+            v.significand = 0;
+            return v;
+        }
+        if(node->isNegInfinity()) {
+            v.sign = 1;
+            v.exponent = (1ULL << eb) - 1;
+            v.significand = 0;
+            return v;
+        }
+
+        if(!node->isCFP() && !node->isConst()) return std::nullopt;
+
+        const std::string& name = node->getName();
+
+        // Check for +zero/-zero by name prefix (these are NT_CONST with FP sort)
+        if(name.size() > 8 && name.rfind("(_ +zero", 0) == 0) {
+            v.sign = 0; v.exponent = 0; v.significand = 0;
+            return v;
+        }
+        if(name.size() > 8 && name.rfind("(_ -zero", 0) == 0) {
+            v.sign = 1; v.exponent = 0; v.significand = 0;
+            return v;
+        }
+
+        // (a) bit_representation form with BV children
+        if(name == "(fp_bit_representation)" && node->getChildren().size() == 3) {
+            auto ch = node->getChildren();
+            v.sign = parseBVBits(ch[0]->getName());
+            v.exponent = parseBVBits(ch[1]->getName());
+            v.significand = parseBVBits(ch[2]->getName());
+            return v;
+        }
+
+        // (b) "(fp #bS #bEEE #bMMM...)" form
+        if(name.size() > 4 && name.rfind("(fp ", 0) == 0) {
+            std::istringstream iss(name.substr(1, name.size() - 2));
+            std::string tok;
+            std::vector<std::string> tokens;
+            while(iss >> tok) tokens.push_back(tok);
+            if(tokens.size() == 4) {
+                v.sign = parseBVBits(tokens[1]);
+                v.exponent = parseBVBits(tokens[2]);
+                v.significand = parseBVBits(tokens[3]);
+                return v;
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    std::optional<float> FloatingPointUtils::fpNodeToFloat32(const std::shared_ptr<DAGNode>& node) {
+        auto v = fpNodeToValue(node);
+        if(!v) return std::nullopt;
+        return v->toFloat32();
+    }
+
+    std::optional<double> FloatingPointUtils::fpNodeToFloat64(const std::shared_ptr<DAGNode>& node) {
+        auto v = fpNodeToValue(node);
+        if(!v) return std::nullopt;
+        return v->toFloat64();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FloatingPointUtils — special value checks (node-kind based, no string matching)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    bool FloatingPointUtils::fpNodeIsNaN(const std::shared_ptr<DAGNode>& node) {
+        if(!node) return false;
+        if(node->isNaN()) return true;  // NT_NAN kind — direct check
+        auto v = fpNodeToValue(node);
+        return v && v->isNaN();
+    }
+
+    bool FloatingPointUtils::fpNodeIsInf(const std::shared_ptr<DAGNode>& node) {
+        if(!node) return false;
+        if(node->isPosInfinity() || node->isNegInfinity()) return true;
+        auto v = fpNodeToValue(node);
+        return v && v->isInf();
+    }
+
+    bool FloatingPointUtils::fpNodeIsZero(const std::shared_ptr<DAGNode>& node) {
+        if(!node) return false;
+        auto v = fpNodeToValue(node);
+        return v && v->isZero();
+    }
+
+    bool FloatingPointUtils::fpNodeIsNeg(const std::shared_ptr<DAGNode>& node) {
+        if(!node) return false;
+        if(node->isNaN()) return false;  // NaN has no sign per SMT-LIB
+        if(node->isNegInfinity()) return true;
+        auto v = fpNodeToValue(node);
+        return v && !v->isNaN() && v->isNeg();
+    }
+
+    bool FloatingPointUtils::fpNodeIsNormal(const std::shared_ptr<DAGNode>& node) {
+        if(!node) return false;
+        auto v = fpNodeToValue(node);
+        return v && v->isNormal();
+    }
+
+    bool FloatingPointUtils::fpNodeIsSubnormal(const std::shared_ptr<DAGNode>& node) {
+        if(!node) return false;
+        auto v = fpNodeToValue(node);
+        return v && v->isSubnormal();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // UF utilities
+    // ═══════════════════════════════════════════════════════════════════════
+
+    namespace detail {
+        static void collectUFRec(
+            const std::shared_ptr<DAGNode>& node,
+            std::unordered_map<std::string, std::vector<UFApplication>>& out,
+            std::unordered_set<const DAGNode*>& visited)
+        {
+            if(!node || node->isNull()) return;
+            if(!visited.insert(node.get()).second) return;
+
+            if(node->isUFApplication()) {
+                UFApplication app;
+                app.func_name        = node->getName();
+                app.args             = node->getChildren();
+                app.application_node = node;
+                app.result_sort      = node->getSort();
+                out[app.func_name].push_back(std::move(app));
+            }
+
+            for(const auto& child : node->getChildren())
+                collectUFRec(child, out, visited);
+        }
+    } // namespace detail
+
+    std::unordered_map<std::string, std::vector<UFApplication>>
+    collectUFApplications(const std::vector<std::shared_ptr<DAGNode>>& assertions) {
+        std::unordered_map<std::string, std::vector<UFApplication>> result;
+        std::unordered_set<const DAGNode*> visited;
+        for(const auto& a : assertions)
+            detail::collectUFRec(a, result, visited);
+        return result;
+    }
+
+    std::string formatUFDefine(
+        const std::string& func_name,
+        const std::vector<std::string>& param_sorts,
+        const std::string& result_sort,
+        const std::vector<UFTableEntry>& entries,
+        const std::string& default_value)
+    {
+        std::string params;
+        for(size_t i = 0; i < param_sorts.size(); ++i) {
+            if(i > 0) params += ' ';
+            params += "(x" + std::to_string(i) + " " + param_sorts[i] + ")";
+        }
+
+        std::string body = default_value;
+        for(int i = static_cast<int>(entries.size()) - 1; i >= 0; --i) {
+            const auto& e = entries[static_cast<size_t>(i)];
+            std::string cond;
+            if(e.arg_values.size() == 1) {
+                cond = "(= x0 " + e.arg_values[0] + ")";
+            } else {
+                cond = "(and";
+                for(size_t j = 0; j < e.arg_values.size(); ++j)
+                    cond += " (= x" + std::to_string(j) + " " + e.arg_values[j] + ")";
+                cond += ")";
+            }
+            body = "(ite " + cond + " " + e.result_value + "\n  " + body + ")";
+        }
+
+        return "(define-fun " + func_name
+             + " (" + params + ") " + result_sort
+             + "\n  " + body + ")";
+    }
+
 }

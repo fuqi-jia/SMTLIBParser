@@ -64,6 +64,7 @@ namespace SOMTParser{
             void setValue(const bool& boolean_value);
 
             ValueType getType() const;
+            void setType(ValueType t) { value_type = t; }
             std::string getStringValue() const;
             Number getNumberValue() const;
             Interval getIntervalValue() const;

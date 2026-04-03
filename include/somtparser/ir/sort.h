@@ -61,13 +61,24 @@ namespace SOMTParser{
         std::string name;
         size_t arity;
         std::vector<std::shared_ptr<Sort>> children;
+
+        // Datatype constructor/selector information (non-null only when kind == SK_DATATYPE)
+        struct DtSelector {
+            std::string name;
+            std::shared_ptr<Sort> sort;
+        };
+        struct DtConstructor {
+            std::string name;
+            std::vector<DtSelector> selectors;
+        };
+        std::shared_ptr<std::vector<DtConstructor>> dt_constructors; // nullptr if not DT
         Sort(SORT_KIND kind, std::string name, size_t arity, std::vector<std::shared_ptr<Sort>> children): kind(kind), name(name), arity(arity), children(children) {}
         Sort(SORT_KIND kind, std::string name, size_t arity): kind(kind), name(name), arity(arity) {}
         Sort(SORT_KIND kind, std::string name): kind(kind), name(name), arity(0) {}
         Sort(SORT_KIND kind): kind(kind), name(""), arity(0) {}
         Sort(std::string name): kind(SORT_KIND::SK_UNKNOWN), name(name), arity(0) {}
         Sort(): kind(SORT_KIND::SK_UNKNOWN), name(""), arity(0) {}
-        Sort(const Sort& other): kind(other.kind), name(other.name), arity(other.arity), children(other.children) {}
+        Sort(const Sort& other): kind(other.kind), name(other.name), arity(other.arity), children(other.children), dt_constructors(other.dt_constructors) {}
 
 
         // check the type of the sort
@@ -97,6 +108,44 @@ namespace SOMTParser{
         bool isDec() const { return kind == SORT_KIND::SK_DEC; }
         bool isDef() const { return kind == SORT_KIND::SK_DEF; }
         bool isRoundingMode() const { return kind == SORT_KIND::SK_ROUNDING_MODE; }
+
+        // Datatype accessors
+        bool hasDtConstructors() const { return dt_constructors != nullptr && !dt_constructors->empty(); }
+
+        const std::vector<DtConstructor>& getDtConstructors() const {
+            static const std::vector<DtConstructor> empty;
+            return dt_constructors ? *dt_constructors : empty;
+        }
+
+        /// Find a constructor by name. Returns nullptr if not found.
+        const DtConstructor* getDtConstructorByName(const std::string& ctor_name) const {
+            if(!dt_constructors) return nullptr;
+            for(const auto& c : *dt_constructors)
+                if(c.name == ctor_name) return &c;
+            return nullptr;
+        }
+
+        /// Check if the given name is a constructor of this datatype.
+        bool hasDtConstructor(const std::string& ctor_name) const {
+            return getDtConstructorByName(ctor_name) != nullptr;
+        }
+
+        /// Check if the given name is a selector of any constructor in this datatype.
+        bool hasDtSelector(const std::string& sel_name) const {
+            if(!dt_constructors) return false;
+            for(const auto& c : *dt_constructors)
+                for(const auto& s : c.selectors)
+                    if(s.name == sel_name) return true;
+            return false;
+        }
+
+        /// Check if the given name is a tester (is-<ctor>) of this datatype.
+        bool hasDtTester(const std::string& tester_name) const {
+            if(!dt_constructors) return false;
+            if(tester_name.size() <= 3 || tester_name.rfind("is-", 0) != 0) return false;
+            std::string ctor_name = tester_name.substr(3);
+            return hasDtConstructor(ctor_name);
+        }
 
         // compare two sorts
         bool operator==(const Sort& other) const {
@@ -141,7 +190,7 @@ namespace SOMTParser{
                     return "(_ FloatingPoint " + std::to_string(children[0]->arity) + " " + std::to_string(children[1]->arity) + ")";
                 case SORT_KIND::SK_STR: return "String";
                 case SORT_KIND::SK_ARRAY: return "(Array " + children[0]->toString() + " " + children[1]->toString() + ")";
-                case SORT_KIND::SK_DATATYPE: return "Datatype";
+                case SORT_KIND::SK_DATATYPE: return name.empty() ? "Datatype" : name;
                 case SORT_KIND::SK_SET: return "Set";
                 case SORT_KIND::SK_RELATION: return "Relation";
                 case SORT_KIND::SK_BAG: return "Bag";
@@ -252,6 +301,8 @@ namespace SOMTParser{
             std::shared_ptr<Sort> createBVSort(size_t width);
             std::shared_ptr<Sort> createFPSort(size_t exp, size_t sig);
             std::shared_ptr<Sort> createArraySort(std::shared_ptr<Sort> index, std::shared_ptr<Sort> elem);
+            std::shared_ptr<Sort> createDatatypeSort(const std::string& name,
+                const std::vector<Sort::DtConstructor>& constructors);
             std::shared_ptr<Sort> createSortDec(const std::string& name, size_t arity);
             std::shared_ptr<Sort> createSortDef(const std::string& name, const std::vector<std::shared_ptr<Sort>> &params, std::shared_ptr<Sort> out_sort);
             
