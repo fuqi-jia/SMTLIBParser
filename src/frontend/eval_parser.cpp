@@ -431,6 +431,9 @@ namespace SOMTParser{
         else if(expr->isToFP()){
             return evaluateToFp(expr, model, result);
         }
+        else if(expr->isToFPUnsigned()){
+            return evaluateToFpUnsigned(expr, model, result);
+        }
         else if(expr->isFPIsNormal()){
             return evaluateFpIsNormal(expr, model, result);
         }
@@ -578,6 +581,21 @@ namespace SOMTParser{
         else if(expr->isRegComplement()){
             return evaluateRegComplement(expr, model, result);
         }
+        else if(expr->isRegLoop()){
+            return evaluateSimpleOp(expr, model, result, NODE_KIND::NT_REG_LOOP);
+        }
+        else if(expr->isConstArray()){
+            return evaluateConstArray(expr, model, result);
+        }
+        else if(expr->getKind() == NODE_KIND::NT_STR_REPLACE_REG){
+            return evaluateSimpleOp(expr, model, result, NODE_KIND::NT_STR_REPLACE_REG);
+        }
+        else if(expr->getKind() == NODE_KIND::NT_STR_REPLACE_REG_ALL){
+            return evaluateSimpleOp(expr, model, result, NODE_KIND::NT_STR_REPLACE_REG_ALL);
+        }
+        else if(expr->getKind() == NODE_KIND::NT_STR_INDEXOF_REG){
+            return evaluateSimpleOp(expr, model, result, NODE_KIND::NT_STR_INDEXOF_REG);
+        }
         else if(expr->isConstructorApp()){
             return evaluateDtConstructor(expr, model, result);
         }
@@ -713,6 +731,7 @@ namespace SOMTParser{
             case NODE_KIND::NT_STR_GT: // TODO: lt/le/gt/ge now is binary operation, but it should be n-ary operation
             case NODE_KIND::NT_STR_GE: // TODO: lt/le/gt/ge now is binary operation, but it should be n-ary operation
             case NODE_KIND::NT_STR_IN_REG:
+            case NODE_KIND::NT_STR_INDEXOF_REG:
             {
                 std::shared_ptr<DAGNode> l = NodeManager::NULL_NODE;
                 std::shared_ptr<DAGNode> r = NodeManager::NULL_NODE;
@@ -732,6 +751,9 @@ namespace SOMTParser{
             case NODE_KIND::NT_STR_UPDATE:
             case NODE_KIND::NT_STR_REPLACE:
             case NODE_KIND::NT_STR_REPLACE_ALL:
+            case NODE_KIND::NT_STR_REPLACE_REG:
+            case NODE_KIND::NT_STR_REPLACE_REG_ALL:
+            case NODE_KIND::NT_REG_LOOP:
             {
                 bool changed = false;
                 std::shared_ptr<DAGNode> l = NodeManager::NULL_NODE;
@@ -1647,7 +1669,7 @@ namespace SOMTParser{
     bool Parser::evaluateFpAbs(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         auto sort = fp1->getSort();
         if(fp1->isCFP() && sort){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
@@ -1660,7 +1682,7 @@ namespace SOMTParser{
     bool Parser::evaluateFpNeg(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         auto sort = fp1->getSort();
         if(fp1->isCFP() && sort){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
@@ -1674,7 +1696,8 @@ namespace SOMTParser{
         auto ch = expr->getChildren(); // [rm, fp1, fp2]
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE, fp2 = NodeManager::NULL_NODE;
         bool c1 = evaluate(ch[1], model, fp1), c2 = evaluate(ch[2], model, fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = ch[1];
+        if(!c2) fp2 = ch[2];
         auto rm = ch[0]; auto rnd = getFPRoundingModeMpfr(rm);
         auto sort = fp1->getSort();
         if(fp1->isCFP() && fp2->isCFP() && sort){
@@ -1692,7 +1715,8 @@ namespace SOMTParser{
         auto ch = expr->getChildren(); // [rm, fp1, fp2]
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE, fp2 = NodeManager::NULL_NODE;
         bool c1 = evaluate(ch[1], model, fp1), c2 = evaluate(ch[2], model, fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = ch[1];
+        if(!c2) fp2 = ch[2];
         auto rm = ch[0]; auto rnd = getFPRoundingModeMpfr(rm);
         auto sort = fp1->getSort();
         if(fp1->isCFP() && fp2->isCFP() && sort){
@@ -1710,7 +1734,8 @@ namespace SOMTParser{
         auto ch = expr->getChildren(); // [rm, fp1, fp2]
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE, fp2 = NodeManager::NULL_NODE;
         bool c1 = evaluate(ch[1], model, fp1), c2 = evaluate(ch[2], model, fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = ch[1];
+        if(!c2) fp2 = ch[2];
         auto rm = ch[0]; auto rnd = getFPRoundingModeMpfr(rm);
         auto sort = fp1->getSort();
         if(fp1->isCFP() && fp2->isCFP() && sort){
@@ -1728,7 +1753,8 @@ namespace SOMTParser{
         auto ch = expr->getChildren(); // [rm, fp1, fp2]
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE, fp2 = NodeManager::NULL_NODE;
         bool c1 = evaluate(ch[1], model, fp1), c2 = evaluate(ch[2], model, fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = ch[1];
+        if(!c2) fp2 = ch[2];
         auto rm = ch[0]; auto rnd = getFPRoundingModeMpfr(rm);
         auto sort = fp1->getSort();
         if(fp1->isCFP() && fp2->isCFP() && sort){
@@ -1746,7 +1772,9 @@ namespace SOMTParser{
         auto ch = expr->getChildren(); // [rm, fp1, fp2, fp3]
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE, fp3=NodeManager::NULL_NODE;
         bool c1=evaluate(ch[1],model,fp1), c2=evaluate(ch[2],model,fp2), c3=evaluate(ch[3],model,fp3);
-        if(!c1 && !c2 && !c3){ result = expr; return false; }
+        if(!c1) fp1 = ch[1];
+        if(!c2) fp2 = ch[2];
+        if(!c3) fp3 = ch[3];
         auto rm = ch[0]; auto rnd = getFPRoundingModeMpfr(rm);
         auto sort = fp1->getSort();
         if(fp1->isCFP() && fp2->isCFP() && fp3->isCFP() && sort){
@@ -1768,7 +1796,7 @@ namespace SOMTParser{
         bool changed;
         if(hasRM){ rnd = getFPRoundingModeMpfr(ch[0]); changed = evaluate(ch[1], model, fp1); }
         else { changed = evaluate(ch[0], model, fp1); }
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = hasRM ? ch[1] : ch[0];
         auto sort = fp1->getSort();
         if(fp1->isCFP() && sort){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
@@ -1784,7 +1812,8 @@ namespace SOMTParser{
     bool Parser::evaluateFpRem(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
         bool c1=evaluate(expr->getChildren()[0],model,fp1), c2=evaluate(expr->getChildren()[1],model,fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = expr->getChildren()[0];
+        if(!c2) fp2 = expr->getChildren()[1];
         auto sort = fp1->getSort();
         if(fp1->isCFP() && fp2->isCFP() && sort){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
@@ -1805,7 +1834,7 @@ namespace SOMTParser{
         bool changed;
         if(hasRM){ rnd = getFPRoundingModeMpfr(ch[0]); changed = evaluate(ch[1], model, fp1); }
         else { changed = evaluate(ch[0], model, fp1); }
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = hasRM ? ch[1] : ch[0];
         auto sort = fp1->getSort();
         if(fp1->isCFP() && sort){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
@@ -1821,7 +1850,8 @@ namespace SOMTParser{
     bool Parser::evaluateFpMin(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
         bool c1=evaluate(expr->getChildren()[0],model,fp1), c2=evaluate(expr->getChildren()[1],model,fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = expr->getChildren()[0];
+        if(!c2) fp2 = expr->getChildren()[1];
         auto sort = fp1->getSort();
         if(fp1->isCFP() && fp2->isCFP() && sort){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
@@ -1837,7 +1867,8 @@ namespace SOMTParser{
     bool Parser::evaluateFpMax(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
         bool c1=evaluate(expr->getChildren()[0],model,fp1), c2=evaluate(expr->getChildren()[1],model,fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = expr->getChildren()[0];
+        if(!c2) fp2 = expr->getChildren()[1];
         auto sort = fp1->getSort();
         if(fp1->isCFP() && fp2->isCFP() && sort){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
@@ -1853,7 +1884,8 @@ namespace SOMTParser{
     bool Parser::evaluateFpLe(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
         bool c1=evaluate(expr->getChildren()[0],model,fp1), c2=evaluate(expr->getChildren()[1],model,fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = expr->getChildren()[0];
+        if(!c2) fp2 = expr->getChildren()[1];
         if(fp1->isCFP() && fp2->isCFP()){
             auto va = fpNodeToValue(fp1); auto vb = fpNodeToValue(fp2);
             if(va && vb){
@@ -1867,7 +1899,8 @@ namespace SOMTParser{
     bool Parser::evaluateFpLt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
         bool c1=evaluate(expr->getChildren()[0],model,fp1), c2=evaluate(expr->getChildren()[1],model,fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = expr->getChildren()[0];
+        if(!c2) fp2 = expr->getChildren()[1];
         if(fp1->isCFP() && fp2->isCFP()){
             auto va = fpNodeToValue(fp1); auto vb = fpNodeToValue(fp2);
             if(va && vb){
@@ -1881,7 +1914,8 @@ namespace SOMTParser{
     bool Parser::evaluateFpGe(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
         bool c1=evaluate(expr->getChildren()[0],model,fp1), c2=evaluate(expr->getChildren()[1],model,fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = expr->getChildren()[0];
+        if(!c2) fp2 = expr->getChildren()[1];
         if(fp1->isCFP() && fp2->isCFP()){
             auto va = fpNodeToValue(fp1); auto vb = fpNodeToValue(fp2);
             if(va && vb){
@@ -1895,7 +1929,8 @@ namespace SOMTParser{
     bool Parser::evaluateFpGt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
         bool c1=evaluate(expr->getChildren()[0],model,fp1), c2=evaluate(expr->getChildren()[1],model,fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = expr->getChildren()[0];
+        if(!c2) fp2 = expr->getChildren()[1];
         if(fp1->isCFP() && fp2->isCFP()){
             auto va = fpNodeToValue(fp1); auto vb = fpNodeToValue(fp2);
             if(va && vb){
@@ -1909,7 +1944,8 @@ namespace SOMTParser{
     bool Parser::evaluateFpEq(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
         bool c1=evaluate(expr->getChildren()[0],model,fp1), c2=evaluate(expr->getChildren()[1],model,fp2);
-        if(!c1 && !c2){ result = expr; return false; }
+        if(!c1) fp1 = expr->getChildren()[0];
+        if(!c2) fp2 = expr->getChildren()[1];
         if(fp1->isCFP() && fp2->isCFP()){
             auto va = fpNodeToValue(fp1); auto vb = fpNodeToValue(fp2);
             if(va && vb){
@@ -1921,29 +1957,59 @@ namespace SOMTParser{
         return true;
 	}
     bool Parser::evaluateFpToUbv(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
-        // fp.to_ubv converts FP to unsigned BV; requires rounding mode
-        // children: [rm, fp] with indexed sort giving target width
+        // fp.to_ubv: children = [rm, fp], target BV width from expr sort
         auto ch = expr->getChildren();
-        bool hasRM = (ch.size() >= 2 && ch[0]->getSort() && !ch[0]->getSort()->isFp());
+        if(ch.size() < 2){ result = expr; return false; }
+        auto rm = ch[0];
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
-        bool changed = hasRM ? evaluate(ch[1], model, fp1) : evaluate(ch[0], model, fp1);
-        if(!changed){ result = expr; return false; }
-        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_TO_UBV, {hasRM ? ch[0] : fp1, hasRM ? fp1 : fp1});
+        bool changed = evaluate(ch[1], model, fp1);
+        if(!changed) fp1 = ch[1];
+        if(fp1->isCFP()){
+            auto sort = expr->getSort();
+            if(!sort){ result = expr; return false; }
+            size_t bv_width = sort->getBitWidth();
+            auto v = fpNodeToValue(fp1);
+            if(v){
+                auto rnd = getFPRoundingModeMpfr(rm);
+                auto bvStr = FloatingPointUtils::fpValueToUbv(*v, bv_width, rnd);
+                if(bvStr){
+                    result = mkConstBv(*bvStr, bv_width);
+                    return true;
+                }
+            }
+        }
+        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_TO_UBV, {rm, fp1});
         return true;
 	}
     bool Parser::evaluateFpToSbv(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
+        // fp.to_sbv: children = [rm, fp], target BV width from expr sort
         auto ch = expr->getChildren();
-        bool hasRM = (ch.size() >= 2 && ch[0]->getSort() && !ch[0]->getSort()->isFp());
+        if(ch.size() < 2){ result = expr; return false; }
+        auto rm = ch[0];
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
-        bool changed = hasRM ? evaluate(ch[1], model, fp1) : evaluate(ch[0], model, fp1);
-        if(!changed){ result = expr; return false; }
-        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_TO_SBV, {hasRM ? ch[0] : fp1, hasRM ? fp1 : fp1});
+        bool changed = evaluate(ch[1], model, fp1);
+        if(!changed) fp1 = ch[1];
+        if(fp1->isCFP()){
+            auto sort = expr->getSort();
+            if(!sort){ result = expr; return false; }
+            size_t bv_width = sort->getBitWidth();
+            auto v = fpNodeToValue(fp1);
+            if(v){
+                auto rnd = getFPRoundingModeMpfr(rm);
+                auto bvStr = FloatingPointUtils::fpValueToSbv(*v, bv_width, rnd);
+                if(bvStr){
+                    result = mkConstBv(*bvStr, bv_width);
+                    return true;
+                }
+            }
+        }
+        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_TO_SBV, {rm, fp1});
         return true;
 	}
     bool Parser::evaluateFpToReal(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         if(fp1->isCFP()){
             auto v = fpNodeToValue(fp1);
             if(v){
@@ -1958,22 +2024,114 @@ namespace SOMTParser{
         return true;
 	}
     bool Parser::evaluateToFp(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
-        // to_fp covers several indexed conversions; just evaluate children and rebuild
+        auto ch = expr->getChildren();
+        auto sort = expr->getSort();
+        if(!sort){ result = expr; return false; }
+        size_t target_eb = sort->getExponentWidth();
+        size_t target_sb = sort->getSignificandWidth();
+
+        if(ch.size() == 3) {
+            // Case: ((_ to_fp eb sb) BitVec) — bit reinterpretation, children = [eb, sb, bv]
+            std::shared_ptr<DAGNode> bv = NodeManager::NULL_NODE;
+            bool changed = evaluate(ch[2], model, bv);
+            if(!changed) bv = ch[2];
+            if(bv->isCBV()) {
+                auto fv = FloatingPointUtils::bvBitsToFpValue(bv->getName(), target_eb, target_sb);
+                if(fv) {
+                    result = mkConstFp(fv->toSMTFP(), target_eb, target_sb);
+                    return true;
+                }
+            }
+            result = mkOper(sort, NODE_KIND::NT_FP_TO_FP, ch[0], ch[1], bv);
+            return true;
+        } else if(ch.size() == 4) {
+            // Children = [eb, sb, rm, param]
+            auto rm = ch[2];
+            std::shared_ptr<DAGNode> param = NodeManager::NULL_NODE;
+            bool changed = evaluate(ch[3], model, param);
+            if(!changed) param = ch[3];
+            auto rnd = getFPRoundingModeMpfr(rm);
+
+            if(param->isCFP()) {
+                // Case: FP → FP (precision change)
+                auto v = fpNodeToValue(param);
+                if(v) {
+                    mpfr_t m;
+                    mpfr_init2(m, static_cast<mpfr_prec_t>(target_sb + 16));
+                    v->toMpfr(m);
+                    auto rv = FloatingPointUtils::FPValue::fromMpfr(m, target_eb, target_sb);
+                    mpfr_clear(m);
+                    result = mkConstFp(rv.toSMTFP(), target_eb, target_sb);
+                    return true;
+                }
+            } else if(param->isCReal() || param->isCInt()) {
+                // Case: Real/Integer → FP
+                ensureNumberValue(param);
+                auto val = param->getValue();
+                if(val) {
+                    auto num = val->getNumberValue();
+                    auto fv = FloatingPointUtils::realToFpValue(num, target_eb, target_sb, rnd);
+                    if(fv) {
+                        result = mkConstFp(fv->toSMTFP(), target_eb, target_sb);
+                        return true;
+                    }
+                }
+            } else if(param->isCBV()) {
+                // Case: Signed BV integer → FP (signed interpretation)
+                size_t bv_width = param->getSort()->getBitWidth();
+                uint64_t bv_val = FloatingPointUtils::parseBVBits(param->getName());
+                auto fv = FloatingPointUtils::bvToFpValueSigned(bv_val, bv_width, target_eb, target_sb, rnd);
+                if(fv) {
+                    result = mkConstFp(fv->toSMTFP(), target_eb, target_sb);
+                    return true;
+                }
+            }
+            // Fallback: rebuild symbolic
+            result = mkOper(sort, NODE_KIND::NT_FP_TO_FP, {ch[0], ch[1], rm, param});
+            return true;
+        }
+        // Unknown arity — evaluate children and rebuild
         bool changed = false;
         std::vector<std::shared_ptr<DAGNode>> evaled;
-        for(auto& child : expr->getChildren()){
+        for(auto& child : ch){
             std::shared_ptr<DAGNode> ev = NodeManager::NULL_NODE;
             changed |= evaluate(child, model, ev);
             evaled.push_back(ev);
         }
         if(!changed){ result = expr; return false; }
-        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_TO_FP, evaled);
+        result = mkOper(sort, NODE_KIND::NT_FP_TO_FP, evaled);
+        return true;
+	}
+    bool Parser::evaluateToFpUnsigned(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
+        // ((_ to_fp_unsigned eb sb) RoundingMode (_ BitVec m))
+        // Children: [eb, sb, rm, bv_param]
+        auto ch = expr->getChildren();
+        if(ch.size() != 4){ result = expr; return false; }
+        auto sort = expr->getSort();
+        if(!sort){ result = expr; return false; }
+        size_t target_eb = sort->getExponentWidth();
+        size_t target_sb = sort->getSignificandWidth();
+        auto rm = ch[2];
+        std::shared_ptr<DAGNode> param = NodeManager::NULL_NODE;
+        bool changed = evaluate(ch[3], model, param);
+        if(!changed) param = ch[3];
+        if(param->isCBV()) {
+            auto rnd = getFPRoundingModeMpfr(rm);
+            size_t bv_width = param->getSort()->getBitWidth();
+            uint64_t bv_val = FloatingPointUtils::parseBVBits(param->getName());
+            auto fv = FloatingPointUtils::bvToFpValueUnsigned(bv_val, bv_width, target_eb, target_sb, rnd);
+            if(fv) {
+                result = mkConstFp(fv->toSMTFP(), target_eb, target_sb);
+                return true;
+            }
+        }
+        result = mkOper(sort, NODE_KIND::NT_FP_TO_FP_UNSIGNED, {ch[0], ch[1], rm, param});
         return true;
 	}
     bool Parser::evaluateFpIsNormal(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         if(fp1->isCFP()){ result = fpNodeIsNormal(fp1) ? mkTrue() : mkFalse(); return true; }
         result = mkOper(SortManager::BOOL_SORT, NODE_KIND::NT_FP_IS_NORMAL, fp1);
         return true;
@@ -1981,7 +2139,7 @@ namespace SOMTParser{
     bool Parser::evaluateFpIsSubnormal(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         if(fp1->isCFP()){ result = fpNodeIsSubnormal(fp1) ? mkTrue() : mkFalse(); return true; }
         result = mkOper(SortManager::BOOL_SORT, NODE_KIND::NT_FP_IS_SUBNORMAL, fp1);
         return true;
@@ -1989,7 +2147,7 @@ namespace SOMTParser{
     bool Parser::evaluateFpIsZero(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         if(fp1->isCFP()){ result = fpNodeIsZero(fp1) ? mkTrue() : mkFalse(); return true; }
         result = mkOper(SortManager::BOOL_SORT, NODE_KIND::NT_FP_IS_ZERO, fp1);
         return true;
@@ -1997,7 +2155,7 @@ namespace SOMTParser{
     bool Parser::evaluateFpIsInf(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         if(fp1->isCFP()){ result = fpNodeIsInf(fp1) ? mkTrue() : mkFalse(); return true; }
         result = mkOper(SortManager::BOOL_SORT, NODE_KIND::NT_FP_IS_INF, fp1);
         return true;
@@ -2005,7 +2163,7 @@ namespace SOMTParser{
     bool Parser::evaluateFpIsNaN(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         if(fp1->isCFP()){ result = fpNodeIsNaN(fp1) ? mkTrue() : mkFalse(); return true; }
         result = mkOper(SortManager::BOOL_SORT, NODE_KIND::NT_FP_IS_NAN, fp1);
         return true;
@@ -2013,7 +2171,7 @@ namespace SOMTParser{
     bool Parser::evaluateFpIsNeg(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         if(fp1->isCFP()){ result = fpNodeIsNeg(fp1) ? mkTrue() : mkFalse(); return true; }
         result = mkOper(SortManager::BOOL_SORT, NODE_KIND::NT_FP_IS_NEG, fp1);
         return true;
@@ -2021,9 +2179,18 @@ namespace SOMTParser{
     bool Parser::evaluateFpIsPos(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
         bool changed = evaluate(expr->getChildren()[0], model, fp1);
-        if(!changed){ result = expr; return false; }
+        if(!changed) fp1 = expr->getChildren()[0];
         if(fp1->isCFP()){ result = !fpNodeIsNaN(fp1) && !fpNodeIsNeg(fp1) ? mkTrue() : mkFalse(); return true; }
         result = mkOper(SortManager::BOOL_SORT, NODE_KIND::NT_FP_IS_POS, fp1);
+        return true;
+	}
+    bool Parser::evaluateConstArray(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
+        auto ch = expr->getChildren();
+        if(ch.empty()){ result = expr; return false; }
+        std::shared_ptr<DAGNode> val = NodeManager::NULL_NODE;
+        bool changed = evaluate(ch[0], model, val);
+        if(!changed){ result = expr; return false; }
+        result = getNodeManager()->createNode(expr->getSort(), NODE_KIND::NT_CONST_ARRAY, "const_array", {val});
         return true;
 	}
     bool Parser::evaluateSelect(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){

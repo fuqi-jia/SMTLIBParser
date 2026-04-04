@@ -238,6 +238,20 @@ namespace SOMTParser{
 
         // Convert FPValue to double (for fp.to_real). Returns nullopt for NaN/Inf.
         static std::optional<double> fpToDouble(const FPValue& v);
+
+        // ─── FP conversion helpers (to_fp, fp.to_ubv, fp.to_sbv) ────
+        // Real/Integer → FPValue via MPFR rounding
+        static std::optional<FPValue> realToFpValue(const Number& real, size_t eb, size_t sb, mpfr_rnd_t rnd);
+        // Signed BV integer → FPValue via MPFR rounding
+        static std::optional<FPValue> bvToFpValueSigned(uint64_t bv_val, size_t bv_width, size_t eb, size_t sb, mpfr_rnd_t rnd);
+        // Unsigned BV integer → FPValue via MPFR rounding
+        static std::optional<FPValue> bvToFpValueUnsigned(uint64_t bv_val, size_t bv_width, size_t eb, size_t sb, mpfr_rnd_t rnd);
+        // BV bit reinterpretation → FPValue (no rounding, split bits into sign/exp/sig)
+        static std::optional<FPValue> bvBitsToFpValue(const std::string& bv_name, size_t eb, size_t sb);
+        // FPValue → unsigned BV string (decimal). nullopt if NaN/Inf/out-of-range.
+        static std::optional<std::string> fpValueToUbv(const FPValue& v, size_t bv_width, mpfr_rnd_t rnd);
+        // FPValue → signed BV string (decimal, 2's complement). nullopt if NaN/Inf/out-of-range.
+        static std::optional<std::string> fpValueToSbv(const FPValue& v, size_t bv_width, mpfr_rnd_t rnd);
     };
 
     // ─── Free function aliases (backward-compatible with fp_utils.h API) ────────

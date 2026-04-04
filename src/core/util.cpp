@@ -1804,8 +1804,121 @@ namespace SOMTParser{
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // FloatingPointUtils — bit-level helpers
+    // FloatingPointUtils — FP conversion helpers
     // ═══════════════════════════════════════════════════════════════════════
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::realToFpValue(const Number& real, size_t eb, size_t sb, mpfr_rnd_t rnd) {
+        mpfr_t m;
+        mpfr_init2(m, static_cast<mpfr_prec_t>(sb + 16)); // extra precision for rounding
+        if(real.isInteger()) {
+            auto& intVal = real.getInteger();
+            mpfr_set_z(m, intVal.getMPZ().get_mpz_t(), rnd);
+        } else {
+            mpfr_srcptr src = real.getReal().getMPFR();
+            mpfr_set(m, src, rnd);
+        }
+        // Now round m to target FP format
+        FPValue result = FPValue::fromMpfr(m, eb, sb);
+        mpfr_clear(m);
+        return result;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::bvToFpValueSigned(uint64_t bv_val, size_t bv_width, size_t eb, size_t sb, mpfr_rnd_t rnd) {
+        // Interpret BV as signed 2's complement integer
+        int64_t signed_val;
+        if(bv_width < 64 && (bv_val & (1ULL << (bv_width - 1)))) {
+            // Negative: sign-extend
+            signed_val = static_cast<int64_t>(bv_val | (~0ULL << bv_width));
+        } else {
+            signed_val = static_cast<int64_t>(bv_val);
+        }
+        mpfr_t m;
+        mpfr_init2(m, static_cast<mpfr_prec_t>(sb + 16));
+        mpfr_set_sj(m, signed_val, rnd);
+        FPValue result = FPValue::fromMpfr(m, eb, sb);
+        mpfr_clear(m);
+        return result;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::bvToFpValueUnsigned(uint64_t bv_val, size_t bv_width, size_t eb, size_t sb, mpfr_rnd_t rnd) {
+        (void)bv_width; // bv_val is already masked to width by parseBVBits
+        mpfr_t m;
+        mpfr_init2(m, static_cast<mpfr_prec_t>(sb + 16));
+        mpfr_set_uj(m, bv_val, rnd);
+        FPValue result = FPValue::fromMpfr(m, eb, sb);
+        mpfr_clear(m);
+        return result;
+    }
+
+    std::optional<FloatingPointUtils::FPValue>
+    FloatingPointUtils::bvBitsToFpValue(const std::string& bv_name, size_t eb, size_t sb) {
+        // Parse all bits from BV string
+        uint64_t all_bits = parseBVBits(bv_name);
+        size_t total_bits = 1 + eb + (sb - 1); // sign + exponent + mantissa
+        // Extract fields from MSB to LSB: [sign(1)] [exponent(eb)] [significand(sb-1)]
+        size_t mant_bits = sb - 1;
+        FPValue v;
+        v.eb = eb;
+        v.sb = sb;
+        v.significand = all_bits & ((1ULL << mant_bits) - 1);
+        all_bits >>= mant_bits;
+        v.exponent = all_bits & ((1ULL << eb) - 1);
+        all_bits >>= eb;
+        v.sign = all_bits & 1;
+        (void)total_bits;
+        return v;
+    }
+
+    std::optional<std::string>
+    FloatingPointUtils::fpValueToUbv(const FPValue& v, size_t bv_width, mpfr_rnd_t rnd) {
+        if(v.isNaN() || v.isInf()) return std::nullopt;
+        if(v.isZero()) return "0"; // +0 and -0 → 0
+        mpfr_t m;
+        mpfr_init2(m, static_cast<mpfr_prec_t>(v.sb + 4));
+        v.toMpfr(m);
+        // Check negative → undefined for unsigned
+        if(mpfr_sgn(m) < 0) { mpfr_clear(m); return std::nullopt; }
+        // Round to integer in target rounding mode
+        mpfr_rint(m, m, rnd);
+        // Check range [0, 2^bv_width)
+        mpfr_t max_val;
+        mpfr_init2(max_val, static_cast<mpfr_prec_t>(bv_width + 4));
+        mpfr_set_ui(max_val, 1, MPFR_RNDN);
+        mpfr_mul_2ui(max_val, max_val, bv_width, MPFR_RNDN); // max_val = 2^bv_width
+        if(mpfr_cmp(m, max_val) >= 0) { mpfr_clear(m); mpfr_clear(max_val); return std::nullopt; }
+        mpfr_clear(max_val);
+        uint64_t val = mpfr_get_uj(m, MPFR_RNDZ);
+        mpfr_clear(m);
+        return std::to_string(val);
+    }
+
+    std::optional<std::string>
+    FloatingPointUtils::fpValueToSbv(const FPValue& v, size_t bv_width, mpfr_rnd_t rnd) {
+        if(v.isNaN() || v.isInf()) return std::nullopt;
+        if(v.isZero()) return "0";
+        mpfr_t m;
+        mpfr_init2(m, static_cast<mpfr_prec_t>(v.sb + 4));
+        v.toMpfr(m);
+        // Round to integer in target rounding mode
+        mpfr_rint(m, m, rnd);
+        // Check range [-2^(bv_width-1), 2^(bv_width-1))
+        int64_t min_val = -(1LL << (bv_width - 1));
+        int64_t max_val = (1LL << (bv_width - 1));
+        int64_t int_val = mpfr_get_sj(m, MPFR_RNDZ);
+        mpfr_clear(m);
+        if(int_val < min_val || int_val >= max_val) return std::nullopt;
+        // Convert to unsigned 2's complement representation
+        uint64_t unsigned_val;
+        if(int_val >= 0) {
+            unsigned_val = static_cast<uint64_t>(int_val);
+        } else {
+            unsigned_val = static_cast<uint64_t>(int_val + (1LL << bv_width));
+        }
+        return std::to_string(unsigned_val);
+    }
 
     uint64_t FloatingPointUtils::parseBVBits(const std::string& bv_name) {
         if(bv_name.size() < 2) return 0;
