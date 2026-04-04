@@ -69,6 +69,43 @@ int main() {
         assert(parser->toString(ev) != "3");
     }
 
+    // ─── DT structural equality ─────────────────────────────────────────
+    {
+        auto e = parser->mkExpr("(= (left 7) (left 7))");
+        assert(e && !e->isErr());
+        auto ev = parser->evaluate(e, model);
+        std::cout << "  (= (left 7) (left 7)) => " << parser->toString(ev) << "\n";
+        assert(ev && ev->isTrue());
+    }
+    {
+        auto e = parser->mkExpr("(= (left 7) (left 8))");
+        assert(e && !e->isErr());
+        auto ev = parser->evaluate(e, model);
+        std::cout << "  (= (left 7) (left 8)) => " << parser->toString(ev) << "\n";
+        assert(ev && ev->isFalse());
+    }
+    {
+        auto e = parser->mkExpr("(= (left 7) (right 7))");
+        assert(e && !e->isErr());
+        auto ev = parser->evaluate(e, model);
+        std::cout << "  (= (left 7) (right 7)) => " << parser->toString(ev) << "\n";
+        assert(ev && ev->isFalse());
+    }
+    {
+        auto e = parser->mkExpr("(distinct (left 1) (left 2))");
+        assert(e && !e->isErr());
+        auto ev = parser->evaluate(e, model);
+        std::cout << "  (distinct (left 1) (left 2)) => " << parser->toString(ev) << "\n";
+        assert(ev && ev->isTrue());
+    }
+    {
+        auto e = parser->mkExpr("(distinct (left 1) (left 1))");
+        assert(e && !e->isErr());
+        auto ev = parser->evaluate(e, model);
+        std::cout << "  (distinct (left 1) (left 1)) => " << parser->toString(ev) << "\n";
+        assert(ev && ev->isFalse());
+    }
+
     std::cout << "test_datatype_eval: all assertions passed\n";
     return 0;
 }

@@ -47,7 +47,7 @@ namespace SOMTParser{
         return result;
     }
     bool Parser::evaluate(std::shared_ptr<DAGNode> expr, const std::shared_ptr<Model> &model, std::shared_ptr<DAGNode> &result){
-        if(model->isEmpty()){
+        if(model->isEmpty() && !expr->isEq() && !expr->isDistinct()){
             result = expr;
             return false;
         }
@@ -1096,24 +1096,24 @@ namespace SOMTParser{
         std::vector<std::shared_ptr<DAGNode>> const_vals;
         for(auto child : expr->getChildren()){
             std::shared_ptr<DAGNode> eval = NodeManager::NULL_NODE;
-            changed |= evaluate(child, model, eval);
-            if(eval->isConst()){
+            bool c = evaluate(child, model, eval);
+            if(!c) eval = child;
+            changed |= c;
+            if(eval->isConst() || eval->isDtGroundValue()){
                 const_vals.emplace_back(eval);
             }
             else{
                 children.emplace_back(eval);
             }
         }
-        if(!changed){
+        if(!changed && const_vals.empty()){
             result = expr;
             return false;
         }
-        condAssert(changed, "evaluateEq: changed is false");
         if(const_vals.empty()){
             result = mkEq(children);
             return true;
         }
-        condAssert(!const_vals.empty(), "evaluateEq: const_vals is empty");
         auto const_val = const_vals[0];
         for(size_t i = 1; i < const_vals.size(); ++i){
             if(const_val->isCInt() && const_vals[i]->isCInt()){
@@ -1159,6 +1159,12 @@ namespace SOMTParser{
                     return true;
                 }
             }
+            else if(const_val->isDtGroundValue() && const_vals[i]->isDtGroundValue()){
+                if(!areDtValuesEqual(const_val, const_vals[i])){
+                    result = mkFalse();
+                    return true;
+                }
+            }
             else{
                 condAssert(false, "evaluateEq: const_val is not a constant");
             }
@@ -1186,10 +1192,22 @@ namespace SOMTParser{
         bool changed = false;
         std::vector<std::shared_ptr<DAGNode>> children;
         std::unordered_set<std::shared_ptr<DAGNode>> const_vals;
+        std::vector<std::shared_ptr<DAGNode>> dt_vals;
         for(auto child : expr->getChildren()){
             std::shared_ptr<DAGNode> eval = NodeManager::NULL_NODE;
-            changed |= evaluate(child, model, eval);
-            if(eval->isConst()){
+            bool c = evaluate(child, model, eval);
+            if(!c) eval = child;
+            changed |= c;
+            if(eval->isDtGroundValue()){
+                for(auto& prev : dt_vals){
+                    if(areDtValuesEqual(eval, prev)){
+                        result = mkFalse();
+                        return true;
+                    }
+                }
+                dt_vals.push_back(eval);
+            }
+            else if(eval->isConst()){
                 if(const_vals.empty()){
                     const_vals.insert(eval);
                 }
@@ -1205,22 +1223,26 @@ namespace SOMTParser{
                 children.emplace_back(eval);
             }
         }
-        if(!changed){
+        if(!changed && const_vals.empty() && dt_vals.empty()){
             result = expr;
             return false;
         }
-        condAssert(changed, "evaluateDistinct: changed is false");
-        if(const_vals.empty()){
+        if(const_vals.empty() && dt_vals.empty()){
             result = mkDistinct(children);
             return true;
         }
-        condAssert(!const_vals.empty(), "evaluateDistinct: const_vals is empty");
         if(children.empty()){
             result = mkTrue();
         }
         else{
             children.insert(children.end(), const_vals.begin(), const_vals.end());
-            result = mkDistinct(children);
+            children.insert(children.end(), dt_vals.begin(), dt_vals.end());
+            if(children.size() <= 1){
+                result = mkTrue();
+            }
+            else{
+                result = mkDistinct(children);
+            }
         }
         return true;
     }
@@ -2470,6 +2492,26 @@ namespace SOMTParser{
     }
 
     // ─── Datatype evaluation ────────────────────────────────────────────────
+
+    bool Parser::areDtValuesEqual(const std::shared_ptr<DAGNode>& a, const std::shared_ptr<DAGNode>& b) {
+        if(!a->isDtGroundValue() || !b->isDtGroundValue()) return false;
+        if(a->getName() != b->getName()) return false;
+        if(a->getChildrenSize() != b->getChildrenSize()) return false;
+        for(size_t i = 0; i < a->getChildrenSize(); ++i){
+            auto ca = a->getChild(i);
+            auto cb = b->getChild(i);
+            if(ca->isDtGroundValue() && cb->isDtGroundValue()){
+                if(!areDtValuesEqual(ca, cb)) return false;
+            }
+            else if(ca->isConst() && cb->isConst()){
+                if(ca->toString() != cb->toString()) return false;
+            }
+            else{
+                return false;
+            }
+        }
+        return true;
+    }
 
     bool Parser::evaluateDtConstructor(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode>& result) {
         // Evaluate all children (constructor arguments)

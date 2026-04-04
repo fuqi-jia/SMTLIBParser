@@ -3947,6 +3947,9 @@ namespace SOMTParser{
         // Check if two arrays are equal using canonical form
         bool                                    areArraysEqual(const std::shared_ptr<DAGNode>& a, const std::shared_ptr<DAGNode>& b);
         
+        // Check if two DT ground values are structurally equal
+        bool                                    areDtValuesEqual(const std::shared_ptr<DAGNode>& a, const std::shared_ptr<DAGNode>& b);
+        
         // Check if an array contains variables (that prevent equality determination)
         bool                                    arrayContainsVar(const std::shared_ptr<DAGNode>& array);
         
