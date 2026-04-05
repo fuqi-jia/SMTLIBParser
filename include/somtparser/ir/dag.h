@@ -405,6 +405,7 @@ namespace SOMTParser{
         bool isConstructorApp()             const { return (kind == NODE_KIND::NT_DT_CONSTRUCTOR); };
         bool isSelectorApp()                const { return (kind == NODE_KIND::NT_DT_SELECTOR); };
         bool isTesterApp()                  const { return (kind == NODE_KIND::NT_DT_TESTER); };
+        bool isMatchApp()                   const { return (kind == NODE_KIND::NT_DT_MATCH); };
         bool isDtGroundValue()              const {
             if(kind != NODE_KIND::NT_DT_CONSTRUCTOR) return false;
             for(size_t i = 0; i < getChildrenSize(); ++i){

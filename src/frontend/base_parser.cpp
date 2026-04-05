@@ -261,6 +261,12 @@ namespace SOMTParser{
 	bool Parser::getEvaluateUseFloating() const{
 		return getOptions()->getEvaluateUseFloating();
 	}
+	void Parser::setStrictSmtlib(bool strict){
+		getOptions()->setStrictSmtlib(strict);
+	}
+	bool Parser::getStrictSmtlib() const{
+		return getOptions()->getStrictSmtlib();
+	}
 	Real Parser::toReal(std::shared_ptr<DAGNode> expr){
 		ensureNumberValue(expr);
 		condAssert(expr->isCReal() || expr->isCInt(), "Cannot convert non-constant expression to real");
@@ -2131,6 +2137,86 @@ namespace SOMTParser{
     std::shared_ptr<DAGNode> Parser::mkApplyUF(const std::shared_ptr<Sort>& sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params){
         NODE_KIND nk = getDtFunctionKind(sort, name, params);
         return getNodeManager()->createNode(sort, nk, name, params);
+    }
+
+    // MATCH EXPRESSION
+    // (match <term> ((<pattern> <body>) ... ))
+    std::shared_ptr<DAGNode> Parser::parseMatch(){
+        // Parse the scrutinee term
+        std::shared_ptr<DAGNode> scrutinee = parseExpr();
+
+        // Collect match cases: alternating (pattern, body) pairs
+        std::vector<std::shared_ptr<DAGNode>> children;
+        children.push_back(scrutinee);
+
+        auto dt_sort = scrutinee->getSort();
+
+        scanToNextSymbol();
+        while(*bufptr != ')'){
+            parseLpar(); // open a case: (<pattern> <body>)
+
+            std::vector<std::string> bound_vars;
+            std::shared_ptr<DAGNode> pattern;
+
+            scanToNextSymbol();
+            if(*bufptr == '('){
+                // Constructor pattern: (<ctor> <var1> ... <varN>)
+                parseLpar();
+                std::string ctor_name = getSymbol();
+
+                // Look up the constructor in the DT sort to get selector sorts
+                std::vector<std::shared_ptr<DAGNode>> pat_vars;
+                if(dt_sort && dt_sort->isDatatype() && dt_sort->hasDtConstructor(ctor_name)){
+                    const auto* ctor = dt_sort->getDtConstructorByName(ctor_name);
+                    if(ctor){
+                        for(size_t i = 0; i < ctor->selectors.size(); i++){
+                            std::string var_name = getSymbol();
+                            auto var = getNodeManager()->createNode(ctor->selectors[i].sort, NODE_KIND::NT_QUANT_VAR, var_name);
+                            getSymbolManager()->registerQuantVar(var_name, var);
+                            bound_vars.push_back(var_name);
+                            pat_vars.push_back(var);
+                        }
+                    }
+                }
+                parseRpar(); // close the pattern parens
+
+                pattern = getNodeManager()->createNode(dt_sort, NODE_KIND::NT_DT_CONSTRUCTOR, ctor_name, pat_vars);
+            } else {
+                // Either a nullary constructor name or a catch-all variable
+                std::string sym = getSymbol();
+                if(dt_sort && dt_sort->isDatatype() && dt_sort->hasDtConstructor(sym)){
+                    // Nullary constructor pattern
+                    pattern = getNodeManager()->createNode(dt_sort, NODE_KIND::NT_DT_CONSTRUCTOR, sym, {});
+                } else {
+                    // Catch-all variable pattern — bind the variable to a fresh var node
+                    auto var = getNodeManager()->createNode(dt_sort, NODE_KIND::NT_QUANT_VAR, sym);
+                    getSymbolManager()->registerQuantVar(sym, var);
+                    bound_vars.push_back(sym);
+                    pattern = var;
+                }
+            }
+
+            // Parse the body with quantifier scope active for bound pattern vars
+            bool saved_in_quant = in_quantifier_scope;
+            in_quantifier_scope = true;
+            std::shared_ptr<DAGNode> body = parseExpr();
+            in_quantifier_scope = saved_in_quant;
+
+            // Pop bound variables
+            getSymbolManager()->popQuantScope(bound_vars);
+
+            children.push_back(pattern);
+            children.push_back(body);
+
+            parseRpar(); // close the case
+
+            scanToNextSymbol();
+        }
+        // The caller (expr_parser) will parseRpar() for the closing ) of (match ...)
+
+        // Determine result sort from the first case body
+        auto result_sort = (children.size() >= 3) ? children[2]->getSort() : SortManager::BOOL_SORT;
+        return getNodeManager()->createNode(result_sort, NODE_KIND::NT_DT_MATCH, "match", children);
     }
 
 

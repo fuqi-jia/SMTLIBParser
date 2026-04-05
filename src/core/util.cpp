@@ -1811,12 +1811,17 @@ namespace SOMTParser{
     FloatingPointUtils::realToFpValue(const Number& real, size_t eb, size_t sb, mpfr_rnd_t rnd) {
         mpfr_t m;
         mpfr_init2(m, static_cast<mpfr_prec_t>(sb + 16)); // extra precision for rounding
-        if(real.isInteger()) {
+        // Use storage kind, not mathematical isInteger(): REAL_TYPE values like 10.0
+        // satisfy isInteger() but must use getReal(), not getInteger().
+        if(real.getType() == Number::INT_TYPE) {
             auto& intVal = real.getInteger();
             mpfr_set_z(m, intVal.getMPZ().get_mpz_t(), rnd);
-        } else {
+        } else if(real.getType() == Number::REAL_TYPE) {
             mpfr_srcptr src = real.getReal().getMPFR();
             mpfr_set(m, src, rnd);
+        } else {
+            mpfr_clear(m);
+            return std::nullopt;
         }
         // Now round m to target FP format
         FPValue result = FPValue::fromMpfr(m, eb, sb);

@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
+#include "somtparser/ir/number.h"
 #include <cassert>
 
 // Test integer arithmetic operations
@@ -117,6 +118,23 @@ void test_precision(SOMTParser::ParserPtr& parser) {
     assert(parser->toString(r5) == "6.2" && parser->toString(r6) == "6.3");
 }
 
+void test_number_bitwise_operators() {
+    std::cout << "=== Number (GMP) bitwise operators ===" << std::endl;
+    SOMTParser::Number a(SOMTParser::Integer(0b1100));
+    SOMTParser::Number b(SOMTParser::Integer(0b1010));
+
+    assert((a & b) == SOMTParser::Number(SOMTParser::Integer(0b1000)));
+    assert((a | b) == SOMTParser::Number(SOMTParser::Integer(0b1110)));
+    assert((a ^ b) == SOMTParser::Number(SOMTParser::Integer(0b0110)));
+    assert(~a == SOMTParser::Number(SOMTParser::Integer(-13)));
+
+    SOMTParser::Number c(SOMTParser::Integer(1));
+    assert((c << 3) == SOMTParser::Number(SOMTParser::Integer(8)));
+
+    SOMTParser::Number d(SOMTParser::Integer(16));
+    assert((d >> 2) == SOMTParser::Number(SOMTParser::Integer(4)));
+}
+
 int main() {
     std::cout << "======= Arithmetic Operations Test =======" << std::endl;
     
@@ -126,6 +144,7 @@ int main() {
     test_real_arithmetic(parser);
     test_comparisons(parser);
     test_precision(parser);
-    
+    test_number_bitwise_operators();
+
     return 0;
 } 

@@ -697,7 +697,15 @@ namespace SOMTParser{
         }
     }
 
-    NODE_KIND getOperKind(const std::string& s) {
+    static bool isNonStandardFpOperSpelling(const std::string& s) {
+        return s == "fp.=" || s == "fp.==" || s == "fp.toUbv" || s == "fp.toSbv" ||
+               s == "fp.isInf" || s == "fp.isNan" || s == "fp.isNeg" || s == "fp.isPos";
+    }
+
+    NODE_KIND getOperKind(const std::string& s, bool strict_smtlib_fp) {
+        if(strict_smtlib_fp && isNonStandardFpOperSpelling(s)) {
+            return NODE_KIND::NT_UNKNOWN;
+        }
         auto it = oper_key_map.find(s);
         if (it != oper_key_map.end()) {
             return it->second;

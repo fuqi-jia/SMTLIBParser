@@ -1330,6 +1330,37 @@ Number Number::operator--(int) {
     return temp;
 }
 
+// Bitwise operators
+Number Number::operator&(const Number& other) const {
+    condAssert(type == INT_TYPE && other.type == INT_TYPE, "Bitwise AND requires integer operands");
+    return Number(intValue & other.intValue);
+}
+
+Number Number::operator|(const Number& other) const {
+    condAssert(type == INT_TYPE && other.type == INT_TYPE, "Bitwise OR requires integer operands");
+    return Number(intValue | other.intValue);
+}
+
+Number Number::operator^(const Number& other) const {
+    condAssert(type == INT_TYPE && other.type == INT_TYPE, "Bitwise XOR requires integer operands");
+    return Number(intValue ^ other.intValue);
+}
+
+Number Number::operator~() const {
+    condAssert(type == INT_TYPE, "Bitwise NOT requires integer operand");
+    return Number(~intValue);
+}
+
+Number Number::operator<<(unsigned long bits) const {
+    condAssert(type == INT_TYPE, "Left shift requires integer operand");
+    return Number(intValue << bits);
+}
+
+Number Number::operator>>(unsigned long bits) const {
+    condAssert(type == INT_TYPE, "Right shift requires integer operand");
+    return Number(intValue >> bits);
+}
+
 // Comparison operators
 bool Number::operator==(const Number& other) const {
     if (type == other.type) {

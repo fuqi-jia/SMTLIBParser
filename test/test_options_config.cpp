@@ -59,6 +59,27 @@ int main() {
     assert(!opts3.empty());
     assert(parser3->getAssertions().size() == 1);
 
+    // strict SMT-LIB FP surface vs lenient dialect (no error: lines on stdout)
+    std::cout << "\n\n=== Test 5: strict_smtlib / lenient FP surface ===" << std::endl;
+    {
+        auto p = newParser();
+        p->setStrictSmtlib(false);
+        auto e = p->mkExpr("(fp.sqrt ((_ to_fp 8 24) RNE 25.0))");
+        assert(e && !e->isErr() && e->isCFP());
+    }
+    {
+        auto p = newParser();
+        p->setStrictSmtlib(true);
+        auto e = p->mkExpr("(fp.sqrt RNE ((_ to_fp 8 24) RNE 25.0))");
+        assert(e && !e->isErr() && e->isCFP());
+    }
+    {
+        auto p = newParser();
+        p->setStrictSmtlib(true);
+        auto e = p->mkExpr("(fp.eq ((_ to_fp 8 24) RNE 1.0) ((_ to_fp 8 24) RNE 1.0))");
+        assert(e && !e->isErr() && e->isTrue());
+    }
+
     return 0;
 }
 

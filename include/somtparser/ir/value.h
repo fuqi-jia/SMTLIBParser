@@ -29,6 +29,7 @@
 #include "somtparser/ir/number.h"
 #include "somtparser/ir/interval.h"
 #include <memory>
+#include <unordered_map>
 
 namespace SOMTParser{
     // This class is used to store the value of a variable
@@ -161,29 +162,29 @@ namespace SOMTParser{
             Value acsch() const;
 
             // all the bitwise operators are defined in the bv
-            // Value notOp() const;  // renamed from 'not' as it's a C++ keyword
-            // Value andOp(const Value& other) const;  // renamed from 'and'
-            // Value orOp(const Value& other) const;   // renamed from 'or'
-            // Value xorOp(const Value& other) const;  // renamed from 'xor'
-            // Value impliesOp(const Value& other) const; // renamed from 'implies'
-            // Value concatBv(const Value& other) const;  // renamed from 'concat' (to avoid conflict with string concat)
-            // Value extract(const Value& other) const;
-            // Value repeatBv(const Value& other) const;  // renamed from 'repeat' (to avoid conflict with string repeat)
-            // Value rotate_left(const Value& other) const;
-            // Value rotate_right(const Value& other) const;
-            // Value shift_left(const Value& other) const;
-            // Value shift_right(const Value& other) const;
+            Value notOp() const;
+            Value andOp(const Value& other) const;
+            Value orOp(const Value& other) const;
+            Value xorOp(const Value& other) const;
+            Value impliesOp(const Value& other) const;
+            Value concatBv(const Value& other) const;
+            Value extract(uint32_t high, uint32_t low) const;
+            Value repeatBv(uint32_t n) const;
+            Value rotate_left(const Value& other) const;
+            Value rotate_right(const Value& other) const;
+            Value shift_left(const Value& other) const;
+            Value shift_right(const Value& other) const;
 
-            // // all the fp operators are defined in the fp
-            // Value fadd(const Value& other) const;
-            // Value fsub(const Value& other) const;
-            // Value fmul(const Value& other) const;
-            // Value fdiv(const Value& other) const;
-            // Value frem(const Value& other) const;
+            // all the fp operators are defined in the fp
+            Value fadd(const Value& other) const;
+            Value fsub(const Value& other) const;
+            Value fmul(const Value& other) const;
+            Value fdiv(const Value& other) const;
+            Value frem(const Value& other) const;
 
-            // // all the array operators are defined in the array
-            // Value select(const Value& index) const;
-            // Value store(const Value& index, const Value& value) const;
+            // all the array operators are defined in the array
+            Value select(const Value& index) const;
+            Value store(const Value& index, const Value& value) const;
 
             // all the string operators are defined in the string
             Value concatStr(const Value& other) const;  // renamed from 'concat'
@@ -208,6 +209,20 @@ namespace SOMTParser{
 
             // print
             std::string toString() const;
+            // BV width
+            void setBvWidth(uint32_t w) { bv_width_ = w; }
+            uint32_t getBvWidth() const { return bv_width_; }
+
+            // FP accessors
+            void setFpValue(const std::string& fp_str, uint32_t eb, uint32_t sb);
+            std::string getFpString() const;
+            uint32_t getFpEb() const { return fp_eb_; }
+            uint32_t getFpSb() const { return fp_sb_; }
+
+            // Array accessors
+            void setArrayElement(const std::string& key, const Value& val);
+            void setArrayDefault(const Value& val);
+
         private:
             std::string string_value;
             Number number_value;
@@ -215,6 +230,18 @@ namespace SOMTParser{
             bool boolean_value;
 
             ValueType value_type;
+
+            // BV width tracking
+            uint32_t bv_width_ = 0;
+
+            // FP storage
+            std::string fp_smtlib_;
+            uint32_t fp_eb_ = 0;
+            uint32_t fp_sb_ = 0;
+
+            // Array storage
+            std::shared_ptr<std::unordered_map<std::string, Value>> array_data_;
+            std::shared_ptr<Value> array_default_;
     };
 
     std::shared_ptr<Value> newValue(const std::string& string_value);

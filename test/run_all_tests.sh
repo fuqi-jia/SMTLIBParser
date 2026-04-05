@@ -95,7 +95,6 @@ for test in $TEST_EXES; do
         echo -e "${GREEN}$test passed!${NC}"
     else
         echo -e "${RED}$test failed!${NC}"
-        # if the output contains "error:", output the error information
         if grep -q "error:" $OUTPUT; then
             echo -e "${RED}Found error information:${NC}"
             grep "error:" $OUTPUT

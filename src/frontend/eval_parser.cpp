@@ -47,7 +47,9 @@ namespace SOMTParser{
         return result;
     }
     bool Parser::evaluate(std::shared_ptr<DAGNode> expr, const std::shared_ptr<Model> &model, std::shared_ptr<DAGNode> &result){
-        if(model->isEmpty() && !expr->isEq() && !expr->isDistinct()){
+        if(model->isEmpty() && !expr->isEq() && !expr->isDistinct()
+           && !expr->isConstructorApp() && !expr->isSelectorApp()
+           && !expr->isTesterApp() && !expr->isMatchApp()){
             result = expr;
             return false;
         }
@@ -604,6 +606,9 @@ namespace SOMTParser{
         }
         else if(expr->isTesterApp()){
             return evaluateDtTester(expr, model, result);
+        }
+        else if(expr->isMatchApp()){
+            return evaluateMatch(expr, model, result);
         }
         else if(expr->isUFApplication()){
             return evaluateUFApply(expr, model, result);
@@ -1811,16 +1816,31 @@ namespace SOMTParser{
         return true;
 	}
     bool Parser::evaluateFpSqrt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
-        auto ch = expr->getChildren(); // [rm, fp1] or just [fp1]
-        bool hasRM = (ch.size() >= 2 && !ch[0]->getSort()->isFp());
-        std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
+        auto ch = expr->getChildren();
+        std::shared_ptr<DAGNode> rmOut;
+        std::shared_ptr<DAGNode> fpIn;
+        bool rmChanged = false;
+        if(ch.size() == 2 && ch[0]->getSort()->isRoundingMode()) {
+            rmOut = NodeManager::NULL_NODE;
+            rmChanged = evaluate(ch[0], model, rmOut);
+            if(!rmChanged) rmOut = ch[0];
+            fpIn = ch[1];
+        } else if(ch.size() == 1) {
+            rmOut = mkRoundingMode("RNE");
+            fpIn = ch[0];
+        } else {
+            result = expr;
+            return false;
+        }
         mpfr_rnd_t rnd = MPFR_RNDN;
-        bool changed;
-        if(hasRM){ rnd = getFPRoundingModeMpfr(ch[0]); changed = evaluate(ch[1], model, fp1); }
-        else { changed = evaluate(ch[0], model, fp1); }
-        if(!changed) fp1 = hasRM ? ch[1] : ch[0];
+        if(rmOut->isCRoundingMode()) {
+            rnd = getFPRoundingModeMpfr(rmOut);
+        }
+        std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
+        bool fpChanged = evaluate(fpIn, model, fp1);
+        if(!fpChanged) fp1 = fpIn;
         auto sort = fp1->getSort();
-        if(fp1->isCFP() && sort){
+        if(fp1->isCFP() && sort && rmOut->isCRoundingMode()){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
             auto v = fpNodeToValue(fp1);
             if(v){
@@ -1828,8 +1848,9 @@ namespace SOMTParser{
                 if(r){ result = mkConstFp(r->toSMTFP(), e, s); return true; }
             }
         }
-        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_SQRT, fp1);
-        return true;
+        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_SQRT, {rmOut, fp1});
+        const bool upgradedLegacyUnary = (ch.size() == 1);
+        return rmChanged || fpChanged || upgradedLegacyUnary;
 	}
     bool Parser::evaluateFpRem(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
@@ -1849,16 +1870,31 @@ namespace SOMTParser{
         return true;
 	}
     bool Parser::evaluateFpRoundToIntegral(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
-        auto ch = expr->getChildren(); // [rm, fp] or just [fp]
-        bool hasRM = (ch.size() >= 2 && !ch[0]->getSort()->isFp());
-        std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
+        auto ch = expr->getChildren();
+        std::shared_ptr<DAGNode> rmOut;
+        std::shared_ptr<DAGNode> fpIn;
+        bool rmChanged = false;
+        if(ch.size() == 2 && ch[0]->getSort()->isRoundingMode()) {
+            rmOut = NodeManager::NULL_NODE;
+            rmChanged = evaluate(ch[0], model, rmOut);
+            if(!rmChanged) rmOut = ch[0];
+            fpIn = ch[1];
+        } else if(ch.size() == 1) {
+            rmOut = mkRoundingMode("RNE");
+            fpIn = ch[0];
+        } else {
+            result = expr;
+            return false;
+        }
         mpfr_rnd_t rnd = MPFR_RNDN;
-        bool changed;
-        if(hasRM){ rnd = getFPRoundingModeMpfr(ch[0]); changed = evaluate(ch[1], model, fp1); }
-        else { changed = evaluate(ch[0], model, fp1); }
-        if(!changed) fp1 = hasRM ? ch[1] : ch[0];
+        if(rmOut->isCRoundingMode()) {
+            rnd = getFPRoundingModeMpfr(rmOut);
+        }
+        std::shared_ptr<DAGNode> fp1 = NodeManager::NULL_NODE;
+        bool fpChanged = evaluate(fpIn, model, fp1);
+        if(!fpChanged) fp1 = fpIn;
         auto sort = fp1->getSort();
-        if(fp1->isCFP() && sort){
+        if(fp1->isCFP() && sort && rmOut->isCRoundingMode()){
             size_t e = sort->getExponentWidth(), s = sort->getSignificandWidth();
             auto v = fpNodeToValue(fp1);
             if(v){
@@ -1866,8 +1902,9 @@ namespace SOMTParser{
                 if(r){ result = mkConstFp(r->toSMTFP(), e, s); return true; }
             }
         }
-        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_ROUND_TO_INTEGRAL, fp1);
-        return true;
+        result = mkOper(expr->getSort(), NODE_KIND::NT_FP_ROUND_TO_INTEGRAL, {rmOut, fp1});
+        const bool upgradedLegacyUnary = (ch.size() == 1);
+        return rmChanged || fpChanged || upgradedLegacyUnary;
 	}
     bool Parser::evaluateFpMin(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result){
         std::shared_ptr<DAGNode> fp1=NodeManager::NULL_NODE, fp2=NodeManager::NULL_NODE;
@@ -2230,6 +2267,15 @@ namespace SOMTParser{
             // Use mkOper directly to create select, then simplify
             std::shared_ptr<DAGNode> new_select = mkOper(eval_array->getSort()->getElemSort(), NODE_KIND::NT_SELECT, eval_array, eval_index);
             std::shared_ptr<DAGNode> simplified = simplifyArray(new_select);
+            if(simplified->isSelect()){
+                // simplifyArray couldn't fully resolve; try model fallback
+                auto sel_arr = simplified->getSelectArray();
+                auto sel_idx = simplified->getSelectIndex();
+                if(sel_arr->isVar() && model){
+                    auto mv = model->getArraySelect(sel_arr->getName(), dumpSMTLIB2(sel_idx));
+                    if(mv && !mv->isUnknown()){ result = mv; return true; }
+                }
+            }
             result = simplified;
             return true;
         }
@@ -2237,10 +2283,24 @@ namespace SOMTParser{
         // If nothing changed, try to simplify the original select
         std::shared_ptr<DAGNode> simplified = simplifyArray(expr);
         if (simplified != expr) {
+            if(simplified->isSelect()){
+                auto sel_arr = simplified->getSelectArray();
+                auto sel_idx = simplified->getSelectIndex();
+                if(sel_arr->isVar() && model){
+                    auto mv = model->getArraySelect(sel_arr->getName(), dumpSMTLIB2(sel_idx));
+                    if(mv && !mv->isUnknown()){ result = mv; return true; }
+                }
+            }
             result = simplified;
             return true;
         }
         
+        // Last resort: try model lookup on the original expression
+        if(model && array->isVar()){
+            auto mv = model->getArraySelect(array->getName(), dumpSMTLIB2(index));
+            if(mv && !mv->isUnknown()){ result = mv; return true; }
+        }
+
         result = expr;
         return false;
 	}
@@ -2586,6 +2646,44 @@ namespace SOMTParser{
             result = getNodeManager()->createNode(expr->getSort(), NODE_KIND::NT_DT_TESTER, expr->getName(), {dt_val});
             return true;
         }
+        result = expr;
+        return false;
+    }
+
+    bool Parser::evaluateMatch(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode>& result) {
+        // NT_DT_MATCH: child(0) = scrutinee, then pairs (pattern, body)
+        if(expr->getChildrenSize() < 3) { result = expr; return false; }
+
+        // Evaluate the scrutinee
+        std::shared_ptr<DAGNode> scrutinee = NodeManager::NULL_NODE;
+        evaluate(expr->getChild(0), model, scrutinee);
+
+        // Try each case (children[1]=pattern1, children[2]=body1, ...)
+        for(size_t i = 1; i + 1 < expr->getChildrenSize(); i += 2) {
+            auto pattern = expr->getChild(i);
+            auto body = expr->getChild(i + 1);
+
+            if(pattern->isConstructorApp()) {
+                // Constructor pattern: check if scrutinee matches this constructor
+                if(scrutinee->isConstructorApp() && scrutinee->getName() == pattern->getName()) {
+                    // Bind pattern variables to scrutinee's fields via substitution
+                    std::unordered_map<std::string, std::shared_ptr<DAGNode>> subst;
+                    for(size_t j = 0; j < pattern->getChildrenSize() && j < scrutinee->getChildrenSize(); j++) {
+                        subst[pattern->getChild(j)->getName()] = scrutinee->getChild(j);
+                    }
+                    auto expanded = substitute(body, subst);
+                    return evaluate(expanded, model, result);
+                }
+            } else {
+                // Catch-all variable pattern: bind the variable to the scrutinee
+                std::unordered_map<std::string, std::shared_ptr<DAGNode>> subst;
+                subst[pattern->getName()] = scrutinee;
+                auto expanded = substitute(body, subst);
+                return evaluate(expanded, model, result);
+            }
+        }
+
+        // No case matched, return scrutinee (shouldn't happen with well-formed match)
         result = expr;
         return false;
     }

@@ -2505,7 +2505,6 @@ namespace SOMTParser{
          * @return Floating-point square root node (fp.sqrt(param))
          */
         std::shared_ptr<DAGNode> mkFpSqrt(std::shared_ptr<DAGNode> rm, std::shared_ptr<DAGNode> param); // sqrt(rm, param)
-        std::shared_ptr<DAGNode> mkFpSqrt(std::shared_ptr<DAGNode> param); // sqrt(param)
         
         /**
          * @brief Create a floating-point round to integral node
@@ -2514,7 +2513,6 @@ namespace SOMTParser{
          * @return Floating-point round to integral node (fp.roundToIntegral(param))
          */
         std::shared_ptr<DAGNode> mkFpRoundToIntegral(std::shared_ptr<DAGNode> rm, std::shared_ptr<DAGNode> param); // round_to_integral(rm, param)
-        std::shared_ptr<DAGNode> mkFpRoundToIntegral(std::shared_ptr<DAGNode> param); // round_to_integral(param)
         
         /**
          * @brief Create a floating-point minimum node
@@ -3348,6 +3346,10 @@ namespace SOMTParser{
          */
         bool                                    getEvaluateUseFloating() const;
 
+        /** When true, enforce stricter SMT-LIB FloatingPoint surface syntax (see GlobalOptions::strict_smtlib_fp). */
+        void                                    setStrictSmtlib(bool strict);
+        bool                                    getStrictSmtlib() const;
+
         /**
          * @brief Evaluate an expression
          * 
@@ -3857,6 +3859,7 @@ namespace SOMTParser{
         std::string                             parseGroup();
         std::string                             parseWeight();
         std::shared_ptr<DAGNode>                parseQuant(const std::string& type);
+        std::shared_ptr<DAGNode>                parseMatch();
         
         // parse optimization
         // single_opt = (maximize <expr> [:comp <symbol>] [:epsilon <symbol>] [:M <symbol>] [:id <symbol>]) 
@@ -4191,6 +4194,7 @@ namespace SOMTParser{
         bool		evaluateDtConstructor(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateDtSelector(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateDtTester(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateMatch(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateLet(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool        evaluateMax(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool        evaluateMin(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);

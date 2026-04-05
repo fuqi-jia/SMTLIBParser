@@ -115,7 +115,7 @@ namespace SOMTParser{
         NT_EQ_BOOL,NT_EQ_OTHER,NT_DISTINCT_BOOL,NT_DISTINCT_OTHER,
         NT_UF_APPLY,
         // DATATYPE OPERATIONS
-        NT_DT_CONSTRUCTOR, NT_DT_SELECTOR, NT_DT_TESTER,
+        NT_DT_CONSTRUCTOR, NT_DT_SELECTOR, NT_DT_TESTER, NT_DT_MATCH,
         
         // ARITHMETIC CONSTANTS
         NT_CONST_PI,NT_CONST_E,NT_INFINITY,NT_NAN,NT_EPSILON,NT_POS_INFINITY,NT_NEG_INFINITY,NT_POS_EPSILON,NT_NEG_EPSILON,
@@ -413,7 +413,8 @@ namespace SOMTParser{
     std::string kindToString(const NODE_KIND& nk);
     NODE_KIND getFlipKind(const NODE_KIND& nk); // > -> <, < -> >, etc.
     NODE_KIND getNegatedKind(const NODE_KIND& nk); // > -> <=, < -> >=, etc.
-    NODE_KIND getOperKind(const std::string& s);
+    /** Resolve built-in operator name. When @p strict_smtlib_fp, reject non-standard FP spellings. */
+    NODE_KIND getOperKind(const std::string& s, bool strict_smtlib_fp = false);
 }
 
 

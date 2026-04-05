@@ -3128,18 +3128,6 @@ namespace SOMTParser{
         return mkOper(param->getSort(), NODE_KIND::NT_FP_SQRT, rm, param);
     }
     /*
-    (fp.sqrt Fp), return Fp
-    */
-    std::shared_ptr<DAGNode> Parser::mkFpSqrt(std::shared_ptr<DAGNode> param){
-        
-        if(!isFpParam(param)) {
-            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in fp_sqrt", line_number);
-            return mkUnknown();
-        }
-
-        return mkOper(param->getSort(), NODE_KIND::NT_FP_SQRT, param);
-    }
-    /*
     (fp.roundToIntegral RoundingMode Fp), return Fp
     */
     std::shared_ptr<DAGNode> Parser::mkFpRoundToIntegral(std::shared_ptr<DAGNode> rm, std::shared_ptr<DAGNode> param){
@@ -3151,18 +3139,6 @@ namespace SOMTParser{
         }
 
         return mkOper(param->getSort(), NODE_KIND::NT_FP_ROUND_TO_INTEGRAL, rm, param);
-    }
-    /*
-    (fp.roundToIntegral Fp), return Fp
-    */
-    std::shared_ptr<DAGNode> Parser::mkFpRoundToIntegral(std::shared_ptr<DAGNode> param){
-        
-        if(!isFpParam(param)) {
-            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in fp_roundToIntegral", line_number);
-            return mkUnknown();
-        }
-
-        return mkOper(param->getSort(), NODE_KIND::NT_FP_ROUND_TO_INTEGRAL, param);
     }
     /*
     (fp.min Fp+), return Fp
@@ -3301,8 +3277,13 @@ namespace SOMTParser{
             return mkUnknown();
         }
 
-        if(param->isCBV() && size->isCBV()){
-            return mkConstBv(FloatingPointUtils::fpToUbv(param->toString(), toInt(size)), toInt(size).toULong());
+        if(param->isCFP() && size->isCInt()){
+            auto v = fpNodeToValue(param);
+            if(v){
+                auto rnd = getFPRoundingModeMpfr(rm);
+                auto bvStr = FloatingPointUtils::fpValueToUbv(*v, toInt(size).toULong(), rnd);
+                if(bvStr) return mkConstBv(*bvStr, toInt(size).toULong());
+            }
         }
 
         std::shared_ptr<Sort> new_sort = getSortManager()->createBVSort(toInt(size).toULong());
@@ -3316,8 +3297,13 @@ namespace SOMTParser{
             return mkUnknown();
         }
 
-        if(param->isCBV() && size->isCBV()){
-            return mkConstBv(FloatingPointUtils::fpToSbv(param->toString(), toInt(size)), toInt(size).toULong());
+        if(param->isCFP() && size->isCInt()){
+            auto v = fpNodeToValue(param);
+            if(v){
+                auto rnd = getFPRoundingModeMpfr(rm);
+                auto bvStr = FloatingPointUtils::fpValueToSbv(*v, toInt(size).toULong(), rnd);
+                if(bvStr) return mkConstBv(*bvStr, toInt(size).toULong());
+            }
         }
 
         std::shared_ptr<Sort> new_sort = getSortManager()->createBVSort(toInt(size).toULong());

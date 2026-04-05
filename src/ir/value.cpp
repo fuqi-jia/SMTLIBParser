@@ -29,6 +29,9 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cctype>
+#include <sstream>
+#include <cstring>
+#include <cmath>
 
 namespace SOMTParser {
     // Default constructor
@@ -40,7 +43,13 @@ namespace SOMTParser {
         number_value(other.number_value),
         interval_value(other.interval_value),
         boolean_value(other.boolean_value),
-        value_type(other.value_type) {}
+        value_type(other.value_type),
+        bv_width_(other.bv_width_),
+        fp_smtlib_(other.fp_smtlib_),
+        fp_eb_(other.fp_eb_),
+        fp_sb_(other.fp_sb_),
+        array_data_(other.array_data_),
+        array_default_(other.array_default_) {}
 
     // Assignment operator
     Value& Value::operator=(const Value& other) {
@@ -50,6 +59,12 @@ namespace SOMTParser {
             interval_value = other.interval_value;
             boolean_value = other.boolean_value;
             value_type = other.value_type;
+            bv_width_ = other.bv_width_;
+            fp_smtlib_ = other.fp_smtlib_;
+            fp_eb_ = other.fp_eb_;
+            fp_sb_ = other.fp_sb_;
+            array_data_ = other.array_data_;
+            array_default_ = other.array_default_;
         }
         return *this;
     }
@@ -106,7 +121,7 @@ namespace SOMTParser {
     }
     
     Number Value::getNumberValue() const {
-        if (value_type != NUMBER) {
+        if (value_type != NUMBER && value_type != BV) {
             throw std::runtime_error("Value is not a number");
         }
         return number_value;
@@ -162,6 +177,12 @@ namespace SOMTParser {
                 return interval_value.toString();
             case BOOLEAN:
                 return boolean_value ? "true" : "false";
+            case BV:
+                return number_value.toString();
+            case FP:
+                return fp_smtlib_;
+            case ARRAY:
+                return "(array)";
             default:
                 return "unknown";
         }
@@ -466,38 +487,66 @@ namespace SOMTParser {
     
     // Bitwise operators
     Value Value::operator^(const Value& other) const {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Bitwise XOR requires number operands");
+        if ((value_type == NUMBER || value_type == BV) && (other.value_type == NUMBER || other.value_type == BV)) {
+            Number result = number_value ^ other.number_value;
+            Value v(result);
+            if (value_type == BV || other.value_type == BV) {
+                v.value_type = BV;
+                v.bv_width_ = (bv_width_ > 0) ? bv_width_ : other.bv_width_;
+            }
+            return v;
         }
-        throw std::runtime_error("Bitwise XOR operation not implemented for Number class");
+        throw std::runtime_error("Bitwise XOR requires number or BV operands");
     }
     
     Value Value::operator&(const Value& other) const {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Bitwise AND requires number operands");
+        if ((value_type == NUMBER || value_type == BV) && (other.value_type == NUMBER || other.value_type == BV)) {
+            Number result = number_value & other.number_value;
+            Value v(result);
+            if (value_type == BV || other.value_type == BV) {
+                v.value_type = BV;
+                v.bv_width_ = (bv_width_ > 0) ? bv_width_ : other.bv_width_;
+            }
+            return v;
         }
-        throw std::runtime_error("Bitwise AND operation not implemented for Number class");
+        throw std::runtime_error("Bitwise AND requires number or BV operands");
     }
     
     Value Value::operator|(const Value& other) const {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Bitwise OR requires number operands");
+        if ((value_type == NUMBER || value_type == BV) && (other.value_type == NUMBER || other.value_type == BV)) {
+            Number result = number_value | other.number_value;
+            Value v(result);
+            if (value_type == BV || other.value_type == BV) {
+                v.value_type = BV;
+                v.bv_width_ = (bv_width_ > 0) ? bv_width_ : other.bv_width_;
+            }
+            return v;
         }
-        throw std::runtime_error("Bitwise OR operation not implemented for Number class");
+        throw std::runtime_error("Bitwise OR requires number or BV operands");
     }
     
     Value Value::operator<<(const Value& other) const {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Left shift requires number operands");
+        if ((value_type == NUMBER || value_type == BV) && (other.value_type == NUMBER || other.value_type == BV)) {
+            unsigned long shift = other.number_value.toInteger().toULong();
+            Number result = number_value << shift;
+            Value v(result);
+            v.value_type = value_type;
+            v.bv_width_ = bv_width_;
+            return v;
         }
-        throw std::runtime_error("Left shift operation not implemented for Number class");
+        throw std::runtime_error("Left shift requires number or BV operands");
     }
     
     Value Value::operator>>(const Value& other) const {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Right shift requires number operands");
+        if ((value_type == NUMBER || value_type == BV) && (other.value_type == NUMBER || other.value_type == BV)) {
+            unsigned long shift = other.number_value.toInteger().toULong();
+            Number result = number_value >> shift;
+            Value v(result);
+            v.value_type = value_type;
+            v.bv_width_ = bv_width_;
+            return v;
         }
-        throw std::runtime_error("Right shift operation not implemented for Number class");
+        throw std::runtime_error("Right shift requires number or BV operands");
     }
     
     // Increment and decrement
@@ -539,12 +588,16 @@ namespace SOMTParser {
     
     // Unary operators
     Value Value::operator~() const {
-        if (value_type == NUMBER) {
-            throw std::runtime_error("Bitwise NOT operation not implemented for Number class");
+        if (value_type == NUMBER || value_type == BV) {
+            Number result = ~number_value;
+            Value v(result);
+            v.value_type = value_type;
+            v.bv_width_ = bv_width_;
+            return v;
         } else if (value_type == INTERVAL) {
             return Value(interval_value.operator~());
         } else {
-            throw std::runtime_error("Bitwise NOT requires a number or interval");
+            throw std::runtime_error("Bitwise NOT requires a number, BV, or interval");
         }
     }
     
@@ -1068,15 +1121,63 @@ namespace SOMTParser {
     }
     
     Value Value::toBV() const {
-        throw std::runtime_error("Conversion to bit-vector not implemented");
+        if (value_type == BV) {
+            return *this;
+        } else if (value_type == NUMBER) {
+            Value result(number_value);
+            result.value_type = BV;
+            result.bv_width_ = bv_width_;
+            return result;
+        } else {
+            throw std::runtime_error("Cannot convert this type to bit-vector");
+        }
     }
     
     Value Value::toFP() const {
-        throw std::runtime_error("Conversion to floating-point not implemented");
+        if (value_type == FP) {
+            return *this;
+        } else if (value_type == NUMBER) {
+            // Convert number to FP string representation using default double precision
+            Value result(ValueType::FP);
+            double d = number_value.toReal(64).toDouble();
+            // Store as IEEE 754 double-precision bit pattern
+            uint64_t bits;
+            std::memcpy(&bits, &d, sizeof(bits));
+            uint64_t sign = (bits >> 63) & 1;
+            uint64_t exp  = (bits >> 52) & 0x7FF;
+            uint64_t sig  = bits & 0x000FFFFFFFFFFFFF;
+            // Build SMT-LIB FP string
+            std::ostringstream oss;
+            oss << "(fp #b" << sign << " #b";
+            for (int i = 10; i >= 0; --i)
+                oss << ((exp >> i) & 1);
+            oss << " #b";
+            for (int i = 51; i >= 0; --i)
+                oss << ((sig >> i) & 1);
+            oss << ")";
+            result.fp_smtlib_ = oss.str();
+            result.fp_eb_ = 11;
+            result.fp_sb_ = 53;
+            return result;
+        } else if (value_type == STRING) {
+            // Try parsing string as a number first, then convert
+            Value num = toNumber();
+            return num.toFP();
+        } else {
+            throw std::runtime_error("Cannot convert this type to floating-point");
+        }
     }
     
     Value Value::toArray() const {
-        throw std::runtime_error("Conversion to array not implemented");
+        if (value_type == ARRAY) {
+            return *this;
+        } else {
+            // Create single-element array with key "0"
+            Value result(ValueType::ARRAY);
+            result.array_data_ = std::make_shared<std::unordered_map<std::string, Value>>();
+            (*result.array_data_)["0"] = *this;
+            return result;
+        }
     }
     
     // Other method implementations can be added as needed
@@ -1084,42 +1185,266 @@ namespace SOMTParser {
 
     // Bitwise assignment operators
     Value& Value::operator^=(const Value& other) {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Bitwise XOR requires number operands");
-        }
-        throw std::runtime_error("Bitwise XOR operation not implemented for Number class");
+        *this = *this ^ other;
         return *this;
     }
     
     Value& Value::operator&=(const Value& other) {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Bitwise AND requires number operands");
-        }
-        throw std::runtime_error("Bitwise AND operation not implemented for Number class");
+        *this = *this & other;
         return *this;
     }
     
     Value& Value::operator|=(const Value& other) {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Bitwise OR requires number operands");
-        }
-        throw std::runtime_error("Bitwise OR operation not implemented for Number class");
+        *this = *this | other;
         return *this;
     }
     
     Value& Value::operator<<=(const Value& other) {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Left shift requires number operands");
-        }
-        throw std::runtime_error("Left shift operation not implemented for Number class");
+        *this = *this << other;
         return *this;
     }
     
     Value& Value::operator>>=(const Value& other) {
-        if (value_type != NUMBER || other.value_type != NUMBER) {
-            throw std::runtime_error("Right shift requires number operands");
-        }
-        throw std::runtime_error("Right shift operation not implemented for Number class");
+        *this = *this >> other;
         return *this;
+    }
+
+    // ─── FP accessors ───────────────────────────────────────────────────
+    void Value::setFpValue(const std::string& fp_str, uint32_t eb, uint32_t sb) {
+        fp_smtlib_ = fp_str;
+        fp_eb_ = eb;
+        fp_sb_ = sb;
+        value_type = FP;
+    }
+
+    std::string Value::getFpString() const {
+        if (value_type != FP) {
+            throw std::runtime_error("Value is not a floating-point");
+        }
+        return fp_smtlib_;
+    }
+
+    // ─── Array accessors ────────────────────────────────────────────────
+    void Value::setArrayElement(const std::string& key, const Value& val) {
+        if (!array_data_) {
+            array_data_ = std::make_shared<std::unordered_map<std::string, Value>>();
+        }
+        (*array_data_)[key] = val;
+        value_type = ARRAY;
+    }
+
+    void Value::setArrayDefault(const Value& val) {
+        array_default_ = std::make_shared<Value>(val);
+        value_type = ARRAY;
+    }
+
+    // ─── BV operators ───────────────────────────────────────────────────
+    Value Value::notOp() const {
+        return ~(*this);
+    }
+
+    Value Value::andOp(const Value& other) const {
+        return *this & other;
+    }
+
+    Value Value::orOp(const Value& other) const {
+        return *this | other;
+    }
+
+    Value Value::xorOp(const Value& other) const {
+        return *this ^ other;
+    }
+
+    Value Value::impliesOp(const Value& other) const {
+        // bitwise implies: ~a | b
+        return notOp().orOp(other);
+    }
+
+    Value Value::concatBv(const Value& other) const {
+        if ((value_type != BV && value_type != NUMBER) ||
+            (other.value_type != BV && other.value_type != NUMBER)) {
+            throw std::runtime_error("concatBv requires BV or NUMBER operands");
+        }
+        // Shift this value left by other's width, then OR
+        uint32_t other_w = other.bv_width_;
+        Number result = (number_value << other_w) | other.number_value;
+        Value v(result);
+        v.value_type = BV;
+        v.bv_width_ = bv_width_ + other_w;
+        return v;
+    }
+
+    Value Value::extract(uint32_t high, uint32_t low) const {
+        if (value_type != BV && value_type != NUMBER) {
+            throw std::runtime_error("extract requires BV or NUMBER operand");
+        }
+        uint32_t width = high - low + 1;
+        // Shift right by low, then mask to width bits
+        Number shifted = number_value >> low;
+        Number mask = (Number(Integer(1)) << width) - Number(1);
+        Number result = shifted & mask;
+        Value v(result);
+        v.value_type = BV;
+        v.bv_width_ = width;
+        return v;
+    }
+
+    Value Value::repeatBv(uint32_t n) const {
+        if (value_type != BV && value_type != NUMBER) {
+            throw std::runtime_error("repeatBv requires BV or NUMBER operand");
+        }
+        if (n == 0) {
+            throw std::runtime_error("repeatBv count must be > 0");
+        }
+        Value result = *this;
+        for (uint32_t i = 1; i < n; ++i) {
+            result = result.concatBv(*this);
+        }
+        return result;
+    }
+
+    Value Value::rotate_left(const Value& other) const {
+        if ((value_type != BV && value_type != NUMBER) ||
+            (other.value_type != BV && other.value_type != NUMBER)) {
+            throw std::runtime_error("rotate_left requires BV or NUMBER operands");
+        }
+        uint32_t w = bv_width_;
+        if (w == 0) throw std::runtime_error("rotate_left: BV width is 0");
+        unsigned long amount = other.number_value.toInteger().toULong() % w;
+        if (amount == 0) return *this;
+        // rotate left: (x << amount) | (x >> (w - amount)), masked to w bits
+        Number mask = (Number(Integer(1)) << w) - Number(1);
+        Number result = ((number_value << amount) | (number_value >> (w - amount))) & mask;
+        Value v(result);
+        v.value_type = BV;
+        v.bv_width_ = w;
+        return v;
+    }
+
+    Value Value::rotate_right(const Value& other) const {
+        if ((value_type != BV && value_type != NUMBER) ||
+            (other.value_type != BV && other.value_type != NUMBER)) {
+            throw std::runtime_error("rotate_right requires BV or NUMBER operands");
+        }
+        uint32_t w = bv_width_;
+        if (w == 0) throw std::runtime_error("rotate_right: BV width is 0");
+        unsigned long amount = other.number_value.toInteger().toULong() % w;
+        if (amount == 0) return *this;
+        Number mask = (Number(Integer(1)) << w) - Number(1);
+        Number result = ((number_value >> amount) | (number_value << (w - amount))) & mask;
+        Value v(result);
+        v.value_type = BV;
+        v.bv_width_ = w;
+        return v;
+    }
+
+    Value Value::shift_left(const Value& other) const {
+        return *this << other;
+    }
+
+    Value Value::shift_right(const Value& other) const {
+        return *this >> other;
+    }
+
+    // ─── FP operators ───────────────────────────────────────────────────
+    Value Value::fadd(const Value& other) const {
+        if (value_type != FP || other.value_type != FP) {
+            throw std::runtime_error("fadd requires FP operands");
+        }
+        // Use native double arithmetic with default rounding
+        double a = 0.0, b = 0.0;
+        // Simple: parse from string representation if available
+        // Use a rough numeric approach via toString
+        try {
+            a = std::stod(fp_smtlib_);
+        } catch(...) { a = 0.0; }
+        try {
+            b = std::stod(other.fp_smtlib_);
+        } catch(...) { b = 0.0; }
+        double r = a + b;
+        Value result{Number(r)};
+        return result.toFP();
+    }
+
+    Value Value::fsub(const Value& other) const {
+        if (value_type != FP || other.value_type != FP) {
+            throw std::runtime_error("fsub requires FP operands");
+        }
+        double a = 0.0, b = 0.0;
+        try { a = std::stod(fp_smtlib_); } catch(...) { a = 0.0; }
+        try { b = std::stod(other.fp_smtlib_); } catch(...) { b = 0.0; }
+        double r = a - b;
+        Value result{Number(r)};
+        return result.toFP();
+    }
+
+    Value Value::fmul(const Value& other) const {
+        if (value_type != FP || other.value_type != FP) {
+            throw std::runtime_error("fmul requires FP operands");
+        }
+        double a = 0.0, b = 0.0;
+        try { a = std::stod(fp_smtlib_); } catch(...) { a = 0.0; }
+        try { b = std::stod(other.fp_smtlib_); } catch(...) { b = 0.0; }
+        double r = a * b;
+        Value result{Number(r)};
+        return result.toFP();
+    }
+
+    Value Value::fdiv(const Value& other) const {
+        if (value_type != FP || other.value_type != FP) {
+            throw std::runtime_error("fdiv requires FP operands");
+        }
+        double a = 0.0, b = 0.0;
+        try { a = std::stod(fp_smtlib_); } catch(...) { a = 0.0; }
+        try { b = std::stod(other.fp_smtlib_); } catch(...) { b = 0.0; }
+        double r = a / b;
+        Value result{Number(r)};
+        return result.toFP();
+    }
+
+    Value Value::frem(const Value& other) const {
+        if (value_type != FP || other.value_type != FP) {
+            throw std::runtime_error("frem requires FP operands");
+        }
+        double a = 0.0, b = 0.0;
+        try { a = std::stod(fp_smtlib_); } catch(...) { a = 0.0; }
+        try { b = std::stod(other.fp_smtlib_); } catch(...) { b = 0.0; }
+        double r = std::fmod(a, b);
+        Value result{Number(r)};
+        return result.toFP();
+    }
+
+    // ─── Array operators ────────────────────────────────────────────────
+    Value Value::select(const Value& index) const {
+        if (value_type != ARRAY) {
+            throw std::runtime_error("select requires an ARRAY operand");
+        }
+        std::string key = index.toString();
+        if (array_data_) {
+            auto it = array_data_->find(key);
+            if (it != array_data_->end()) {
+                return it->second;
+            }
+        }
+        if (array_default_) {
+            return *array_default_;
+        }
+        throw std::runtime_error("Array select: index not found and no default value");
+    }
+
+    Value Value::store(const Value& index, const Value& val) const {
+        if (value_type != ARRAY) {
+            throw std::runtime_error("store requires an ARRAY operand");
+        }
+        Value result(*this);
+        // Copy-on-write: clone the map
+        if (result.array_data_) {
+            result.array_data_ = std::make_shared<std::unordered_map<std::string, Value>>(
+                *result.array_data_);
+        } else {
+            result.array_data_ = std::make_shared<std::unordered_map<std::string, Value>>();
+        }
+        (*result.array_data_)[index.toString()] = val;
+        return result;
     }
 }

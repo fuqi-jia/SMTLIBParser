@@ -634,21 +634,68 @@ namespace SOMTParser{
                 }
                 return mkUnknown();
             }
-            case NODE_KIND::NT_FP_ABS:
-            case NODE_KIND::NT_FP_NEG:
-            case NODE_KIND::NT_FP_SQRT:
-            case NODE_KIND::NT_FP_ROUND_TO_INTEGRAL:
-            case NODE_KIND::NT_FP_IS_NORMAL:
-            case NODE_KIND::NT_FP_IS_SUBNORMAL:
-            case NODE_KIND::NT_FP_IS_ZERO:
-            case NODE_KIND::NT_FP_IS_INF:
-            case NODE_KIND::NT_FP_IS_NAN:
-            case NODE_KIND::NT_FP_IS_NEG:
-            case NODE_KIND::NT_FP_IS_POS:
+            case NODE_KIND::NT_FP_ABS:{
+                if(p->isCFP()){
+                    auto v = fpNodeToValue(p);
+                    if(v){
+                        auto s = p->getSort();
+                        return mkConstFp(v->abs().toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_NEG:{
+                if(p->isCFP()){
+                    auto v = fpNodeToValue(p);
+                    if(v){
+                        auto s = p->getSort();
+                        return mkConstFp(v->neg().toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_TO_REAL:{
+                if(p->isCFP()){
+                    auto v = fpNodeToValue(p);
+                    if(v){
+                        auto d = FloatingPointUtils::fpToDouble(*v);
+                        if(d) return mkConstReal(*d);
+                    }
+                }
+                return mkUnknown();
+            }
+            // fp.sqrt / fp.roundToIntegral: IR always (RM, FP); folding is in ternary/binary simp_oper.
             case NODE_KIND::NT_FP_TO_UBV:
             case NODE_KIND::NT_FP_TO_SBV:
-            case NODE_KIND::NT_FP_TO_REAL:
             case NODE_KIND::NT_FP_TO_FP:{
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_IS_NORMAL:{
+                if(p->isCFP()) return fpNodeIsNormal(p) ? mkTrue() : mkFalse();
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_IS_SUBNORMAL:{
+                if(p->isCFP()) return fpNodeIsSubnormal(p) ? mkTrue() : mkFalse();
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_IS_ZERO:{
+                if(p->isCFP()) return fpNodeIsZero(p) ? mkTrue() : mkFalse();
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_IS_INF:{
+                if(p->isCFP()) return fpNodeIsInf(p) ? mkTrue() : mkFalse();
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_IS_NAN:{
+                if(p->isCFP()) return fpNodeIsNaN(p) ? mkTrue() : mkFalse();
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_IS_NEG:{
+                if(p->isCFP()) return fpNodeIsNeg(p) ? mkTrue() : mkFalse();
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_IS_POS:{
+                if(p->isCFP()) return (!fpNodeIsNeg(p)) ? mkTrue() : mkFalse();
                 return mkUnknown();
             }
             case NODE_KIND::NT_STR_LEN:{
@@ -1206,14 +1253,80 @@ namespace SOMTParser{
                 }
                 return mkUnknown();
             }
+            case NODE_KIND::NT_FP_REM:{
+                if(l->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(l); auto vb = fpNodeToValue(r);
+                    if(va && vb){
+                        auto s = l->getSort();
+                        auto res = FloatingPointUtils::fpRemainder(*va, *vb, s->getExponentWidth(), s->getSignificandWidth());
+                        if(res) return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_SQRT:{
+                // binary: l=RM, r=FP
+                if(l->isCRoundingMode() && r->isCFP()){
+                    auto v = fpNodeToValue(r);
+                    if(v){
+                        auto s = r->getSort();
+                        auto rnd = getFPRoundingModeMpfr(l);
+                        auto res = FloatingPointUtils::fpUnaryOp(*v, s->getExponentWidth(), s->getSignificandWidth(), rnd, mpfr_sqrt);
+                        if(res) return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_ROUND_TO_INTEGRAL:{
+                // binary: l=RM, r=FP
+                if(l->isCRoundingMode() && r->isCFP()){
+                    auto v = fpNodeToValue(r);
+                    if(v){
+                        auto s = r->getSort();
+                        auto rnd = getFPRoundingModeMpfr(l);
+                        auto res = FloatingPointUtils::fpRoundToIntegral(*v, s->getExponentWidth(), s->getSignificandWidth(), rnd);
+                        if(res) return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
             case NODE_KIND::NT_FP_DIV:
-            case NODE_KIND::NT_FP_REM:
-            case NODE_KIND::NT_FP_LE:
-            case NODE_KIND::NT_FP_LT:
-            case NODE_KIND::NT_FP_GE:
-            case NODE_KIND::NT_FP_GT:
-            case NODE_KIND::NT_FP_EQ:
             case NODE_KIND::NT_SELECT:{
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_LE:{
+                if(l->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(l); auto vb = fpNodeToValue(r);
+                    if(va && vb){ int c = FloatingPointUtils::fpCompare(*va, *vb); return (c != 2 && c <= 0) ? mkTrue() : mkFalse(); }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_LT:{
+                if(l->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(l); auto vb = fpNodeToValue(r);
+                    if(va && vb){ int c = FloatingPointUtils::fpCompare(*va, *vb); return (c != 2 && c < 0) ? mkTrue() : mkFalse(); }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_GE:{
+                if(l->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(l); auto vb = fpNodeToValue(r);
+                    if(va && vb){ int c = FloatingPointUtils::fpCompare(*va, *vb); return (c != 2 && c >= 0) ? mkTrue() : mkFalse(); }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_GT:{
+                if(l->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(l); auto vb = fpNodeToValue(r);
+                    if(va && vb){ int c = FloatingPointUtils::fpCompare(*va, *vb); return (c != 2 && c > 0) ? mkTrue() : mkFalse(); }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_EQ:{
+                if(l->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(l); auto vb = fpNodeToValue(r);
+                    if(va && vb){ int c = FloatingPointUtils::fpCompare(*va, *vb); return (c == 0) ? mkTrue() : mkFalse(); }
+                }
                 return mkUnknown();
             }
             case NODE_KIND::NT_STR_PREFIXOF:{
@@ -1504,11 +1617,35 @@ namespace SOMTParser{
                 }
                 return mkUnknown();
             }
+            case NODE_KIND::NT_FP_MIN:{
+                if(l->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(l); auto vb = fpNodeToValue(r);
+                    if(va && vb){
+                        auto res = FloatingPointUtils::fpMin(*va, *vb);
+                        if(res){
+                            auto s = l->getSort();
+                            return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                        }
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_MAX:{
+                if(l->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(l); auto vb = fpNodeToValue(r);
+                    if(va && vb){
+                        auto res = FloatingPointUtils::fpMax(*va, *vb);
+                        if(res){
+                            auto s = l->getSort();
+                            return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                        }
+                    }
+                }
+                return mkUnknown();
+            }
             case NODE_KIND::NT_FP_ADD:
             case NODE_KIND::NT_FP_SUB:
             case NODE_KIND::NT_FP_MUL:
-            case NODE_KIND::NT_FP_MIN:
-            case NODE_KIND::NT_FP_MAX:
             case NODE_KIND::NT_REG_CONCAT:
             case NODE_KIND::NT_REG_UNION:
             case NODE_KIND::NT_REG_INTER:
@@ -1535,6 +1672,80 @@ namespace SOMTParser{
             }
             case NODE_KIND::NT_FP_FMA:
             case NODE_KIND::NT_STORE:{
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_ADD:{
+                // ternary: l=RM, m=FP, r=FP
+                if(l->isCRoundingMode() && m->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(m); auto vb = fpNodeToValue(r);
+                    if(va && vb){
+                        auto s = m->getSort();
+                        auto rnd = getFPRoundingModeMpfr(l);
+                        auto res = FloatingPointUtils::fpBinaryOp(*va, *vb, s->getExponentWidth(), s->getSignificandWidth(), rnd, mpfr_add);
+                        if(res) return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_SUB:{
+                if(l->isCRoundingMode() && m->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(m); auto vb = fpNodeToValue(r);
+                    if(va && vb){
+                        auto s = m->getSort();
+                        auto rnd = getFPRoundingModeMpfr(l);
+                        auto res = FloatingPointUtils::fpBinaryOp(*va, *vb, s->getExponentWidth(), s->getSignificandWidth(), rnd, mpfr_sub);
+                        if(res) return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_MUL:{
+                if(l->isCRoundingMode() && m->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(m); auto vb = fpNodeToValue(r);
+                    if(va && vb){
+                        auto s = m->getSort();
+                        auto rnd = getFPRoundingModeMpfr(l);
+                        auto res = FloatingPointUtils::fpBinaryOp(*va, *vb, s->getExponentWidth(), s->getSignificandWidth(), rnd, mpfr_mul);
+                        if(res) return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_DIV:{
+                if(l->isCRoundingMode() && m->isCFP() && r->isCFP()){
+                    auto va = fpNodeToValue(m); auto vb = fpNodeToValue(r);
+                    if(va && vb){
+                        auto s = m->getSort();
+                        auto rnd = getFPRoundingModeMpfr(l);
+                        auto res = FloatingPointUtils::fpBinaryOp(*va, *vb, s->getExponentWidth(), s->getSignificandWidth(), rnd, mpfr_div);
+                        if(res) return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_TO_UBV:{
+                // ternary: l=RM, m=FP, r=BV width (constant int index from indexed op)
+                if(l->isCRoundingMode() && m->isCFP() && r->isCInt()){
+                    auto v = fpNodeToValue(m);
+                    if(v){
+                        auto rnd = getFPRoundingModeMpfr(l);
+                        size_t w = toInt(r).toULong();
+                        auto bvStr = FloatingPointUtils::fpValueToUbv(*v, w, rnd);
+                        if(bvStr) return mkConstBv(*bvStr, w);
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_TO_SBV:{
+                if(l->isCRoundingMode() && m->isCFP() && r->isCInt()){
+                    auto v = fpNodeToValue(m);
+                    if(v){
+                        auto rnd = getFPRoundingModeMpfr(l);
+                        size_t w = toInt(r).toULong();
+                        auto bvStr = FloatingPointUtils::fpValueToSbv(*v, w, rnd);
+                        if(bvStr) return mkConstBv(*bvStr, w);
+                    }
+                }
                 return mkUnknown();
             }
             case NODE_KIND::NT_STR_SUBSTR:{
@@ -1676,11 +1887,6 @@ namespace SOMTParser{
             case NODE_KIND::NT_BV_UMULO:{
                 return mkUnknown();
             }
-            case NODE_KIND::NT_FP_ADD:
-            case NODE_KIND::NT_FP_SUB:
-            case NODE_KIND::NT_FP_MUL:
-            case NODE_KIND::NT_FP_MIN:
-            case NODE_KIND::NT_FP_MAX:
             case NODE_KIND::NT_REG_CONCAT:
             case NODE_KIND::NT_REG_UNION:
             case NODE_KIND::NT_REG_INTER:
@@ -1825,6 +2031,8 @@ namespace SOMTParser{
             case NODE_KIND::NT_BV_MUL:
             case NODE_KIND::NT_BV_CONCAT:
             case NODE_KIND::NT_STR_CONCAT:
+            case NODE_KIND::NT_FP_MIN:
+            case NODE_KIND::NT_FP_MAX:
             case NODE_KIND::NT_MAX:
             case NODE_KIND::NT_MIN:{
                 // convert to multi-pairs using {{l, m}, r}
@@ -1843,11 +2051,85 @@ namespace SOMTParser{
             case NODE_KIND::NT_BV_UMULO:{
                 return mkUnknown();
             }
+            case NODE_KIND::NT_FP_TO_FP:{
+                // ((_ to_fp eb sb) (_ BitVec m)) — children [eb, sb, bv]
+                if(p.size() == 3 && p[0]->isCInt() && p[1]->isCInt() && p[2]->isCBV()){
+                    size_t target_eb = toInt(p[0]).toULong();
+                    size_t target_sb = toInt(p[1]).toULong();
+                    auto fv = FloatingPointUtils::bvBitsToFpValue(p[2]->getName(), target_eb, target_sb);
+                    if(fv) return mkConstFp(fv->toSMTFP(), target_eb, target_sb);
+                }
+                // ((_ to_fp eb sb) RoundingMode arg): children [eb, sb, rm, param]
+                else if(p.size() == 4 && p[0]->isCInt() && p[1]->isCInt() && p[2]->isCRoundingMode()){
+                    size_t target_eb = toInt(p[0]).toULong();
+                    size_t target_sb = toInt(p[1]).toULong();
+                    auto rnd = getFPRoundingModeMpfr(p[2]);
+                    auto param = p[3];
+                    if(param->isCFP()){
+                        auto v = fpNodeToValue(param);
+                        if(v){
+                            mpfr_t m;
+                            mpfr_init2(m, static_cast<mpfr_prec_t>(target_sb + 16));
+                            v->toMpfr(m);
+                            auto rv = FloatingPointUtils::FPValue::fromMpfr(m, target_eb, target_sb);
+                            mpfr_clear(m);
+                            return mkConstFp(rv.toSMTFP(), target_eb, target_sb);
+                        }
+                    }
+                    else if(param->isCReal() || param->isCInt()){
+                        ensureNumberValue(param);
+                        auto val = param->getValue();
+                        if(val){
+                            auto num = val->getNumberValue();
+                            auto fv = FloatingPointUtils::realToFpValue(num, target_eb, target_sb, rnd);
+                            if(fv) return mkConstFp(fv->toSMTFP(), target_eb, target_sb);
+                        }
+                    }
+                    else if(param->isCBV()){
+                        size_t bv_width = param->getSort()->getBitWidth();
+                        uint64_t bv_val = FloatingPointUtils::parseBVBits(param->getName());
+                        auto fv = FloatingPointUtils::bvToFpValueSigned(bv_val, bv_width, target_eb, target_sb, rnd);
+                        if(fv) return mkConstFp(fv->toSMTFP(), target_eb, target_sb);
+                    }
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_TO_FP_UNSIGNED:{
+                if(p.size() == 4 && p[0]->isCInt() && p[1]->isCInt() && p[2]->isCRoundingMode() && p[3]->isCBV()){
+                    size_t target_eb = toInt(p[0]).toULong();
+                    size_t target_sb = toInt(p[1]).toULong();
+                    auto rnd = getFPRoundingModeMpfr(p[2]);
+                    auto param = p[3];
+                    size_t bv_width = param->getSort()->getBitWidth();
+                    uint64_t bv_val = FloatingPointUtils::parseBVBits(param->getName());
+                    auto fv = FloatingPointUtils::bvToFpValueUnsigned(bv_val, bv_width, target_eb, target_sb, rnd);
+                    if(fv) return mkConstFp(fv->toSMTFP(), target_eb, target_sb);
+                }
+                return mkUnknown();
+            }
+            case NODE_KIND::NT_FP_FMA:{
+                // vector: p = [RM, FP, FP, FP]
+                if(p.size() == 4 && p[0]->isCRoundingMode() && p[1]->isCFP() && p[2]->isCFP() && p[3]->isCFP()){
+                    auto va = fpNodeToValue(p[1]); auto vb = fpNodeToValue(p[2]); auto vc = fpNodeToValue(p[3]);
+                    if(va && vb && vc){
+                        auto s = p[1]->getSort();
+                        auto rnd = getFPRoundingModeMpfr(p[0]);
+                        auto res = FloatingPointUtils::fpTernaryOp(*va, *vb, *vc, s->getExponentWidth(), s->getSignificandWidth(), rnd, mpfr_fma);
+                        if(res) return mkConstFp(res->toSMTFP(), s->getExponentWidth(), s->getSignificandWidth());
+                    }
+                }
+                return mkUnknown();
+            }
             case NODE_KIND::NT_FP_ADD:
             case NODE_KIND::NT_FP_SUB:
             case NODE_KIND::NT_FP_MUL:
-            case NODE_KIND::NT_FP_MIN:
-            case NODE_KIND::NT_FP_MAX:
+            case NODE_KIND::NT_FP_DIV:{
+                // vector with 3 args: dispatch to ternary (l=RM, m=FP, r=FP)
+                if(p.size() == 3){
+                    return simp_oper(t, p[0], p[1], p[2]);
+                }
+                return mkUnknown();
+            }
             case NODE_KIND::NT_REG_CONCAT:
             case NODE_KIND::NT_REG_UNION:
             case NODE_KIND::NT_REG_INTER:

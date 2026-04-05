@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
+#include "somtparser/ir/number.h"
+#include "somtparser/ir/value.h"
 #include <cassert>
 
 // Test bitvector constants
@@ -92,15 +94,39 @@ void test_bv_comparison_operations(SOMTParser::ParserPtr& parser) {
     }
 }
 
+void test_value_bv_operators_ir() {
+    std::cout << "=== Value class BV logical/shift (IR) ===" << std::endl;
+    SOMTParser::Value a(SOMTParser::Number(SOMTParser::Integer(0xA)));
+    a.setType(SOMTParser::BV);
+    a.setBvWidth(4);
+    SOMTParser::Value b(SOMTParser::Number(SOMTParser::Integer(0x5)));
+    b.setType(SOMTParser::BV);
+    b.setBvWidth(4);
+
+    SOMTParser::Value r_and = a.andOp(b);
+    assert(r_and.getType() == SOMTParser::BV);
+    assert(r_and.toNumber() == SOMTParser::Number(SOMTParser::Integer(0x0)));
+
+    SOMTParser::Value r_or = a.orOp(b);
+    assert(r_or.toNumber() == SOMTParser::Number(SOMTParser::Integer(0xF)));
+
+    SOMTParser::Value r_xor = a.xorOp(b);
+    assert(r_xor.toNumber() == SOMTParser::Number(SOMTParser::Integer(0xF)));
+
+    SOMTParser::Value r_shl = a.shift_left(SOMTParser::Number(SOMTParser::Integer(1)));
+    assert(r_shl.toNumber() == SOMTParser::Number(SOMTParser::Integer(20)));
+}
+
 int main() {
     std::cout << "======= Bitvector Operations Test =======" << std::endl;
-    
+
     SOMTParser::ParserPtr parser = SOMTParser::newParser();
-    
+
     test_bitvector_constants(parser);
     test_bv_logical_operations(parser);
     test_bv_arithmetic_operations(parser);
     test_bv_comparison_operations(parser);
-    
+    test_value_bv_operators_ir();
+
     return 0;
 } 
