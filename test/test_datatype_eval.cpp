@@ -121,6 +121,12 @@ int main() {
     {
         auto e = parser->mkExpr("(match (left 42) ((left x) x) ((right y) y))");
         VERIFY(e && !e->isErr());
+        {
+            std::string d = dumpSMTLIB2(e);
+            VERIFY(d.find("NT_DT") == std::string::npos);
+            // SMT-LIB: (match s ( (<pat> <body>) ... )) — nested parens, not flat match args
+            VERIFY(d.find("((left") != std::string::npos);
+        }
         auto ev = parser->evaluate(e, model);
         std::cout << "  (match (left 42) ...) => " << parser->toString(ev) << "\n";
         VERIFY(ev && parser->toString(ev) == "42");

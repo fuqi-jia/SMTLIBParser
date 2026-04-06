@@ -551,6 +551,94 @@ namespace SOMTParser{
                 }
                 break;
             }
+
+            // Datatype operations
+            case NODE_KIND::NT_DT_CONSTRUCTOR: {
+                // Constructor application: (CtorName arg1 arg2 ...) or just CtorName
+                const auto& children = node->getChildren();
+                if (children.empty()) {
+                    out << node->getName();
+                } else {
+                    out << "(" << node->getName();
+                    work_stack.emplace_back(nullptr, 2);  // )
+                    for (int i = children.size() - 1; i >= 0; i--) {
+                        work_stack.emplace_back(children[i].get(), 0);
+                        work_stack.emplace_back(nullptr, 1);  // space
+                    }
+                }
+                break;
+            }
+            case NODE_KIND::NT_DT_SELECTOR: {
+                // Selector application: (sel-name arg)
+                const auto& children = node->getChildren();
+                if (children.empty()) {
+                    out << node->getName();
+                } else {
+                    out << "(" << node->getName();
+                    work_stack.emplace_back(nullptr, 2);  // )
+                    for (int i = children.size() - 1; i >= 0; i--) {
+                        work_stack.emplace_back(children[i].get(), 0);
+                        work_stack.emplace_back(nullptr, 1);  // space
+                    }
+                }
+                break;
+            }
+            case NODE_KIND::NT_DT_TESTER: {
+                // Tester application: (is-CtorName arg); bare symbol if no arg (same as ctor)
+                const auto& children = node->getChildren();
+                if (children.empty()) {
+                    out << node->getName();
+                } else {
+                    out << "(" << node->getName();
+                    work_stack.emplace_back(nullptr, 2);  // )
+                    for (int i = children.size() - 1; i >= 0; i--) {
+                        work_stack.emplace_back(children[i].get(), 0);
+                        work_stack.emplace_back(nullptr, 1);  // space
+                    }
+                }
+                break;
+            }
+            case NODE_KIND::NT_DT_MATCH: {
+                // SMT-LIB: (match <scrutinee> ( (<pattern> <body>) ... ))
+                out << "(match";
+                const auto& children = node->getChildren();
+                if (children.empty()) {
+                    out << ")";
+                    break;
+                }
+                const size_t n = children.size();
+                work_stack.emplace_back(nullptr, 2);  // close outer (match ...)
+
+                if (n >= 2) {
+                    work_stack.emplace_back(nullptr, 2);  // close case-list )
+                    const size_t pairs = (n - 1) / 2;
+                    for (int ci = static_cast<int>(pairs) - 1; ci >= 0; --ci) {
+                        const size_t pi = 1u + static_cast<size_t>(ci) * 2u;
+                        const size_t bi = pi + 1;
+                        if (bi >= n) {
+                            break;
+                        }
+                        work_stack.emplace_back(nullptr, 2);  // close (pat body)
+                        work_stack.emplace_back(children[bi].get(), 0);
+                        work_stack.emplace_back(nullptr, 1);
+                        work_stack.emplace_back(children[pi].get(), 0);
+                        work_stack.emplace_back("(", 4);
+                        if (ci > 0) {
+                            work_stack.emplace_back(nullptr, 1);  // space between cases
+                        }
+                    }
+                    work_stack.emplace_back("(", 4);  // open case-list (
+                } else {
+                    // n == 1: only scrutinee — (match s ())
+                    work_stack.emplace_back(nullptr, 2);  // close empty case-list
+                    work_stack.emplace_back("(", 4);
+                }
+
+                work_stack.emplace_back(nullptr, 1);
+                work_stack.emplace_back(children[0].get(), 0);
+                work_stack.emplace_back(nullptr, 1);
+                break;
+            }
             
             case NODE_KIND::NT_FUNC_REC_APPLY: {
                 // For recursive function applications, children[0] is the function definition, children[1..] are parameters
@@ -825,64 +913,6 @@ namespace SOMTParser{
                 break;
             }
 
-            case NODE_KIND::NT_DT_CONSTRUCTOR: {
-                const auto& nm = node->getName();
-                if (node->getChildrenSize() == 0) {
-                    out << nm;
-                } else {
-                    out << "(" << nm;
-                    work_stack.emplace_back(nullptr, 2);
-                    for (int i = node->getChildrenSize() - 1; i >= 0; i--) {
-                        work_stack.emplace_back(node->getChild(i).get(), 0);
-                        work_stack.emplace_back(nullptr, 1);
-                    }
-                }
-                break;
-            }
-
-            case NODE_KIND::NT_DT_SELECTOR: {
-                // (selector-name arg)
-                out << "(" << node->getName() << " ";
-                work_stack.emplace_back(nullptr, 2);
-                work_stack.emplace_back(node->getChild(0).get(), 0);
-                break;
-            }
-
-            case NODE_KIND::NT_DT_TESTER: {
-                // (is-ctor arg) — IR stores full tester symbol (e.g. is-left)
-                out << "(" << node->getName() << " ";
-                work_stack.emplace_back(nullptr, 2);
-                work_stack.emplace_back(node->getChild(0).get(), 0);
-                break;
-            }
-
-            case NODE_KIND::NT_DT_MATCH: {
-                // (match scrutinee (pattern body) ...)
-                size_t nch = node->getChildrenSize();
-                if (nch < 3) {
-                    std::string kind_str = kindToString(kind);
-                    out << "(" << kind_str;
-                    work_stack.emplace_back(nullptr, 2);
-                    for (int i = static_cast<int>(nch) - 1; i >= 0; i--) {
-                        work_stack.emplace_back(node->getChild(i).get(), 0);
-                        work_stack.emplace_back(nullptr, 1);
-                    }
-                    break;
-                }
-                out << "(match ";
-                work_stack.emplace_back(nullptr, 2);  // closing ) of (match ...)
-                for (int k = static_cast<int>(nch) - 2; k >= 1; k -= 2) {
-                    work_stack.emplace_back(nullptr, 2);  // ) of case
-                    work_stack.emplace_back(node->getChild(static_cast<size_t>(k) + 1).get(), 0);
-                    work_stack.emplace_back(nullptr, 1);
-                    work_stack.emplace_back(node->getChild(static_cast<size_t>(k)).get(), 0);
-                    work_stack.emplace_back(" (", 4);
-                }
-                work_stack.emplace_back(nullptr, 1);
-                work_stack.emplace_back(node->getChild(0).get(), 0);
-                break;
-            }
-
             default: {
                 // Fallback for other cases - iterative version
                 std::string kind_str = kindToString(kind);
@@ -990,7 +1020,7 @@ namespace SOMTParser{
         if(hash_it != kind_bucket.end()) {
             for(const auto& pair : hash_it->second) {
                 if(pair.first.get() == node.get() ||
-                   pair.first->isEquivalentTo(*node)) {
+                pair.first->isEquivalentTo(*node)) {
                     return pair.second;
                 }
             }
@@ -1037,8 +1067,8 @@ namespace SOMTParser{
                 }
                 // fast structure comparison (avoid the expensive isEquivalentTo call)
                 if(pair.first->getKind() == node->getKind() &&
-                   pair.first->getChildrenSize() == node->getChildrenSize() &&
-                   pair.first->getName() == node->getName()) {
+                pair.first->getChildrenSize() == node->getChildrenSize() &&
+                pair.first->getName() == node->getName()) {
                     // only call the expensive isEquivalentTo when the structure matches completely
                     if(pair.first->isEquivalentTo(*node)) {
                         auto node_ptr = nodes[pair.second];
