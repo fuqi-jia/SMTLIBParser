@@ -185,14 +185,17 @@ namespace SOMTParser{
 
 
     size_t SortManager::getBitWidth(const std::shared_ptr<Sort> &sort) {
+        condAssert(sort != nullptr, "Sort is null");
         return sort->getBitWidth();
     }
     
     size_t SortManager::getExponentWidth(const std::shared_ptr<Sort> &sort) {
+        condAssert(sort != nullptr, "Sort is null");
         return sort->getExponentWidth();
     }
     
     size_t SortManager::getSignificandWidth(const std::shared_ptr<Sort> &sort) {
+        condAssert(sort != nullptr, "Sort is null");
         return sort->getSignificandWidth();
     }
     

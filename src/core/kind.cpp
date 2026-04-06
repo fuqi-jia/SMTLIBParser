@@ -702,6 +702,20 @@ namespace SOMTParser{
                s == "fp.isInf" || s == "fp.isNan" || s == "fp.isNeg" || s == "fp.isPos";
     }
 
+    const std::unordered_set<std::string> allow_builtin_shadow = {
+        "is_divisible", "is_prime", "is_even", "is_odd",
+        "gcd", "lcm", "factorial",
+    };
+
+    bool builtinOperMayBeShadowedByUserFun(const std::string& s) {
+        return allow_builtin_shadow.find(s) != allow_builtin_shadow.end();
+    }
+
+    bool isBuiltinNameReservedAgainstUserFun(const std::string& s) {
+        if (builtinOperMayBeShadowedByUserFun(s)) return false;
+        return oper_key_map.find(s) != oper_key_map.end();
+    }
+
     NODE_KIND getOperKind(const std::string& s, bool strict_smtlib_fp) {
         if(strict_smtlib_fp && isNonStandardFpOperSpelling(s)) {
             return NODE_KIND::NT_UNKNOWN;

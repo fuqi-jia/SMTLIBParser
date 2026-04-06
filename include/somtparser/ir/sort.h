@@ -212,16 +212,21 @@ namespace SOMTParser{
 
         size_t getBitWidth() const {
             condAssert(kind == SORT_KIND::SK_BV, "Cannot get bit width of non-bitvector sort");
+            condAssert(children.size() >= 1 && children[0], "Malformed bit-vector sort: missing width");
             return children[0]->arity;
         }
 
+        /** SMT-LIB exponent field width `e` for `(_ FloatingPoint e s)`. Stored as `children[0]->arity`; well-formed FP sorts come from `SortManager::createFPSort` or static `FLOAT*` sorts. */
         size_t getExponentWidth() const {
             condAssert(kind == SORT_KIND::SK_FP, "Cannot get exponent width of non-floating-point sort");
+            condAssert(children.size() >= 2 && children[0], "Malformed FP sort: missing exponent width (use SortManager::createFPSort)");
             return children[0]->arity;
         }
 
+        /** Total significand width \(s\) (incl. hidden bit) for `(_ FloatingPoint e s)`. Stored as `children[1]->arity`. */
         size_t getSignificandWidth() const {
             condAssert(kind == SORT_KIND::SK_FP, "Cannot get significand width of non-floating-point sort");
+            condAssert(children.size() >= 2 && children[1], "Malformed FP sort: missing significand width (use SortManager::createFPSort)");
             return children[1]->arity;
         }
 

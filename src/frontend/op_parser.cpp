@@ -30,6 +30,7 @@
 #include <queue>
 #include <stack>
 #include "somtparser/core/util.h"
+#include "somtparser/ir/value.h"
 
 namespace SOMTParser{
 
@@ -236,6 +237,10 @@ namespace SOMTParser{
 
     // mk function
     std::shared_ptr<DAGNode> Parser::mkFuncDec(const std::string &name, const std::vector<std::shared_ptr<Sort>> &params, std::shared_ptr<Sort> out_sort){
+        if(isBuiltinNameReservedAgainstUserFun(name)){
+            err_all(ERROR_TYPE::ERR_LOGIC, "reserved built-in name `" + name + "` (declare-fun)", line_number);
+            return mkUnknown();
+        }
         if(getSymbolManager()->getFun(name)){
             err_all(ERROR_TYPE::ERR_MUL_DECL, "Multiple declarations of function", line_number);
             return mkUnknown();
@@ -262,6 +267,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_MUL_DEF, "Multiple definitions of function", line_number);
             return mkUnknown();
         }
+        if(isBuiltinNameReservedAgainstUserFun(name)){
+            err_all(ERROR_TYPE::ERR_LOGIC, "reserved built-in name `" + name + "` (define-fun)", line_number);
+            return mkUnknown();
+        }
         std::vector<std::shared_ptr<DAGNode>> children;
         children.emplace_back(body);
         for(auto &param: params){
@@ -281,6 +290,10 @@ namespace SOMTParser{
                 return func;
             }
             err_all(ERROR_TYPE::ERR_MUL_DEF, "Multiple definitions of recursive function", line_number);
+            return mkUnknown();
+        }
+        if(isBuiltinNameReservedAgainstUserFun(name)){
+            err_all(ERROR_TYPE::ERR_LOGIC, "reserved built-in name `" + name + "` (define-fun-rec)", line_number);
             return mkUnknown();
         }
         std::vector<std::shared_ptr<DAGNode>> children;
@@ -630,7 +643,18 @@ namespace SOMTParser{
             getSymbolManager()->registerSort(sort_key_name, sort);
         }
         std::string bv_v = BitVectorUtils::natToBv(v, width);
-        return getNodeManager()->createNode(sort, NODE_KIND::NT_CONST, bv_v);
+        auto node = getNodeManager()->createNode(sort, NODE_KIND::NT_CONST, bv_v);
+        // Canonical BV Value: unsigned nat from bit-vector literal (same semantics as DAGNode #b/#x parse),
+        // plus width so API consumers do not rely only on the constructor side-effect.
+        try {
+            Integer nat = BitVectorUtils::bvToNat(bv_v);
+            auto val = newValue(Number(nat));
+            val->setType(ValueType::BV);
+            val->setBvWidth(static_cast<uint32_t>(width));
+            node->setValue(val);
+        } catch (...) {
+        }
+        return node;
     }
     std::shared_ptr<DAGNode> Parser::mkConstFp(const std::string &v, const size_t& e, const size_t& s){
         std::string sort_key_name = "FP_" + std::to_string(e) + "_" + std::to_string(s);
@@ -639,7 +663,14 @@ namespace SOMTParser{
             sort = getSortManager()->createFPSort(e, s);
             getSymbolManager()->registerSort(sort_key_name, sort);
         }
-        return getNodeManager()->createNode(sort, NODE_KIND::NT_CONST, v);
+        auto node = getNodeManager()->createNode(sort, NODE_KIND::NT_CONST, v);
+        if (auto fv = FloatingPointUtils::fpNodeToValue(node)) {
+            auto val = std::make_shared<Value>(ValueType::FP);
+            val->setFpValue(fv->toSMTFP(), static_cast<uint32_t>(sort->getExponentWidth()),
+                            static_cast<uint32_t>(sort->getSignificandWidth()));
+            node->setValue(val);
+        }
+        return node;
     }
     std::shared_ptr<DAGNode> Parser::mkConstFP(const std::string &fp_expr){
         return getNodeManager()->createNode(nullptr, NODE_KIND::NT_CONST, fp_expr);

@@ -735,7 +735,9 @@ namespace SOMTParser{
     NODE_KIND Parser::getKind(const std::string& s){
         auto kind = SOMTParser::getOperKind(s, getOptions()->getStrictSmtlib());
         if(kind == NODE_KIND::NT_UNKNOWN && getSymbolManager()->resolveFun(s)){
-            kind = NODE_KIND::NT_FUNC_APPLY;
+            if(!SOMTParser::isBuiltinNameReservedAgainstUserFun(s)){
+                kind = NODE_KIND::NT_FUNC_APPLY;
+            }
         }
         return kind;
     }
@@ -743,9 +745,11 @@ namespace SOMTParser{
 	std::shared_ptr<DAGNode> Parser::parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params, bool indexed_under_score){
 		TIME_FUNC();
 		auto func = getSymbolManager()->resolveFun(s);
-		// Non-indexed (op ...): user define-fun / define-fun-rec / pending declare-fun (body) shadow builtins (e.g. factorial).
+		// Non-indexed (op ...): user define-fun / define-fun-rec / pending declare-fun (body) may shadow only allow_builtin_shadow names.
 		if(!indexed_under_score && func && (func->isFuncDef() || func->isFuncRec() || func->isFuncDec())){
-			return applyFun(func, oper_params);
+			if(!SOMTParser::isBuiltinNameReservedAgainstUserFun(s)){
+				return applyFun(func, oper_params);
+			}
 		}
 		// Indexed (_ op ...): builtins first so (declare-fun to_real ...) does not swallow (_ to_real x).
 		NODE_KIND kind = SOMTParser::getOperKind(s, getOptions()->getStrictSmtlib());
@@ -1403,7 +1407,7 @@ namespace SOMTParser{
 		}
 		}
 
-        if(func){
+        if(func && !SOMTParser::isBuiltinNameReservedAgainstUserFun(s)){
             return applyFun(func, oper_params);
         }
 

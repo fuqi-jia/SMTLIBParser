@@ -114,6 +114,7 @@ namespace SOMTParser{
                             }
                             value = newValue(Number(bv_val));
                             value->setType(ValueType::BV);
+                            value->setBvWidth(static_cast<uint32_t>(sort->getBitWidth()));
                         } else if(name[0] == '#' && name[1] == 'x') {
                             // Hex: #xFF
                             Integer bv_val(0);
@@ -126,6 +127,7 @@ namespace SOMTParser{
                             }
                             value = newValue(Number(bv_val));
                             value->setType(ValueType::BV);
+                            value->setBvWidth(static_cast<uint32_t>(sort->getBitWidth()));
                         }
                     } catch(...) {
                         // If parsing fails, leave value as nullptr
@@ -154,6 +156,7 @@ namespace SOMTParser{
                             }
                             value = newValue(Number(bv_val));
                             value->setType(ValueType::BV);
+                            value->setBvWidth(static_cast<uint32_t>(sort->getBitWidth()));
                         } else if(name[0] == '#' && name[1] == 'x') {
                             Integer bv_val(0);
                             for(size_t i = 2; i < name.size(); ++i) {
@@ -165,6 +168,7 @@ namespace SOMTParser{
                             }
                             value = newValue(Number(bv_val));
                             value->setType(ValueType::BV);
+                            value->setBvWidth(static_cast<uint32_t>(sort->getBitWidth()));
                         }
                     } catch(...) {}
                 }

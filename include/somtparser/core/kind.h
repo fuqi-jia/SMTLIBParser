@@ -413,6 +413,10 @@ namespace SOMTParser{
     std::string kindToString(const NODE_KIND& nk);
     NODE_KIND getFlipKind(const NODE_KIND& nk); // > -> <, < -> >, etc.
     NODE_KIND getNegatedKind(const NODE_KIND& nk); // > -> <=, < -> >=, etc.
+    /** True iff @p s is in oper_key_map and may be shadowed by declare-fun / define-fun(-rec). */
+    bool builtinOperMayBeShadowedByUserFun(const std::string& s);
+    /** True iff @p s is a reserved built-in operator name (in oper_key_map but not in the shadow whitelist). */
+    bool isBuiltinNameReservedAgainstUserFun(const std::string& s);
     /** Resolve built-in operator name. When @p strict_smtlib_fp, reject non-standard FP spellings. */
     NODE_KIND getOperKind(const std::string& s, bool strict_smtlib_fp = false);
 }

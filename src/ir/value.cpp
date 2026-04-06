@@ -121,8 +121,8 @@ namespace SOMTParser {
     }
     
     Number Value::getNumberValue() const {
-        if (value_type != NUMBER && value_type != BV) {
-            throw std::runtime_error("Value is not a number");
+        if (value_type != NUMBER) {
+            throw std::runtime_error("Value is not a number (getNumberValue is only for NUMBER; use BitVectorUtils on BV literals for unsigned/signed interpretation)");
         }
         return number_value;
     }

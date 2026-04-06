@@ -5,6 +5,7 @@
 #include "somtparser/core/util.h"
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/number.h"
+#include "somtparser/ir/sort.h"
 #include "somtparser/ir/value.h"
 #include <cassert>
 
@@ -216,6 +217,30 @@ void test_fp_comparisons(SOMTParser::ParserPtr& parser) {
 }
 
 // Test floating-point conversion operations
+void test_fp_const_get_value_set(SOMTParser::ParserPtr& parser) {
+    std::cout << "=== FP const getValue (mkConstFp / to_fp) ===" << std::endl;
+    auto n = parser->mkExpr("((_ to_fp 8 24) RNE 1.0)");
+    assert(n && !n->isErr() && n->isCFP());
+    auto val = n->getValue();
+    assert(val != nullptr);
+    assert(val->getType() == SOMTParser::FP);
+}
+
+void test_fp_sort_width_contract(SOMTParser::ParserPtr& parser) {
+    std::cout << "=== FP Sort getExponentWidth / getSignificandWidth contract ===" << std::endl;
+    auto sm = parser->getSortManager();
+    auto custom = sm->createFPSort(11, 53);
+    assert(custom->getExponentWidth() == 11);
+    assert(custom->getSignificandWidth() == 53);
+    auto f32 = SOMTParser::SortManager::getFloat32();
+    assert(f32->getExponentWidth() == 8);
+    assert(f32->getSignificandWidth() == 24);
+    auto n = parser->mkExpr("((_ to_fp 8 24) RNE 1.0)");
+    assert(n && n->getSort() && n->getSort()->isFp());
+    assert(n->getSort()->getExponentWidth() == 8);
+    assert(n->getSort()->getSignificandWidth() == 24);
+}
+
 void test_fp_conversions(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         // real to floating-point
@@ -254,6 +279,8 @@ int main() {
     SOMTParser::ParserPtr parser = SOMTParser::newParser();
 
     test_fp_constants(parser);
+    test_fp_const_get_value_set(parser);
+    test_fp_sort_width_contract(parser);
     test_fp_arithmetic(parser);
     test_fp_comparisons(parser);
     test_fp_conversions(parser);

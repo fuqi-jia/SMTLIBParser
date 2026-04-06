@@ -1,12 +1,23 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "somtparser/core/util.h"
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/number.h"
 #include "somtparser/ir/value.h"
 #include <cassert>
 
 // Test bitvector constants
+void test_bv_const_value_and_utils_nat(SOMTParser::ParserPtr& parser) {
+    std::cout << "=== BV (_ bv n w) getValue + BitVectorUtils (not getNumberValue) ===" << std::endl;
+    auto n = parser->mkExpr("(_ bv42 8)");
+    assert(n && n->isCBV());
+    auto v = n->getValue();
+    assert(v && v->getType() == SOMTParser::BV);
+    assert(v->getBvWidth() == 8);
+    assert(SOMTParser::BitVectorUtils::bvToNat(n->toString()) == SOMTParser::Integer(42));
+}
+
 void test_bitvector_constants(SOMTParser::ParserPtr& parser) {
     std::vector<std::string> expressions = {
         "#b1010",                     // 4-bit binary
@@ -123,6 +134,7 @@ int main() {
     SOMTParser::ParserPtr parser = SOMTParser::newParser();
 
     test_bitvector_constants(parser);
+    test_bv_const_value_and_utils_nat(parser);
     test_bv_logical_operations(parser);
     test_bv_arithmetic_operations(parser);
     test_bv_comparison_operations(parser);

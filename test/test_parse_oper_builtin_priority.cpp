@@ -5,7 +5,7 @@
 #include <cassert>
 #include <iostream>
 
-// Issue 1 regression: indexed (_ op ...) must use builtin NODE_KIND even if declare-fun shadows the name.
+// Issue 1 regression: indexed (_ op ...) uses builtin NODE_KIND (reserved names cannot be declare-fun).
 int main() {
     using namespace SOMTParser;
 
@@ -14,8 +14,6 @@ int main() {
 
     p->mkVarInt("x");
     {
-        auto shadow = p->mkFuncDec("to_real", {SortManager::INT_SORT}, SortManager::REAL_SORT);
-        assert(shadow && !shadow->isErr());
         auto e = p->mkExpr("(_ to_real x)");
         assert(e && !e->isErr());
         assert(e->getKind() == NODE_KIND::NT_TO_REAL);
@@ -24,8 +22,6 @@ int main() {
 
     // Note: do not use (_ bvadd ...): the "_" fast-path treats "bv*" as (_ bvNN width) literals.
     {
-        auto shadow_abs = p->mkFuncDec("abs", {SortManager::INT_SORT}, SortManager::INT_SORT);
-        assert(shadow_abs && !shadow_abs->isErr());
         auto e = p->mkExpr("(_ abs x)");
         assert(e && !e->isErr());
         assert(e->getKind() == NODE_KIND::NT_ABS);

@@ -67,6 +67,7 @@ namespace SOMTParser{
             ValueType getType() const;
             void setType(ValueType t) { value_type = t; }
             std::string getStringValue() const;
+            /** Numeric payload for NUMBER only. Do not use for BV (no single integer semantics: bvult vs bvslt, etc.); use `BitVectorUtils` on the constant string / node name. */
             Number getNumberValue() const;
             Interval getIntervalValue() const;
             bool getBooleanValue() const;
