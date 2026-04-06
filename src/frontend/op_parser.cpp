@@ -3440,7 +3440,14 @@ namespace SOMTParser{
 
         std::shared_ptr<Sort> sort = getSortManager()->createFPSort(exp_width, mant_width + 1);
         std::vector<std::shared_ptr<DAGNode>> children = {sign, exp, mant};
-        return getNodeManager()->createNode(sort, NODE_KIND::NT_CONST, "(fp_bit_representation)", children);
+        auto node = getNodeManager()->createNode(sort, NODE_KIND::NT_CONST, "(fp_bit_representation)", children);
+        if (auto fv = FloatingPointUtils::fpNodeToValue(node)) {
+            auto val = std::make_shared<Value>(ValueType::FP);
+            val->setFpValue(fv->toSMTFP(), static_cast<uint32_t>(sort->getExponentWidth()),
+                            static_cast<uint32_t>(sort->getSignificandWidth()));
+            node->setValue(val);
+        }
+        return node;
     }
     // FLOATING POINT PROPERTIES
     /*

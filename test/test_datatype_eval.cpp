@@ -2,6 +2,7 @@
 #include <string>
 
 #include "somtparser/frontend/parser.h"
+#include "somtparser/ir/dag.h"
 #include <cassert>
 
 // NDEBUG-safe assertion for side-effectful expressions
@@ -36,6 +37,10 @@ int main() {
         VERIFY(e && !e->isErr());
         VERIFY(e->isConstructorApp());
         VERIFY(e->getName() == "left");
+        {
+            std::string d = dumpSMTLIB2(e);
+            VERIFY(d.find("NT_DT") == std::string::npos);
+        }
         auto ev = parser->evaluate(e, model);
         VERIFY(ev && ev->isConstructorApp());
         VERIFY(ev->getName() == "left");
@@ -53,6 +58,7 @@ int main() {
     {
         auto e = parser->mkExpr("(is-left (left 7))");
         VERIFY(e && !e->isErr());
+        VERIFY(dumpSMTLIB2(e).find("NT_DT") == std::string::npos);
         auto ev = parser->evaluate(e, model);
         VERIFY(ev && ev->isTrue());
     }

@@ -825,6 +825,64 @@ namespace SOMTParser{
                 break;
             }
 
+            case NODE_KIND::NT_DT_CONSTRUCTOR: {
+                const auto& nm = node->getName();
+                if (node->getChildrenSize() == 0) {
+                    out << nm;
+                } else {
+                    out << "(" << nm;
+                    work_stack.emplace_back(nullptr, 2);
+                    for (int i = node->getChildrenSize() - 1; i >= 0; i--) {
+                        work_stack.emplace_back(node->getChild(i).get(), 0);
+                        work_stack.emplace_back(nullptr, 1);
+                    }
+                }
+                break;
+            }
+
+            case NODE_KIND::NT_DT_SELECTOR: {
+                // (selector-name arg)
+                out << "(" << node->getName() << " ";
+                work_stack.emplace_back(nullptr, 2);
+                work_stack.emplace_back(node->getChild(0).get(), 0);
+                break;
+            }
+
+            case NODE_KIND::NT_DT_TESTER: {
+                // (is-ctor arg) — IR stores full tester symbol (e.g. is-left)
+                out << "(" << node->getName() << " ";
+                work_stack.emplace_back(nullptr, 2);
+                work_stack.emplace_back(node->getChild(0).get(), 0);
+                break;
+            }
+
+            case NODE_KIND::NT_DT_MATCH: {
+                // (match scrutinee (pattern body) ...)
+                size_t nch = node->getChildrenSize();
+                if (nch < 3) {
+                    std::string kind_str = kindToString(kind);
+                    out << "(" << kind_str;
+                    work_stack.emplace_back(nullptr, 2);
+                    for (int i = static_cast<int>(nch) - 1; i >= 0; i--) {
+                        work_stack.emplace_back(node->getChild(i).get(), 0);
+                        work_stack.emplace_back(nullptr, 1);
+                    }
+                    break;
+                }
+                out << "(match ";
+                work_stack.emplace_back(nullptr, 2);  // closing ) of (match ...)
+                for (int k = static_cast<int>(nch) - 2; k >= 1; k -= 2) {
+                    work_stack.emplace_back(nullptr, 2);  // ) of case
+                    work_stack.emplace_back(node->getChild(static_cast<size_t>(k) + 1).get(), 0);
+                    work_stack.emplace_back(nullptr, 1);
+                    work_stack.emplace_back(node->getChild(static_cast<size_t>(k)).get(), 0);
+                    work_stack.emplace_back(" (", 4);
+                }
+                work_stack.emplace_back(nullptr, 1);
+                work_stack.emplace_back(node->getChild(0).get(), 0);
+                break;
+            }
+
             default: {
                 // Fallback for other cases - iterative version
                 std::string kind_str = kindToString(kind);

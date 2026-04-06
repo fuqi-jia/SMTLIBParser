@@ -3849,7 +3849,7 @@ namespace SOMTParser{
         std::shared_ptr<Sort>	                parseSort();
         std::shared_ptr<DAGNode>		        parseExpr();
         std::shared_ptr<DAGNode>		        parseConstFunc(const std::string& s);
-        std::shared_ptr<DAGNode>		        parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params);
+        std::shared_ptr<DAGNode>		        parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params, bool indexed_under_score = false);
         std::vector<std::shared_ptr<DAGNode>>	parseParams();
         std::shared_ptr<DAGNode>		        parsePreservingLet();
         std::shared_ptr<DAGNode>		        parseLet();

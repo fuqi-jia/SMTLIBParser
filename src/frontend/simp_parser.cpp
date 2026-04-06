@@ -848,6 +848,11 @@ namespace SOMTParser{
         }
         return mkUnknown();
     }
+
+    // FP in simp_oper: unary handles abs/neg/to_real/predicates; binary handles rem/cmp/min/max/fp.sqrt;
+    // fp.add/sub/mul/div/fma use ternary (RM, FP, FP) or vector simp_oper; fp.to_ubv/sbv use ternary
+    // (RM, FP, width); to_fp / to_fp_unsigned use vector. Parser never emits 2-child fp.add/sub/mul IR.
+
     std::shared_ptr<DAGNode> Parser::simp_oper(const NODE_KIND& t, std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> r){
         if(!l || !r){
             return mkUnknown();
@@ -902,6 +907,13 @@ namespace SOMTParser{
                         }
                         // Otherwise, arrays are definitely not equal
                         return mkFalse();
+                    }
+                }
+                else if(l->isCFP() && r->isCFP()){
+                    auto va = FloatingPointUtils::fpNodeToValue(l);
+                    auto vb = FloatingPointUtils::fpNodeToValue(r);
+                    if(va && vb){
+                        return FloatingPointUtils::fpValueIdentical(*va, *vb) ? mkTrue() : mkFalse();
                     }
                 }
                 return mkUnknown();
@@ -1413,6 +1425,13 @@ namespace SOMTParser{
                 else if(l->isCStr() && r->isCStr()){
                     return l->toString() == r->toString() ? mkFalse() : mkTrue();
                 }
+                else if(l->isCFP() && r->isCFP()){
+                    auto va = FloatingPointUtils::fpNodeToValue(l);
+                    auto vb = FloatingPointUtils::fpNodeToValue(r);
+                    if(va && vb){
+                        return FloatingPointUtils::fpValueIdentical(*va, *vb) ? mkFalse() : mkTrue();
+                    }
+                }
                 return mkUnknown();
             }
             case NODE_KIND::NT_AND:{
@@ -1643,6 +1662,7 @@ namespace SOMTParser{
                 }
                 return mkUnknown();
             }
+            // fp.add/sub/mul: IR is always 3 children (RM, FP, FP); folding is in ternary/vector simp_oper.
             case NODE_KIND::NT_FP_ADD:
             case NODE_KIND::NT_FP_SUB:
             case NODE_KIND::NT_FP_MUL:

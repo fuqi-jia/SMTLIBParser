@@ -84,6 +84,18 @@ void test_fp_simp_constant_folding(SOMTParser::ParserPtr& p) {
     simp_expect_real_near(p, "(fp.to_real ((_ to_fp 8 24) RNE 3.14))", 3.14, 0.01);
 }
 
+// (=) / distinct on FP use FPValue bit-structural equality (NT_EQ); fp.eq uses IEEE fpCompare (NT_FP_EQ).
+void test_fp_generic_eq_distinct_constant_folding(SOMTParser::ParserPtr& p) {
+    std::cout << "=== FP (=) / distinct vs fp.eq (constant folding) ===" << std::endl;
+    simp_expect_bool(p, "(= ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))", true);
+    simp_expect_bool(p, "(distinct ((_ to_fp 8 24) RNE 2.0) ((_ to_fp 8 24) RNE 3.0))", true);
+    simp_expect_bool(p, "(distinct ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))", false);
+    // IEEE: +0 and -0 are equal under fp.eq; generic (=) compares bit patterns — distinct.
+    simp_expect_bool(p, "(fp.eq (_ +zero 8 24) (_ -zero 8 24))", true);
+    simp_expect_bool(p, "(= (_ +zero 8 24) (_ -zero 8 24))", false);
+    simp_expect_bool(p, "(distinct (_ +zero 8 24) (_ -zero 8 24))", true);
+}
+
 void test_fp_comparison_constant_folding(SOMTParser::ParserPtr& p) {
     std::cout << "=== FP comparison constant folding ===" << std::endl;
     simp_expect_bool(p, "(fp.eq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))", true);
@@ -247,6 +259,7 @@ int main() {
     test_fp_conversions(parser);
 
     test_fp_simp_constant_folding(parser);
+    test_fp_generic_eq_distinct_constant_folding(parser);
     test_fp_comparison_constant_folding(parser);
     test_fp_to_bv_constant_folding(parser);
     test_fp_dialect_unary_and_to_fp_simp(parser);

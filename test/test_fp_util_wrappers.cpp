@@ -5,6 +5,7 @@
 
 #include "somtparser/frontend/parser.h"
 #include "somtparser/core/util.h"
+#include "somtparser/ir/value.h"
 #include <cassert>
 
 int main() {
@@ -45,6 +46,8 @@ int main() {
     {
         auto sub = parser->mkExpr("(fp #b0 #b00000000 #b00000000000000000000001)");
         assert(sub && fpNodeIsSubnormal(sub));
+        assert(sub->getValue() != nullptr);
+        assert(sub->getValue()->getType() == ValueType::FP);
     }
 
     {

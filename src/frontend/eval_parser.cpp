@@ -49,7 +49,8 @@ namespace SOMTParser{
     bool Parser::evaluate(std::shared_ptr<DAGNode> expr, const std::shared_ptr<Model> &model, std::shared_ptr<DAGNode> &result){
         if(model->isEmpty() && !expr->isEq() && !expr->isDistinct()
            && !expr->isConstructorApp() && !expr->isSelectorApp()
-           && !expr->isTesterApp() && !expr->isMatchApp()){
+           && !expr->isTesterApp() && !expr->isMatchApp()
+           && !expr->isFuncApplication()){
             result = expr;
             return false;
         }
@@ -1152,7 +1153,15 @@ namespace SOMTParser{
                 }
             }
             else if(const_val->isCFP() && const_vals[i]->isCFP()){
-                if(const_val->toString() != const_vals[i]->toString()){
+                auto va = FloatingPointUtils::fpNodeToValue(const_val);
+                auto vb = FloatingPointUtils::fpNodeToValue(const_vals[i]);
+                bool differ = false;
+                if(va && vb){
+                    differ = !FloatingPointUtils::fpValueIdentical(*va, *vb);
+                } else{
+                    differ = (const_val->toString() != const_vals[i]->toString());
+                }
+                if(differ){
                     result = mkFalse();
                     return true;
                 }
@@ -2481,10 +2490,37 @@ namespace SOMTParser{
         return false;
 	}
     bool Parser::evaluateApplyFun(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode>& result) {
-        (void)model;
-		not_implemented_warning("function-apply");
-        result = expr;
-        return false;
+        if(!expr || expr->getChildrenSize() < 1){
+            result = expr;
+            return false;
+        }
+        auto fun = expr->getChild(0);
+        if(!fun || !fun->isFuncDef()){
+            result = expr;
+            return false;
+        }
+        std::vector<std::shared_ptr<DAGNode>> evaled_args;
+        evaled_args.reserve(expr->getChildrenSize() - 1);
+        bool args_changed = false;
+        for(size_t i = 1; i < expr->getChildrenSize(); ++i){
+            std::shared_ptr<DAGNode> ev = NodeManager::NULL_NODE;
+            args_changed |= evaluate(expr->getChild(i), model, ev);
+            evaled_args.push_back(ev);
+        }
+        bool old_expand = getOptions()->getExpandFunctions();
+        getOptions()->setExpandFunctions(true);
+        std::shared_ptr<DAGNode> expanded = applyFun(fun, evaled_args);
+        getOptions()->setExpandFunctions(old_expand);
+        if(!expanded){
+            result = expr;
+            return args_changed;
+        }
+        if(expanded->isErr()){
+            result = expanded;
+            return true;
+        }
+        bool body_ev = evaluate(expanded, model, result);
+        return args_changed || body_ev;
     }
     bool Parser::evaluateUFApply(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode>& result) {
         // Helper: sanitize a UF key so it only contains valid SMT-LIB symbol characters

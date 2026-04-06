@@ -71,6 +71,9 @@ if [ -z "$TEST_EXES" ]; then
         ./test_fp_util_wrappers
         ./test_uf_model_api
         ./test_evaluate_fp_dispatch
+        ./test_parse_oper_builtin_priority
+        ./test_fp_util_wrappers
+        ./test_datatype_eval
     )
     for t in "${POTENTIAL_TESTS[@]}"; do
         [ -x "$t" ] && TEST_EXES="$TEST_EXES $t"

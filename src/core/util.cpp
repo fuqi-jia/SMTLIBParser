@@ -1718,6 +1718,11 @@ namespace SOMTParser{
         return 0;
     }
 
+    bool FloatingPointUtils::fpValueIdentical(const FPValue& a, const FPValue& b) {
+        return a.eb == b.eb && a.sb == b.sb && a.sign == b.sign && a.exponent == b.exponent &&
+               a.significand == b.significand;
+    }
+
     std::optional<FloatingPointUtils::FPValue>
     FloatingPointUtils::fpRemainder(const FPValue& a, const FPValue& b,
                                      size_t eb, size_t sb) {

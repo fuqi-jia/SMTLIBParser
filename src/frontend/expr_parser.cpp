@@ -562,7 +562,7 @@ namespace SOMTParser{
                         // inline the most common operators
                         const std::string& opName = frame.second_symbol;
                         
-                        res = parseOper(opName, frame.func_args, frame.oper_params);
+                        res = parseOper(opName, frame.func_args, frame.oper_params, true);
                         
                         if(res->isErr()) err_all(res, frame.second_symbol, frame.line);
                         frame.result = res;
@@ -740,25 +740,16 @@ namespace SOMTParser{
         return kind;
     }
     
-	std::shared_ptr<DAGNode> Parser::parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params){
+	std::shared_ptr<DAGNode> Parser::parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params, bool indexed_under_score){
 		TIME_FUNC();
-        auto func = getSymbolManager()->resolveFun(s);
-        if(func){
-            // Found a function definition or declaration, apply it with parameters
-            return applyFun(func, oper_params);
-        }
-        
-        // Special handling for root-obj
-        if(s == "root-obj"){
-            condAssert(oper_params.size() == 2, "root-obj requires exactly 2 parameters");
-            auto expr = oper_params[0];
-            auto index_node = oper_params[1];
-            condAssert(index_node->isConst() && index_node->getSort()->isInt(), "root-obj index must be integer constant");
-            int index = std::stoi(index_node->getName());
-            return mkRootObj(expr, index);
-        }
-        
+		auto func = getSymbolManager()->resolveFun(s);
+		// Non-indexed (op ...): user define-fun / define-fun-rec / pending declare-fun (body) shadow builtins (e.g. factorial).
+		if(!indexed_under_score && func && (func->isFuncDef() || func->isFuncRec() || func->isFuncDec())){
+			return applyFun(func, oper_params);
+		}
+		// Indexed (_ op ...): builtins first so (declare-fun to_real ...) does not swallow (_ to_real x).
 		NODE_KIND kind = SOMTParser::getOperKind(s, getOptions()->getStrictSmtlib());
+		if(kind != NODE_KIND::NT_UNKNOWN){
 		switch(kind){
 			case NODE_KIND::NT_AND:
 				return mkAnd(oper_params);
@@ -1242,6 +1233,15 @@ namespace SOMTParser{
             case NODE_KIND::NT_STORE:
                 condAssert(oper_params.size() == 3, "Invalid number of parameters for store");
                 return mkStore(oper_params[0], oper_params[1], oper_params[2]);
+            case NODE_KIND::NT_ROOT_OBJ:
+                condAssert(oper_params.size() == 2, "root-obj requires exactly 2 parameters");
+                {
+                    auto expr = oper_params[0];
+                    auto index_node = oper_params[1];
+                    condAssert(index_node->isConst() && index_node->getSort()->isInt(), "root-obj index must be integer constant");
+                    int index = std::stoi(index_node->getName());
+                    return mkRootObj(expr, index);
+                }
             case NODE_KIND::NT_STR_LEN:
                 condAssert(oper_params.size() == 1, "Invalid number of parameters for str.len");
                 return mkStrLen(oper_params[0]);
@@ -1401,5 +1401,13 @@ namespace SOMTParser{
                 err_unkwn_sym(s, line_number);
                 return mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
 		}
+		}
+
+        if(func){
+            return applyFun(func, oper_params);
+        }
+
+        err_unkwn_sym(s, line_number);
+        return mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
 	}
 }

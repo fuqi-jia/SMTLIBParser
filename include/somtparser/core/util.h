@@ -224,6 +224,11 @@ namespace SOMTParser{
         // IEEE comparison: returns -1 (lt), 0 (eq), 1 (gt), 2 (unordered/NaN)
         static int fpCompare(const FPValue& a, const FPValue& b);
 
+        // Bit-structural equality of FPValue (eb, sb, sign, exponent, significand).
+        // Use for SMT-LIB generic (=) / distinct on FloatingPoint constants — not IEEE fp.eq
+        // (see fpCompare / fp.eq: e.g. +0 vs -0 may compare equal under fp.eq but differ here).
+        static bool fpValueIdentical(const FPValue& a, const FPValue& b);
+
         // IEEE remainder (always rounds-to-nearest, no RM parameter)
         static std::optional<FPValue> fpRemainder(const FPValue& a, const FPValue& b,
                                                    size_t eb, size_t sb);
