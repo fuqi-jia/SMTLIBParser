@@ -1,9 +1,12 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "somtparser/core/kind.h"
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/number.h"
 #include <cassert>
+
+using SOMTParser::SortManager;
 
 // Test integer arithmetic operations
 void test_integer_arithmetic(SOMTParser::ParserPtr& parser) {
@@ -118,6 +121,20 @@ void test_precision(SOMTParser::ParserPtr& parser) {
     assert(parser->toString(r5) == "6.2" && parser->toString(r6) == "6.3");
 }
 
+static void test_builtin_shadow_pow2_uf(SOMTParser::ParserPtr& p) {
+    std::cout << "=== Builtin shadow: pow2 ===" << std::endl;
+    assert(SOMTParser::builtinOperMayBeShadowedByUserFun("pow2"));
+    assert(!SOMTParser::isBuiltinNameReservedAgainstUserFun("pow2"));
+
+    auto fd = p->mkFuncDec("pow2", {SortManager::INT_SORT}, SortManager::INT_SORT);
+    assert(fd && !fd->isUnknown() && !fd->isErr());
+
+    p->mkVarInt("x");
+    auto app = p->mkExpr("(pow2 x)");
+    assert(app && !app->isErr());
+    assert(app->isFuncApplication());
+}
+
 void test_number_bitwise_operators() {
     std::cout << "=== Number (GMP) bitwise operators ===" << std::endl;
     SOMTParser::Number a(SOMTParser::Integer(0b1100));
@@ -143,6 +160,7 @@ int main() {
     test_integer_arithmetic(parser);
     test_real_arithmetic(parser);
     test_comparisons(parser);
+    test_builtin_shadow_pow2_uf(parser);
     test_precision(parser);
     test_number_bitwise_operators();
 

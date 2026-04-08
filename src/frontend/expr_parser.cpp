@@ -106,8 +106,17 @@ namespace SOMTParser{
                         parseLpar();
                         std::string s = getSymbol();
                         if(s == "_"){
+                            std::string idx = getSymbol();
+                            if(idx == "is"){
+                                std::string ctor = getSymbol();
+                                parseRpar();
+                                frame.headSymbol = "_";
+                                frame.second_symbol = "is-" + ctor;
+                                frame.state = FrameState::ProcessingParams;
+                                break;
+                            }
                             frame.special_type = SpecialType::ParamFunc;
-                            frame.second_symbol = getSymbol();
+                            frame.second_symbol = idx;
                             frame.state = FrameState::ProcessingParamFuncArgs;
                             break;
                         }
@@ -326,6 +335,12 @@ namespace SOMTParser{
                             frame.result = mkRealAlgebraicNumber(polynomial, lower_bound, upper_bound);
                             parseRpar();
                             frame.state = FrameState::Finish;
+                        }
+                        else if(second == "is"){
+                            std::string ctor = getSymbol();
+                            parseRpar();
+                            frame.second_symbol = "is-" + ctor;
+                            frame.state = FrameState::ProcessingParams;
                         }
                         else{
                             frame.second_symbol = second;

@@ -888,6 +888,18 @@ namespace SOMTParser{
 			return CMD_TYPE::CT_DECLARE_SORT;
 		}
 
+		// (declare-datatype <symbol> <datatype-dec>)
+		// <datatype-dec> ::= (<constructor-dec>+)
+		if (command == "declare-datatype") {
+			std::string dt_name = getSymbol();
+			auto ps = getSortManager()->createSort(SORT_KIND::SK_DATATYPE, dt_name, 0);
+			getSymbolManager()->registerSort(dt_name, ps);
+			parseLpar();
+			defineDatatypeConstructors(ps);
+			skipToRpar();
+			return CMD_TYPE::CT_DECLARE_DATATYPES;
+		}
+
 		// (declare-datatypes (<sort-dec>+) (<datatype-dec>+))
 		// where:
 		//   <sort-dec>    ::= (<symbol> <numeral>)
@@ -920,59 +932,7 @@ namespace SOMTParser{
 			parseLpar(); // outer '(' for datatype list
 			for(size_t ti = 0; ti < sort_decls.size(); ++ti) {
 				parseLpar(); // '(' for this datatype
-				const std::string& dt_name = sort_decls[ti].first;
-				auto dt_sort = placeholder_sorts[ti];
-				
-				std::vector<Sort::DtConstructor> constructors;
-
-				while(*bufptr != ')') {
-					parseLpar(); // '(' for constructor
-					std::string ctor_name = getSymbol();
-					Sort::DtConstructor ctor;
-					ctor.name = ctor_name;
-
-					// Parse selectors until ')'
-					while(*bufptr != ')') {
-						parseLpar();
-						std::string sel_name = getSymbol();
-						std::shared_ptr<Sort> sel_sort = parseSort();
-						parseRpar();
-						ctor.selectors.push_back({sel_name, sel_sort});
-					}
-					parseRpar(); // close constructor
-					constructors.push_back(ctor);
-				}
-				parseRpar(); // close datatype
-
-				// Rebuild sort with constructor info
-				dt_sort->dt_constructors = std::make_shared<std::vector<Sort::DtConstructor>>(constructors);
-
-				// Register constructors as functions
-				for(auto& ctor : constructors) {
-					std::vector<std::shared_ptr<Sort>> sel_sorts;
-					for(auto& sel : ctor.selectors)
-						sel_sorts.push_back(sel.sort);
-					// Constructor: takes selector-sort args, returns DT sort
-					auto ctor_node = mkFuncDec(ctor.name, sel_sorts, dt_sort);
-					if(!ctor_node->isErr()) {
-						getSymbolManager()->addFunctionName(ctor.name);
-					}
-					// Selector functions: takes DT sort, returns selector sort
-					for(auto& sel : ctor.selectors) {
-						std::vector<std::shared_ptr<Sort>> sel_params = {dt_sort};
-						auto sel_node = mkFuncDec(sel.name, sel_params, sel.sort);
-						if(!sel_node->isErr()) {
-							getSymbolManager()->addFunctionName(sel.name);
-						}
-					}
-					// Tester function: is-<ctor_name> takes DT sort, returns Bool
-					std::string tester_name = "is-" + ctor.name;
-					std::vector<std::shared_ptr<Sort>> tester_params = {dt_sort};
-					auto tester_node = mkFuncDec(tester_name, tester_params, SortManager::BOOL_SORT);
-					if(!tester_node->isErr()) {
-						getSymbolManager()->addFunctionName(tester_name);
-					}
-				}
+				defineDatatypeConstructors(placeholder_sorts[ti]);
 			}
 			parseRpar(); // close outer datatype list
 			skipToRpar(); // close the declare-datatypes command
@@ -2137,6 +2097,51 @@ namespace SOMTParser{
     std::shared_ptr<DAGNode> Parser::mkApplyUF(const std::shared_ptr<Sort>& sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params){
         NODE_KIND nk = getDtFunctionKind(sort, name, params);
         return getNodeManager()->createNode(sort, nk, name, params);
+    }
+
+    void Parser::defineDatatypeConstructors(const std::shared_ptr<Sort>& dt_sort) {
+        std::vector<Sort::DtConstructor> constructors;
+        while (*bufptr != ')') {
+            parseLpar();
+            std::string ctor_name = getSymbol();
+            Sort::DtConstructor ctor;
+            ctor.name = ctor_name;
+            while (*bufptr != ')') {
+                parseLpar();
+                std::string sel_name = getSymbol();
+                std::shared_ptr<Sort> sel_sort = parseSort();
+                parseRpar();
+                ctor.selectors.push_back({sel_name, sel_sort});
+            }
+            parseRpar();
+            constructors.push_back(ctor);
+        }
+        parseRpar();
+
+        dt_sort->dt_constructors = std::make_shared<std::vector<Sort::DtConstructor>>(constructors);
+
+        for (auto& ctor : constructors) {
+            std::vector<std::shared_ptr<Sort>> sel_sorts;
+            for (auto& sel : ctor.selectors)
+                sel_sorts.push_back(sel.sort);
+            auto ctor_node = mkFuncDec(ctor.name, sel_sorts, dt_sort);
+            if (!ctor_node->isErr()) {
+                getSymbolManager()->addFunctionName(ctor.name);
+            }
+            for (auto& sel : ctor.selectors) {
+                std::vector<std::shared_ptr<Sort>> sel_params = {dt_sort};
+                auto sel_node = mkFuncDec(sel.name, sel_params, sel.sort);
+                if (!sel_node->isErr()) {
+                    getSymbolManager()->addFunctionName(sel.name);
+                }
+            }
+            std::string tester_name = "is-" + ctor.name;
+            std::vector<std::shared_ptr<Sort>> tester_params = {dt_sort};
+            auto tester_node = mkFuncDec(tester_name, tester_params, SortManager::BOOL_SORT);
+            if (!tester_node->isErr()) {
+                getSymbolManager()->addFunctionName(tester_name);
+            }
+        }
     }
 
     // MATCH EXPRESSION

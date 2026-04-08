@@ -254,6 +254,29 @@ int main() {
         std::cout << "test_datatype_eval: recursive DT tests passed\n";
     }
 
+    // ─── SMT-LIB declare-datatype + ((_ is ctor) x) (SMTClaw / issues.md) ───
+    {
+        ParserPtr pdt = newParser();
+        VERIFY(pdt->parseStr(
+            "(set-logic QF_UFDT)\n"
+            "(declare-datatype D ((a) (b)))\n"
+            "(declare-fun x () D)\n"
+            "(assert ((_ is a) x))\n"
+            "(check-sat)\n"));
+        VERIFY(pdt->getAssertions().size() >= 1);
+        std::cout << "test_datatype_eval: declare-datatype + indexed is-tester passed\n";
+    }
+    {
+        ParserPtr pdt2 = newParser();
+        VERIFY(pdt2->parseStr(
+            "(set-logic QF_DT)\n"
+            "(declare-datatypes ((T 0)) (((c1) (c2))))\n"
+            "(declare-fun v () T)\n"
+            "(assert ((_ is c1) v))\n"));
+        VERIFY(pdt2->getAssertions().size() >= 1);
+        std::cout << "test_datatype_eval: declare-datatypes + ((_ is c1) v) passed\n";
+    }
+
     std::cout << "test_datatype_eval: all assertions passed\n";
     return 0;
 }

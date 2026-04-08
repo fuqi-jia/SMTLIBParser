@@ -3860,6 +3860,8 @@ namespace SOMTParser{
         std::string                             parseWeight();
         std::shared_ptr<DAGNode>                parseQuant(const std::string& type);
         std::shared_ptr<DAGNode>                parseMatch();
+        /** Parse one <datatype_dec> ((ctor...)...) after its opening '('; register ctors/selectors/testers on @p dt_sort. */
+        void                                    defineDatatypeConstructors(const std::shared_ptr<Sort>& dt_sort);
         
         // parse optimization
         // single_opt = (maximize <expr> [:comp <symbol>] [:epsilon <symbol>] [:M <symbol>] [:id <symbol>]) 
