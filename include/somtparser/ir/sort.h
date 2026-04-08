@@ -166,7 +166,7 @@ namespace SOMTParser{
             else if(isFp() && other.isFp()){
                 // For floating point types, compare exponent and significand widths
                 return getExponentWidth() == other.getExponentWidth() && 
-                       getSignificandWidth() == other.getSignificandWidth();
+                    getSignificandWidth() == other.getSignificandWidth();
             }
 
             // other sorts
@@ -232,11 +232,13 @@ namespace SOMTParser{
 
         std::shared_ptr<Sort> getIndexSort() const {
             condAssert(kind == SORT_KIND::SK_ARRAY, "Cannot get index sort of non-array sort");
+            if (children.size() < 1 || !children[0]) return nullptr;
             return children[0];
         }
 
         std::shared_ptr<Sort> getElemSort() const {
             condAssert(kind == SORT_KIND::SK_ARRAY, "Cannot get element sort of non-array sort");
+            if (children.size() < 2 || !children[1]) return nullptr;
             return children[1];
         }
         
@@ -372,3 +374,4 @@ namespace SOMTParser{
     typedef std::shared_ptr<SortManager> SortManagerPtr;
 }
 #endif
+ 
