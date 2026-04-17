@@ -28,6 +28,21 @@
 #include "somtparser/frontend/parser.h"
 #include "somtparser/core/timing.h"
 
+namespace {
+    bool compareNodePtrLess(const std::shared_ptr<SOMTParser::DAGNode>& a,
+                            const std::shared_ptr<SOMTParser::DAGNode>& b) {
+        return a.get() < b.get();
+    }
+    bool comparePairByHashThenPtr(
+            const std::pair<std::shared_ptr<SOMTParser::DAGNode>, std::shared_ptr<SOMTParser::DAGNode>>& a,
+            const std::pair<std::shared_ptr<SOMTParser::DAGNode>, std::shared_ptr<SOMTParser::DAGNode>>& b) {
+        size_t hash_a = a.first ? a.first->hashCode() : 0;
+        size_t hash_b = b.first ? b.first->hashCode() : 0;
+        if (hash_a != hash_b) return hash_a < hash_b;
+        return a.first.get() < b.first.get();
+    }
+} // anonymous namespace
+
 namespace SOMTParser{
     void precision_warning(const std::string& op){
         std::cerr << "Precision warning: " << op << " will use double precision" << std::endl;
@@ -1393,7 +1408,14 @@ namespace SOMTParser{
                 }
                 return mkUnknown();
             }
-            case NODE_KIND::NT_STR_IN_REG:
+            case NODE_KIND::NT_STR_IN_REG: {
+                if (l->isCStr()) {
+                    auto res = RegexUtils::strInRe(l, r);
+                    if (res.has_value())
+                        return res.value() ? mkTrue() : mkFalse();
+                }
+                return mkUnknown();
+            }
             case NODE_KIND::NT_REG_RANGE:
             case NODE_KIND::NT_REG_REPEAT:{
                 return mkUnknown();
@@ -2253,9 +2275,7 @@ namespace SOMTParser{
         for (auto& kv : overwrite) {
             keys.push_back(kv.first);
         }
-        std::sort(keys.begin(), keys.end(), [](const std::shared_ptr<DAGNode>& a, const std::shared_ptr<DAGNode>& b) {
-            return a.get() < b.get(); // Pointer-based ordering
-        });
+        std::sort(keys.begin(), keys.end(), compareNodePtrLess);
 
         // Reconstruct store chain (oldest -> newest)
         // Use mkOper directly to avoid recursive call to simplifyArray during normalization
@@ -2381,19 +2401,7 @@ namespace SOMTParser{
                 cf.writes.emplace_back(kv.first, kv.second);
             }
         }
-        std::sort(cf.writes.begin(), cf.writes.end(),
-            [](const std::pair<std::shared_ptr<DAGNode>, std::shared_ptr<DAGNode>>& a,
-               const std::pair<std::shared_ptr<DAGNode>, std::shared_ptr<DAGNode>>& b) {
-                // Sort by hash code for deterministic ordering (same values -> same hash -> same order)
-                // If hashes are equal, compare by pointer as tie-breaker
-                size_t hash_a = a.first ? a.first->hashCode() : 0;
-                size_t hash_b = b.first ? b.first->hashCode() : 0;
-                if (hash_a != hash_b) {
-                    return hash_a < hash_b;
-                }
-                // If hashes are equal, compare by pointer
-                return a.first.get() < b.first.get();
-            });
+        std::sort(cf.writes.begin(), cf.writes.end(), comparePairByHashThenPtr);
 
         // Cache the canonical form
         array_canonical_cache[array] = cf;

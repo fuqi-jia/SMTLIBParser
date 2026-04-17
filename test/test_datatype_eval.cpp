@@ -277,6 +277,76 @@ int main() {
         std::cout << "test_datatype_eval: declare-datatypes + ((_ is c1) v) passed\n";
     }
 
+    // ─── isRecursiveDatatype + mkDefaultDTValue ─────────────────────────
+    {
+        // Non-recursive: enum-like DT with only nullary constructors
+        ParserPtr pe = newParser();
+        VERIFY(pe->parseStr("(set-logic ALL) (declare-datatypes ((Color 0)) (((red) (green) (blue))))"));
+        auto vars = pe->getDatatypeVars();
+        // No variables declared, but the sort should exist via getDeclaredSorts
+        // Look up the Color sort by parsing a zero-arg constructor to find its sort
+        auto red_node = pe->mkExpr("red");
+        VERIFY(red_node && !red_node->isErr());
+        auto color_sort = red_node->getSort();
+        VERIFY(color_sort && color_sort->isDatatype());
+
+        VERIFY(!pe->isRecursiveDatatype(color_sort));  // not recursive
+
+        auto def = pe->mkDefaultDTValue(color_sort);
+        VERIFY(def && !def->isErr());
+        VERIFY(def->isConstructorApp());
+        // Should pick the first nullary constructor ("red")
+        VERIFY(def->getName() == "red");
+        std::cout << "  mkDefaultDTValue(Color) => " << pe->toString(def) << "\n";
+
+        std::cout << "test_datatype_eval: isRecursiveDatatype (non-recursive) passed\n";
+    }
+    {
+        // Directly recursive: IntList = nil | (cons Int IntList)
+        ParserPtr pr = newParser();
+        VERIFY(pr->parseStr("(set-logic ALL)"
+            "(declare-datatypes ((IntList 0)) (((cons (head Int) (tail IntList)) (nil))))"));
+        auto nil_node = pr->mkExpr("nil");
+        VERIFY(nil_node && !nil_node->isErr());
+        auto list_sort = nil_node->getSort();
+        VERIFY(list_sort && list_sort->isDatatype());
+
+        VERIFY(pr->isRecursiveDatatype(list_sort));  // is recursive
+
+        auto def = pr->mkDefaultDTValue(list_sort);
+        VERIFY(def && !def->isErr());
+        VERIFY(def->isConstructorApp());
+        // nil is nullary → should be picked as default
+        VERIFY(def->getName() == "nil");
+        std::cout << "  mkDefaultDTValue(IntList) => " << pr->toString(def) << "\n";
+
+        std::cout << "test_datatype_eval: isRecursiveDatatype (directly recursive) passed\n";
+    }
+    {
+        // Non-trivial default: DT where first constructor takes an Int arg and no nullary
+        // Shape = (circle Int)   (only one constructor with Int radius)
+        ParserPtr ps = newParser();
+        VERIFY(ps->parseStr("(set-logic ALL)"
+            "(declare-datatypes ((Shape 0)) (((circle (radius Int)))))"));
+        auto circ = ps->mkExpr("(circle 0)");
+        VERIFY(circ && !circ->isErr());
+        auto shape_sort = circ->getSort();
+        VERIFY(shape_sort && shape_sort->isDatatype());
+
+        VERIFY(!ps->isRecursiveDatatype(shape_sort));  // Int selector is not DT
+
+        auto def = ps->mkDefaultDTValue(shape_sort);
+        VERIFY(def && !def->isErr());
+        VERIFY(def->isConstructorApp());
+        VERIFY(def->getName() == "circle");
+        // selector default for Int should be 0
+        VERIFY(def->getChildrenSize() == 1);
+        VERIFY(ps->toString(def->getChild(0)) == "0");
+        std::cout << "  mkDefaultDTValue(Shape) => " << ps->toString(def) << "\n";
+
+        std::cout << "test_datatype_eval: mkDefaultDTValue (non-nullary constructor) passed\n";
+    }
+
     std::cout << "test_datatype_eval: all assertions passed\n";
     return 0;
 }

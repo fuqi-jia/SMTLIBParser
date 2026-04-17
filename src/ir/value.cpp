@@ -33,6 +33,12 @@
 #include <cstring>
 #include <cmath>
 
+namespace {
+    bool isNotSpaceInt(int ch) { return !std::isspace(ch); }
+    unsigned char toLowerChar(unsigned char c) { return static_cast<unsigned char>(std::tolower(c)); }
+    unsigned char toUpperChar(unsigned char c) { return static_cast<unsigned char>(std::toupper(c)); }
+} // anonymous namespace
+
 namespace SOMTParser {
     // Default constructor
     Value::Value() : value_type(UNKNOWN) {}
@@ -1032,13 +1038,9 @@ namespace SOMTParser {
         if (value_type == STRING) {
             std::string result = string_value;
             // Trim left
-            result.erase(result.begin(), std::find_if(result.begin(), result.end(), [](int ch) {
-                return !std::isspace(ch);
-            }));
+            result.erase(result.begin(), std::find_if(result.begin(), result.end(), isNotSpaceInt));
             // Trim right
-            result.erase(std::find_if(result.rbegin(), result.rend(), [](int ch) {
-                return !std::isspace(ch);
-            }).base(), result.end());
+            result.erase(std::find_if(result.rbegin(), result.rend(), isNotSpaceInt).base(), result.end());
             return Value(result);
         } else {
             throw std::runtime_error("Trim operation requires a string");
@@ -1048,9 +1050,7 @@ namespace SOMTParser {
     Value Value::ltrim() const {
         if (value_type == STRING) {
             std::string result = string_value;
-            result.erase(result.begin(), std::find_if(result.begin(), result.end(), [](int ch) {
-                return !std::isspace(ch);
-            }));
+            result.erase(result.begin(), std::find_if(result.begin(), result.end(), isNotSpaceInt));
             return Value(result);
         } else {
             throw std::runtime_error("Left trim operation requires a string");
@@ -1060,9 +1060,7 @@ namespace SOMTParser {
     Value Value::rtrim() const {
         if (value_type == STRING) {
             std::string result = string_value;
-            result.erase(std::find_if(result.rbegin(), result.rend(), [](int ch) {
-                return !std::isspace(ch);
-            }).base(), result.end());
+            result.erase(std::find_if(result.rbegin(), result.rend(), isNotSpaceInt).base(), result.end());
             return Value(result);
         } else {
             throw std::runtime_error("Right trim operation requires a string");
@@ -1072,8 +1070,7 @@ namespace SOMTParser {
     Value Value::toLower() const {
         if (value_type == STRING) {
             std::string result = string_value;
-            std::transform(result.begin(), result.end(), result.begin(), 
-                            [](unsigned char c){ return std::tolower(c); });
+            std::transform(result.begin(), result.end(), result.begin(), toLowerChar);
             return Value(result);
         } else {
             throw std::runtime_error("toLower operation requires a string");
@@ -1083,8 +1080,7 @@ namespace SOMTParser {
     Value Value::toUpper() const {
         if (value_type == STRING) {
             std::string result = string_value;
-            std::transform(result.begin(), result.end(), result.begin(), 
-                            [](unsigned char c){ return std::toupper(c); });
+            std::transform(result.begin(), result.end(), result.begin(), toUpperChar);
             return Value(result);
         } else {
             throw std::runtime_error("toUpper operation requires a string");

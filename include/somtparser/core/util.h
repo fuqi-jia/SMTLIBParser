@@ -291,6 +291,25 @@ namespace SOMTParser{
         static std::string strRev(const std::string& s);
     };
 
+    /**
+     * @brief Evaluates SMT-LIB regex membership for fully-ground expressions.
+     *
+     * The ground SMT-LIB regex DAGNode tree is translated to an ECMAScript pattern
+     * that is matched via std::regex_match.  Structural operators that have no
+     * direct ECMAScript equivalent (re.inter, re.diff, re.comp) are handled by
+     * decomposing them into recursive sub-queries, each of which still uses
+     * std::regex as its underlying engine.
+     */
+    class RegexUtils {
+    public:
+        /// Returns true iff str_node (a CStr constant) is in the language of regex.
+        /// Returns std::nullopt when either operand is non-ground or the regex
+        /// contains an unsupported / partially-ground sub-expression.
+        static std::optional<bool> strInRe(
+            const std::shared_ptr<DAGNode>& str_node,
+            const std::shared_ptr<DAGNode>& regex);
+    };
+
     // Conversion utilities
     class ConversionUtils {
     public:

@@ -401,6 +401,60 @@ namespace SOMTParser{
         std::vector<std::shared_ptr<DAGNode>> getDeclaredVariables() const;
         
         /**
+         * @brief Get declared variables filtered by sort kind.
+         *
+         * These convenience accessors filter getDeclaredVariables() by the
+         * sort of each variable.  They are useful for downstream solvers that
+         * maintain separate variable models for each theory.
+         */
+        std::vector<std::shared_ptr<DAGNode>> getBoolVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getIntVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getRealVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getBvVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getFpVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getRoundingModeVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getArrayVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getDatatypeVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getStringVars() const;
+
+        /** Counts corresponding to the sort-classified accessors above. */
+        size_t getNumBoolVars() const;
+        size_t getNumIntVars() const;
+        size_t getNumRealVars() const;
+        size_t getNumBvVars() const;
+        size_t getNumFpVars() const;
+        size_t getNumRoundingModeVars() const;
+        size_t getNumArrayVars() const;
+        size_t getNumDatatypeVars() const;
+        size_t getNumStringVars() const;
+
+        /**
+         * @brief Check whether a datatype sort is (directly or mutually) recursive.
+         *
+         * A datatype is recursive if at least one of its constructors has a selector
+         * whose sort transitively refers back to this datatype (direct or mutual).
+         *
+         * @param dt_sort A Sort with isDatatype() == true.
+         * @return true if the datatype is recursive; false otherwise (or if dt_sort
+         *         is null / not a datatype / has no constructors).
+         */
+        bool isRecursiveDatatype(const std::shared_ptr<Sort>& dt_sort) const;
+
+        /**
+         * @brief Build a concrete default (ground) term of the given datatype sort.
+         *
+         * Selects the first nullary constructor if available; otherwise selects the
+         * first constructor whose selector sorts can all be recursively defaulted.
+         * Handles mutual recursion via a visited-sort guard.
+         * Returns nullptr when the sort has no well-founded base case (e.g. a
+         * mutually-recursive DT with no nullary constructor on either branch).
+         *
+         * @param dt_sort A Sort with isDatatype() == true.
+         * @return A ground DAGNode of sort dt_sort, or nullptr on failure.
+         */
+        std::shared_ptr<DAGNode> mkDefaultDTValue(const std::shared_ptr<Sort>& dt_sort);
+
+        /**
          * @brief Check if a variable is declared
          * 
          * @param var_name Variable name
@@ -3833,6 +3887,8 @@ namespace SOMTParser{
         ModelPtr                                newEmptyModel();
         
     private:
+        friend struct EvalAccess;   // grants eval_dispatch.cpp access to evaluateXxx
+
         // parse smt-lib2 file
         std::string	                            getSymbol();
         void 		                            scanToNextSymbol();

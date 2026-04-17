@@ -32,6 +32,13 @@
 #include "somtparser/core/util.h"
 #include "somtparser/ir/value.h"
 
+namespace {
+    bool compareByHash(const std::pair<std::shared_ptr<SOMTParser::DAGNode>, size_t>& a,
+                       const std::pair<std::shared_ptr<SOMTParser::DAGNode>, size_t>& b) {
+        return a.second < b.second;
+    }
+} // anonymous namespace
+
 namespace SOMTParser{
 
     bool isIntParam(std::shared_ptr<DAGNode> param){auto sort = param->getSort(); return sort && (sort->isInt() || sort->isIntOrReal());}
@@ -158,11 +165,7 @@ namespace SOMTParser{
         }
         
         // sort by hash code
-        std::sort(params_with_hash.begin(), params_with_hash.end(), 
-                 [](const std::pair<std::shared_ptr<DAGNode>, size_t> &a, 
-                    const std::pair<std::shared_ptr<DAGNode>, size_t> &b){
-                     return a.second < b.second;
-                 });
+        std::sort(params_with_hash.begin(), params_with_hash.end(), compareByHash);
         
         // extract sorted nodes
         for(size_t i = 0; i < params_with_hash.size(); i++) {

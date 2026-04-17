@@ -128,6 +128,94 @@ void test_value_bv_operators_ir() {
     assert(r_shl.toNumber() == SOMTParser::Number(SOMTParser::Integer(20)));
 }
 
+// ─── Issue #3: BV arithmetic correctness (constant-folding path) ─────────────
+// Verifies that the uint64 fast path (≤64-bit BVs) produces numerically correct
+// results for all five arithmetic operators.
+void test_bv_arithmetic_correctness(SOMTParser::ParserPtr& parser) {
+    using SOMTParser::BitVectorUtils;
+    using SOMTParser::Integer;
+    std::cout << "=== Issue #3: BV arithmetic result correctness (≤64-bit) ===" << std::endl;
+
+    // bvadd: 3 + 5 = 8  (#b0011 + #b0101 = #b1000)
+    {
+        auto r = parser->mkExpr("(bvadd #b0011 #b0101)");
+        assert(r && r->isCBV());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(8));
+    }
+    // bvsub: 10 - 3 = 7  (#b1010 - #b0011 = #b0111)
+    {
+        auto r = parser->mkExpr("(bvsub #b1010 #b0011)");
+        assert(r && r->isCBV());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(7));
+    }
+    // bvmul: 3 * 5 = 15  (#b0011 * #b0101 = #b1111)
+    {
+        auto r = parser->mkExpr("(bvmul #b0011 #b0101)");
+        assert(r && r->isCBV());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(15));
+    }
+    // bvudiv: 10 / 2 = 5  (#b1010 / #b0010 = #b0101)
+    {
+        auto r = parser->mkExpr("(bvudiv #b1010 #b0010)");
+        assert(r && r->isCBV());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(5));
+    }
+    // bvurem: 10 % 3 = 1  (#b1010 % #b0011 = #b0001)
+    {
+        auto r = parser->mkExpr("(bvurem #b1010 #b0011)");
+        assert(r && r->isCBV());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(1));
+    }
+    // overflow check: 15 + 1 wraps to 0 in 4-bit  (#b1111 + #b0001 = #b0000)
+    {
+        auto r = parser->mkExpr("(bvadd #b1111 #b0001)");
+        assert(r && r->isCBV());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(0));
+    }
+    std::cout << "  BV arithmetic correctness (fast path): OK\n";
+}
+
+// ─── Issue #3: Large BV (>64-bit) exercises GMP code path ────────────────────
+// Verifies that 128-bit BV arithmetic falls back to GMP and produces correct
+// results (the fast path only handles ≤64-bit widths).
+void test_bv_large_width_gmp_path(SOMTParser::ParserPtr& parser) {
+    using SOMTParser::BitVectorUtils;
+    using SOMTParser::Integer;
+    std::cout << "=== Issue #3: Large BV (128-bit) GMP code path ===" << std::endl;
+
+    // bvadd: 100 + 200 = 300
+    {
+        auto r = parser->mkExpr("(bvadd (_ bv100 128) (_ bv200 128))");
+        assert(r && r->isCBV() && !r->isErr());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(300));
+    }
+    // bvsub: 500 - 1 = 499
+    {
+        auto r = parser->mkExpr("(bvsub (_ bv500 128) (_ bv1 128))");
+        assert(r && r->isCBV() && !r->isErr());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(499));
+    }
+    // bvmul: 1000 * 1000 = 1000000
+    {
+        auto r = parser->mkExpr("(bvmul (_ bv1000 128) (_ bv1000 128))");
+        assert(r && r->isCBV() && !r->isErr());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(1000000));
+    }
+    // bvudiv: 1000000 / 1000 = 1000
+    {
+        auto r = parser->mkExpr("(bvudiv (_ bv1000000 128) (_ bv1000 128))");
+        assert(r && r->isCBV() && !r->isErr());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(1000));
+    }
+    // bvurem: 1000007 % 1000 = 7
+    {
+        auto r = parser->mkExpr("(bvurem (_ bv1000007 128) (_ bv1000 128))");
+        assert(r && r->isCBV() && !r->isErr());
+        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(7));
+    }
+    std::cout << "  Large BV GMP path: OK\n";
+}
+
 int main() {
     std::cout << "======= Bitvector Operations Test =======" << std::endl;
 
@@ -139,6 +227,8 @@ int main() {
     test_bv_arithmetic_operations(parser);
     test_bv_comparison_operations(parser);
     test_value_bv_operators_ir();
+    test_bv_arithmetic_correctness(parser);
+    test_bv_large_width_gmp_path(parser);
 
     return 0;
-} 
+}

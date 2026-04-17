@@ -27,14 +27,226 @@
 
 #include "somtparser/core/util.h"
 #include "somtparser/ir/dag.h"
-#include <vector>
-#include <sstream>
-#include <cmath>
-#include <iomanip>
 #include <algorithm>
-#include <string>
+#include <cmath>
+#include <cstdint>
+#include <iomanip>
 #include <mpfr.h>
+#include <regex>
+#include <sstream>
+#include <string>
+#include <vector>
+
 namespace SOMTParser{
+
+    static bool isSpaceChar(unsigned char c) { return std::isspace(c) != 0; }
+
+    // ── RegexUtils internal helpers ──────────────────────────────────────────────
+    //
+    // toEcmaPattern  : translates a ground SMT-LIB regex DAGNode to an ECMAScript
+    //                   pattern string understood by std::regex_match.
+    // strInReHelper   : handles structural operators (re.inter, re.diff, re.comp,
+    //                   re.none / re.all) and calls toEcmaPattern + std::regex_match
+    //                   for the remaining cases.
+    //
+    // Only "leaves" of the structural decomposition ever call std::regex — the
+    // library itself does all real matching.  No custom NFA is implemented.
+
+    static std::string regexEscapeForPattern(const std::string& s) {
+        static const std::string kSpecials = ".^$*+?()[]{}\\|";
+        std::string out;
+        out.reserve(s.size() * 2);
+        for (unsigned char c : s) {
+            if (kSpecials.find(static_cast<char>(c)) != std::string::npos)
+                out += '\\';
+            out += static_cast<char>(c);
+        }
+        return out;
+    }
+
+    static std::string regexEscapeForClass(char c) {
+        if (c == ']' || c == '\\' || c == '^' || c == '-')
+            return std::string("\\") + c;
+        return std::string(1, c);
+    }
+
+    // Forward declaration.
+    static std::optional<bool> strInReHelper(
+        const std::string& raw,
+        const std::shared_ptr<DAGNode>& regex);
+
+    static std::optional<std::string> toEcmaPattern(
+        const std::shared_ptr<DAGNode>& regex)
+    {
+        using NK = NODE_KIND;
+        if (!regex) return std::nullopt;
+
+        switch (regex->getKind()) {
+
+        // re.none / re.all / re.allchar are stored as NT_CONST nodes by mkConstReg.
+        case NK::NT_CONST: {
+            const std::string& nm = regex->getName();
+            if (nm == "re.all")     return std::string("[\\s\\S]*");
+            if (nm == "re.allchar") return std::string("[\\s\\S]");
+            return std::nullopt;
+        }
+
+        case NK::NT_REG_ALL:
+            return std::string("[\\s\\S]*");
+
+        case NK::NT_REG_ALLCHAR:
+            return std::string("[\\s\\S]");
+
+        case NK::NT_STR_TO_REG: {
+            auto child = regex->getChild(0);
+            if (!child->isCStr()) return std::nullopt;
+            return regexEscapeForPattern(child->getStringLiteral());
+        }
+
+        case NK::NT_REG_RANGE: {
+            auto lo_n = regex->getChild(0);
+            auto hi_n = regex->getChild(1);
+            if (!lo_n->isCStr() || !hi_n->isCStr()) return std::nullopt;
+            std::string lo = lo_n->getStringLiteral();
+            std::string hi = hi_n->getStringLiteral();
+            if (lo.empty() || hi.empty()) return std::nullopt;
+            if (lo[0] == hi[0])
+                return "[" + regexEscapeForClass(lo[0]) + "]";
+            return "[" + regexEscapeForClass(lo[0]) + "-" + regexEscapeForClass(hi[0]) + "]";
+        }
+
+        case NK::NT_REG_STAR: {
+            auto sub = toEcmaPattern(regex->getChild(0));
+            if (!sub) return std::nullopt;
+            return "(?:" + *sub + ")*";
+        }
+
+        case NK::NT_REG_PLUS: {
+            auto sub = toEcmaPattern(regex->getChild(0));
+            if (!sub) return std::nullopt;
+            return "(?:" + *sub + ")+";
+        }
+
+        case NK::NT_REG_OPT: {
+            auto sub = toEcmaPattern(regex->getChild(0));
+            if (!sub) return std::nullopt;
+            return "(?:" + *sub + ")?";
+        }
+
+        case NK::NT_REG_CONCAT: {
+            std::string result;
+            for (size_t i = 0; i < regex->getChildrenSize(); ++i) {
+                auto sub = toEcmaPattern(regex->getChild(i));
+                if (!sub) return std::nullopt;
+                result += "(?:" + *sub + ")";
+            }
+            return result;
+        }
+
+        case NK::NT_REG_UNION: {
+            if (regex->getChildrenSize() == 0) return std::nullopt;
+            std::string result = "(?:";
+            for (size_t i = 0; i < regex->getChildrenSize(); ++i) {
+                auto sub = toEcmaPattern(regex->getChild(i));
+                if (!sub) return std::nullopt;
+                if (i > 0) result += '|';
+                result += *sub;
+            }
+            return result + ")";
+        }
+
+        case NK::NT_REG_REPEAT: {
+            if (regex->getChildrenSize() < 2) return std::nullopt;
+            auto sub = toEcmaPattern(regex->getChild(0));
+            if (!sub) return std::nullopt;
+            long n = 0;
+            try { n = std::stol(regex->getChild(1)->getName()); }
+            catch (...) { return std::nullopt; }
+            if (n < 0) return std::nullopt;
+            return "(?:" + *sub + "){" + std::to_string(n) + "}";
+        }
+
+        case NK::NT_REG_LOOP: {
+            if (regex->getChildrenSize() < 3) return std::nullopt;
+            auto sub = toEcmaPattern(regex->getChild(0));
+            if (!sub) return std::nullopt;
+            long lo = 0, hi = 0;
+            try {
+                lo = std::stol(regex->getChild(1)->getName());
+                hi = std::stol(regex->getChild(2)->getName());
+            } catch (...) { return std::nullopt; }
+            if (lo < 0 || hi < lo) return std::nullopt;
+            return "(?:" + *sub + "){" + std::to_string(lo) + "," + std::to_string(hi) + "}";
+        }
+
+        default:
+            return std::nullopt;
+        }
+    }
+
+    static std::optional<bool> strInReHelper(
+        const std::string& raw,
+        const std::shared_ptr<DAGNode>& regex)
+    {
+        using NK = NODE_KIND;
+        if (!regex) return std::nullopt;
+
+        switch (regex->getKind()) {
+
+        case NK::NT_REG_NONE:
+            return false;
+
+        case NK::NT_REG_ALL:
+            return true;
+
+        case NK::NT_REG_ALLCHAR:
+            return (raw.size() == 1);
+
+        // re.none / re.all / re.allchar are stored as NT_CONST nodes by mkConstReg.
+        case NK::NT_CONST: {
+            const std::string& nm = regex->getName();
+            if (nm == "re.none")    return false;
+            if (nm == "re.all")     return true;
+            if (nm == "re.allchar") return (raw.size() == 1);
+            return std::nullopt;
+        }
+
+        case NK::NT_REG_INTER: {
+            for (size_t i = 0; i < regex->getChildrenSize(); ++i) {
+                auto r = strInReHelper(raw, regex->getChild(i));
+                if (!r)  return std::nullopt;
+                if (!*r) return false;
+            }
+            return true;
+        }
+
+        case NK::NT_REG_DIFF: {
+            if (regex->getChildrenSize() < 2) return std::nullopt;
+            auto r1 = strInReHelper(raw, regex->getChild(0));
+            if (!r1 || !*r1) return r1;
+            auto r2 = strInReHelper(raw, regex->getChild(1));
+            if (!r2) return std::nullopt;
+            return !*r2;
+        }
+
+        case NK::NT_REG_COMPLEMENT: {
+            auto r = strInReHelper(raw, regex->getChild(0));
+            if (!r) return std::nullopt;
+            return !*r;
+        }
+
+        default: {
+            auto pat = toEcmaPattern(regex);
+            if (!pat) return std::nullopt;
+            try {
+                std::regex re(*pat, std::regex_constants::ECMAScript);
+                return std::regex_match(raw, re);
+            } catch (const std::regex_error&) {
+                return std::nullopt;
+            }
+        }
+        }
+    }
 
     bool TypeChecker::isNumber(const std::string& str){
         return isInt(str) || isReal(str);
@@ -86,7 +298,7 @@ namespace SOMTParser{
         // create a copy without spaces for checking
         std::string exponent_no_spaces = exponent;
         exponent_no_spaces.erase(std::remove_if(exponent_no_spaces.begin(), exponent_no_spaces.end(), 
-                                     [](unsigned char c) { return std::isspace(c); }), 
+                                     isSpaceChar), 
                       exponent_no_spaces.end());
         
         // if the exponent part is empty after removing spaces, not a valid scientific notation
@@ -155,7 +367,7 @@ namespace SOMTParser{
             // create a copy without spaces for processing
             std::string exponent_no_spaces = exponent;
             exponent_no_spaces.erase(std::remove_if(exponent_no_spaces.begin(), exponent_no_spaces.end(), 
-                                         [](unsigned char c) { return std::isspace(c); }), 
+                                         isSpaceChar), 
                           exponent_no_spaces.end());
             
             // if the exponent part is empty after removing spaces, return the original string
@@ -435,123 +647,68 @@ namespace SOMTParser{
     std::string BitVectorUtils::bvAdd(const std::string& bv1, const std::string& bv2){
         condAssert(bv1[0] == '#' && bv1[1] == 'b', "BitVectorUtils::bvAdd: invalid bitvector");
         condAssert(bv2[0] == '#' && bv2[1] == 'b', "BitVectorUtils::bvAdd: invalid bitvector");
-        std::string bv1_ = bv1.substr(2, bv1.size() - 2);
-        std::string bv2_ = bv2.substr(2, bv2.size() - 2);
-        if(bv1_.size() != bv2_.size()){
-            // add prefix 0 to the shorter one
-            if(bv1_.size() < bv2_.size()){
-                bv1_ = "#b" + std::string(bv2_.size() - bv1_.size(), '0') + bv1_;
-                bv2_ = "#b" + bv2_;
-            }
-            else{
-                bv2_ = "#b" + std::string(bv1_.size() - bv2_.size(), '0') + bv2_;
-                bv1_ = "#b" + bv1_;
-            }
+        const size_t w = std::max(bv1.size(), bv2.size()) - 2;
+        // Fast path: native 64-bit arithmetic
+        if (w <= 64) {
+            const uint64_t mask = (w < 64) ? ((uint64_t(1) << w) - 1) : ~uint64_t(0);
+            uint64_t u1 = 0, u2 = 0;
+            for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) | (bv1[i] == '1' ? 1u : 0u);
+            for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) | (bv2[i] == '1' ? 1u : 0u);
+            const uint64_t r = (u1 + u2) & mask;
+            std::string bin(w, '0');
+            uint64_t tmp = r;
+            for (size_t i = 0; i < w; ++i) { bin[w-1-i] = (tmp & 1) ? '1' : '0'; tmp >>= 1; }
+            return "#b" + bin;
         }
-        else{
-            bv1_ = "#b" + bv1_;
-            bv2_ = "#b" + bv2_;
-        }   
-        std::string res = "";
-        bool carry = false;
-        for(size_t i = bv1_.size() - 1; i >= 2; i--){
-            if(bv1_[i] == '0' && bv2_[i] == '0'){
-                res += carry ? '1' : '0';
-                carry = false;
-            }
-            else if(bv1_[i] == '1' && bv2_[i] == '1'){
-                res += carry ? '1' : '0';
-                carry = true;
-            }
-            else{
-                res += carry ? '0' : '1';
-            }
-        }
-        // add #b prefix and reverse
-        res = std::string(res.rbegin(), res.rend());
-        res = "#b" + res;
-        return res;
+        // GMP path: arbitrary precision
+        Integer u1 = 0, u2 = 0;
+        for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) + (bv1[i] == '1' ? 1 : 0);
+        for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) + (bv2[i] == '1' ? 1 : 0);
+        return intToBv(u1 + u2, Integer(w));
     }
     std::string BitVectorUtils::bvSub(const std::string& bv1, const std::string& bv2){
         condAssert(bv1[0] == '#' && bv1[1] == 'b', "BitVectorUtils::bvSub: invalid bitvector");
         condAssert(bv2[0] == '#' && bv2[1] == 'b', "BitVectorUtils::bvSub: invalid bitvector");
-        std::string bv1_ = bv1.substr(2, bv1.size() - 2);
-        std::string bv2_ = bv2.substr(2, bv2.size() - 2);
-        if(bv1_.size() != bv2_.size()){
-            // add prefix 0 to the shorter one
-            if(bv1_.size() < bv2_.size()){
-                bv1_ = "#b" + std::string(bv2_.size() - bv1_.size(), '0') + bv1_;
-                bv2_ = "#b" + bv2_;
-            }
-            else{
-                bv2_ = "#b" + std::string(bv1_.size() - bv2_.size(), '0') + bv2_;
-                bv1_ = "#b" + bv1_;
-            }
+        const size_t w = std::max(bv1.size(), bv2.size()) - 2;
+        // Fast path: native 64-bit arithmetic
+        if (w <= 64) {
+            const uint64_t mask = (w < 64) ? ((uint64_t(1) << w) - 1) : ~uint64_t(0);
+            uint64_t u1 = 0, u2 = 0;
+            for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) | (bv1[i] == '1' ? 1u : 0u);
+            for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) | (bv2[i] == '1' ? 1u : 0u);
+            const uint64_t r = (u1 - u2) & mask;
+            std::string bin(w, '0');
+            uint64_t tmp = r;
+            for (size_t i = 0; i < w; ++i) { bin[w-1-i] = (tmp & 1) ? '1' : '0'; tmp >>= 1; }
+            return "#b" + bin;
         }
-        else{
-            bv1_ = "#b" + bv1_;
-            bv2_ = "#b" + bv2_;
-        }
-        std::string res = "";
-        bool borrow = false;
-        for(size_t i = bv1_.size() - 1; i >= 2; i--){
-            if(bv1_[i] == '0' && bv2_[i] == '0'){
-                res += borrow ? '1' : '0';
-                borrow = false;
-            }
-            else if(bv1_[i] == '1' && bv2_[i] == '1'){
-                res += borrow ? '0' : '1';
-                borrow = true;
-            }
-            else{
-                res += borrow ? '1' : '0';
-            }
-        }
-        res = std::string(res.rbegin(), res.rend());
-        res = "#b" + res;
-        return res;
+        // GMP path
+        Integer u1 = 0, u2 = 0;
+        for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) + (bv1[i] == '1' ? 1 : 0);
+        for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) + (bv2[i] == '1' ? 1 : 0);
+        return intToBv(u1 - u2, Integer(w));
     }
     std::string BitVectorUtils::bvMul(const std::string& bv1, const std::string& bv2) {
         condAssert(bv1.rfind("#b", 0) == 0, "BitVectorUtils::bvMul: invalid bitvector");
         condAssert(bv2.rfind("#b", 0) == 0, "BitVectorUtils::bvMul: invalid bitvector");
-    
-        std::string bin1 = bv1.substr(2);
-        std::string bin2 = bv2.substr(2);
-    
-        // Padding to same length
-        size_t N = std::max(bin1.size(), bin2.size());
-        if (bin1.size() < N) bin1 = std::string(N - bin1.size(), '0') + bin1;
-        if (bin2.size() < N) bin2 = std::string(N - bin2.size(), '0') + bin2;
-    
-        // Init result as 0
-        std::vector<int> result(N * 2, 0);
-    
-        // Manual binary multiplication (like pen-and-paper)
-        for (size_t i = N; i > 0; --i) {
-            if (bin2[i - 1] == '1') {
-                for (size_t j = N; j > 0; --j) {
-                    if (bin1[j - 1] == '1') {
-                        result[i - 1 + j - 1 + 1] += 1;
-                    }
-                }
-            }
+        const size_t w = std::max(bv1.size(), bv2.size()) - 2;
+        // Fast path: native 64-bit arithmetic
+        if (w <= 64) {
+            const uint64_t mask = (w < 64) ? ((uint64_t(1) << w) - 1) : ~uint64_t(0);
+            uint64_t u1 = 0, u2 = 0;
+            for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) | (bv1[i] == '1' ? 1u : 0u);
+            for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) | (bv2[i] == '1' ? 1u : 0u);
+            const uint64_t r = (u1 * u2) & mask;
+            std::string bin(w, '0');
+            uint64_t tmp = r;
+            for (size_t i = 0; i < w; ++i) { bin[w-1-i] = (tmp & 1) ? '1' : '0'; tmp >>= 1; }
+            return "#b" + bin;
         }
-    
-        // Carry handling
-        for (size_t k = result.size() - 1; k > 0; --k) {
-            if (result[k] >= 2) {
-                result[k - 1] += result[k] / 2;
-                result[k] %= 2;
-            }
-        }
-    
-        // Convert to binary string
-        std::string resBin;
-        for (size_t i = result.size() - N; i < result.size(); ++i) {
-            resBin += (result[i] ? '1' : '0');
-        }
-    
-        return "#b" + resBin;
+        // GMP path: O(n log n log log n) via GMP's optimized multiplication
+        Integer u1 = 0, u2 = 0;
+        for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) + (bv1[i] == '1' ? 1 : 0);
+        for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) + (bv2[i] == '1' ? 1 : 0);
+        return intToBv(u1 * u2, Integer(w));
     }
     
 
@@ -559,125 +716,52 @@ namespace SOMTParser{
     std::string BitVectorUtils::bvUdiv(const std::string& bv1, const std::string& bv2){
         condAssert(bv1[0] == '#' && bv1[1] == 'b', "BitVectorUtils::bvUdiv: invalid bitvector");
         condAssert(bv2[0] == '#' && bv2[1] == 'b', "BitVectorUtils::bvUdiv: invalid bitvector");
-
-        // div 0, return all ones
-        bool isBv2Zero = true;
-        for(size_t i = 2; i < bv2.size(); i++){
-            if(bv2[i] == '1'){
-                isBv2Zero = false;
-                break;
-            }
+        const size_t w = bv1.size() - 2;
+        // Divisor = 0 → return all-ones
+        bool bv2IsZero = true;
+        for (size_t i = 2; i < bv2.size(); ++i) { if (bv2[i] == '1') { bv2IsZero = false; break; } }
+        if (bv2IsZero) return "#b" + std::string(w, '1');
+        // Fast path: native 64-bit arithmetic
+        if (w <= 64) {
+            uint64_t u1 = 0, u2 = 0;
+            for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) | (bv1[i] == '1' ? 1u : 0u);
+            for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) | (bv2[i] == '1' ? 1u : 0u);
+            const uint64_t r = u1 / u2;
+            std::string bin(w, '0');
+            uint64_t tmp = r;
+            for (size_t i = 0; i < w; ++i) { bin[w-1-i] = (tmp & 1) ? '1' : '0'; tmp >>= 1; }
+            return "#b" + bin;
         }
-        if(isBv2Zero){
-            return "#b" + std::string(bv1.size() - 2, '1');
-        }
-
-        std::string bv1_ = bv1.substr(2, bv1.size() - 2);
-        std::string bv2_ = bv2.substr(2, bv2.size() - 2);
-        if(bv1_.size() != bv2_.size()){
-            // add prefix 0 to the shorter one
-            if(bv1_.size() < bv2_.size()){
-                bv1_ = "#b" + std::string(bv2_.size() - bv1_.size(), '0') + bv1_;
-                bv2_ = "#b" + bv2_;
-            }
-            else{
-                bv2_ = "#b" + std::string(bv1_.size() - bv2_.size(), '0') + bv2_;
-                bv1_ = "#b" + bv1_;
-            }
-        }
-        else{
-            bv1_ = "#b" + bv1_;
-            bv2_ = "#b" + bv2_;
-        }
-        // special case: divide by 0
-        bool isZero = true;
-        for(size_t i = 2; i < bv2_.size(); i++){
-            if(bv2_[i] == '1'){
-                isZero = false;
-                break;
-            }
-        }
-        if(isZero){
-            // divide by 0, return all ones
-            return "#b" + std::string(bv1.size() - 2, '1');
-        }
-        
-        // extract pure binary bits (without #b prefix)
-        std::string dividend_bits = bv1_.substr(2);
-        std::string divisor_bits = bv2_.substr(2);
-        
-        std::string quotient_bits;
-        std::string remainder = "";
-        
-        // long division
-        for(char bit : dividend_bits){
-            // add current bit to remainder
-            remainder.push_back(bit);
-            
-            // try division
-            if(remainder.length() < divisor_bits.length()){
-                // remainder length not enough, add 0 to quotient
-                quotient_bits.push_back('0');
-            }
-            else{
-                // compare remainder with divisor (need to add #b prefix for comparison)
-                std::string remainder_bv = "#b" + remainder;
-                std::string divisor_bv = "#b" + divisor_bits;
-                
-                // binary string comparison
-                bool geq = true;
-                if(remainder.length() != divisor_bits.length()){
-                    geq = remainder.length() > divisor_bits.length();
-                }
-                else{
-                    for(size_t i = 0; i < remainder.length(); i++){
-                        if(remainder[i] < divisor_bits[i]){
-                            geq = false;
-                            break;
-                        }
-                        else if(remainder[i] > divisor_bits[i]){
-                            break;
-                        }
-                    }
-                }
-                
-                if(geq){
-                    // remainder greater than or equal to divisor, add 1 to quotient
-                    quotient_bits.push_back('1');
-                    
-                    // subtract divisor from remainder
-                    std::string diff = SOMTParser::BitVectorUtils::bvSub(remainder_bv, divisor_bv);
-                    remainder = diff.substr(2); // remove #b prefix
-                }
-                else{
-                    // remainder less than divisor, add 0 to quotient
-                    quotient_bits.push_back('0');
-                }
-            }
-        }
-        
-        // return result with prefix
-        return "#b" + quotient_bits;
+        // GMP path
+        Integer u1 = 0, u2 = 0;
+        for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) + (bv1[i] == '1' ? 1 : 0);
+        for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) + (bv2[i] == '1' ? 1 : 0);
+        return intToBv(u1 / u2, Integer(w));
     }
     std::string BitVectorUtils::bvUrem(const std::string& bv1, const std::string& bv2){
         condAssert(bv1[0] == '#' && bv1[1] == 'b', "BitVectorUtils::bvUrem: invalid bitvector");
         condAssert(bv2[0] == '#' && bv2[1] == 'b', "BitVectorUtils::bvUrem: invalid bitvector");
-        // div 0, return first operand
-        bool isZero = true;
-        for(size_t i = 2; i < bv2.size(); i++){
-            if(bv2[i] == '1'){
-                isZero = false;
-                break;
-            }
+        const size_t w = bv1.size() - 2;
+        // Divisor = 0 → return bv1
+        bool bv2IsZero = true;
+        for (size_t i = 2; i < bv2.size(); ++i) { if (bv2[i] == '1') { bv2IsZero = false; break; } }
+        if (bv2IsZero) return bv1;
+        // Fast path: native 64-bit arithmetic
+        if (w <= 64) {
+            uint64_t u1 = 0, u2 = 0;
+            for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) | (bv1[i] == '1' ? 1u : 0u);
+            for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) | (bv2[i] == '1' ? 1u : 0u);
+            const uint64_t r = u1 % u2;
+            std::string bin(w, '0');
+            uint64_t tmp = r;
+            for (size_t i = 0; i < w; ++i) { bin[w-1-i] = (tmp & 1) ? '1' : '0'; tmp >>= 1; }
+            return "#b" + bin;
         }
-        if(isZero){
-            return bv1;
-        }
-        std::string dividend = bv1;
-        std::string divisor = bv2;
-        std::string quotient = SOMTParser::BitVectorUtils::bvUdiv(bv1, bv2);
-        std::string res = SOMTParser::BitVectorUtils::bvSub(dividend, SOMTParser::BitVectorUtils::bvMul(quotient, bv2));
-        return res;
+        // GMP path
+        Integer u1 = 0, u2 = 0;
+        for (size_t i = 2; i < bv1.size(); ++i) u1 = (u1 << 1) + (bv1[i] == '1' ? 1 : 0);
+        for (size_t i = 2; i < bv2.size(); ++i) u2 = (u2 << 1) + (bv2[i] == '1' ? 1 : 0);
+        return intToBv(u1 % u2, Integer(w));
     }
     std::string BitVectorUtils::bvUmod(const std::string& bv1, const std::string& bv2){
         condAssert(bv1[0] == '#' && bv1[1] == 'b', "BitVectorUtils::bvUmod: invalid bitvector");
@@ -1216,6 +1300,15 @@ namespace SOMTParser{
         return "\"" + std::string(res.rbegin(), res.rend()) + "\"";
     }
 
+    // ─── RegexUtils ─────────────────────────────────────────────────────────────
+    std::optional<bool> RegexUtils::strInRe(
+        const std::shared_ptr<DAGNode>& str_node,
+        const std::shared_ptr<DAGNode>& regex)
+    {
+        if (!str_node || !str_node->isCStr()) return std::nullopt;
+        if (!regex) return std::nullopt;
+        return strInReHelper(str_node->getStringLiteral(), regex);
+    }
 
     // toString
     std::string ConversionUtils::toString(const Integer& i){
