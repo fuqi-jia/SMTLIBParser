@@ -1344,7 +1344,7 @@ namespace SOMTParser{
         for(char c : s){
             // SMT-LIB2 string escaping rules:
             //   - double quote is escaped as "" (two consecutive double-quotes)
-            //   - backslash is escaped as \\
+            //   - backslash is escaped as two backslashes
             //   - single quotes and other printable chars need no escaping
             //   - non-printable/control characters use \u{X} Unicode escape
             switch(c) {
