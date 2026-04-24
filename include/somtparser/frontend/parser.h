@@ -66,7 +66,7 @@ namespace SOMTParser{
         CT_UNKNOWN, CT_EOF,
         // COMMANDS
         CT_ASSERT, CT_CHECK_SAT, CT_CHECK_SAT_ASSUMING,
-        CT_DECLARE_CONST, CT_DECLARE_FUN, CT_DECLARE_SORT,
+        CT_DECLARE_CONST, CT_DECLARE_FUN, CT_DECLARE_SORT, CT_DECLARE_DATATYPES,
         CT_DEFINE_FUN, CT_DEFINE_FUN_REC, CT_DEFINE_FUNS_REC, CT_DEFINE_SORT,
         CT_ECHO, CT_EXIT,
         CT_GET_ASSERTIONS, CT_GET_ASSIGNMENT, CT_GET_INFO,
@@ -401,6 +401,60 @@ namespace SOMTParser{
         std::vector<std::shared_ptr<DAGNode>> getDeclaredVariables() const;
         
         /**
+         * @brief Get declared variables filtered by sort kind.
+         *
+         * These convenience accessors filter getDeclaredVariables() by the
+         * sort of each variable.  They are useful for downstream solvers that
+         * maintain separate variable models for each theory.
+         */
+        std::vector<std::shared_ptr<DAGNode>> getBoolVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getIntVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getRealVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getBvVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getFpVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getRoundingModeVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getArrayVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getDatatypeVars() const;
+        std::vector<std::shared_ptr<DAGNode>> getStringVars() const;
+
+        /** Counts corresponding to the sort-classified accessors above. */
+        size_t getNumBoolVars() const;
+        size_t getNumIntVars() const;
+        size_t getNumRealVars() const;
+        size_t getNumBvVars() const;
+        size_t getNumFpVars() const;
+        size_t getNumRoundingModeVars() const;
+        size_t getNumArrayVars() const;
+        size_t getNumDatatypeVars() const;
+        size_t getNumStringVars() const;
+
+        /**
+         * @brief Check whether a datatype sort is (directly or mutually) recursive.
+         *
+         * A datatype is recursive if at least one of its constructors has a selector
+         * whose sort transitively refers back to this datatype (direct or mutual).
+         *
+         * @param dt_sort A Sort with isDatatype() == true.
+         * @return true if the datatype is recursive; false otherwise (or if dt_sort
+         *         is null / not a datatype / has no constructors).
+         */
+        bool isRecursiveDatatype(const std::shared_ptr<Sort>& dt_sort) const;
+
+        /**
+         * @brief Build a concrete default (ground) term of the given datatype sort.
+         *
+         * Selects the first nullary constructor if available; otherwise selects the
+         * first constructor whose selector sorts can all be recursively defaulted.
+         * Handles mutual recursion via a visited-sort guard.
+         * Returns nullptr when the sort has no well-founded base case (e.g. a
+         * mutually-recursive DT with no nullary constructor on either branch).
+         *
+         * @param dt_sort A Sort with isDatatype() == true.
+         * @return A ground DAGNode of sort dt_sort, or nullptr on failure.
+         */
+        std::shared_ptr<DAGNode> mkDefaultDTValue(const std::shared_ptr<Sort>& dt_sort);
+
+        /**
          * @brief Check if a variable is declared
          * 
          * @param var_name Variable name
@@ -688,6 +742,13 @@ namespace SOMTParser{
          * @return Uninterpreted function application node
          */
         std::shared_ptr<DAGNode> mkApplyUF(const std::shared_ptr<Sort>& sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params);
+
+        /**
+         * @brief Determine the correct NODE_KIND for a function application.
+         * Returns NT_DT_CONSTRUCTOR, NT_DT_SELECTOR, NT_DT_TESTER if the
+         * function is a datatype function, otherwise NT_UF_APPLY.
+         */
+        NODE_KIND getDtFunctionKind(const std::shared_ptr<Sort>& return_sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params);
 
         // mk sort
         /**
@@ -2498,7 +2559,6 @@ namespace SOMTParser{
          * @return Floating-point square root node (fp.sqrt(param))
          */
         std::shared_ptr<DAGNode> mkFpSqrt(std::shared_ptr<DAGNode> rm, std::shared_ptr<DAGNode> param); // sqrt(rm, param)
-        std::shared_ptr<DAGNode> mkFpSqrt(std::shared_ptr<DAGNode> param); // sqrt(param)
         
         /**
          * @brief Create a floating-point round to integral node
@@ -2507,7 +2567,6 @@ namespace SOMTParser{
          * @return Floating-point round to integral node (fp.roundToIntegral(param))
          */
         std::shared_ptr<DAGNode> mkFpRoundToIntegral(std::shared_ptr<DAGNode> rm, std::shared_ptr<DAGNode> param); // round_to_integral(rm, param)
-        std::shared_ptr<DAGNode> mkFpRoundToIntegral(std::shared_ptr<DAGNode> param); // round_to_integral(param)
         
         /**
          * @brief Create a floating-point minimum node
@@ -3341,6 +3400,10 @@ namespace SOMTParser{
          */
         bool                                    getEvaluateUseFloating() const;
 
+        /** When true, enforce stricter SMT-LIB FloatingPoint surface syntax (see GlobalOptions::strict_smtlib_fp). */
+        void                                    setStrictSmtlib(bool strict);
+        bool                                    getStrictSmtlib() const;
+
         /**
          * @brief Evaluate an expression
          * 
@@ -3824,6 +3887,8 @@ namespace SOMTParser{
         ModelPtr                                newEmptyModel();
         
     private:
+        friend struct EvalAccess;   // grants eval_dispatch.cpp access to evaluateXxx
+
         // parse smt-lib2 file
         std::string	                            getSymbol();
         void 		                            scanToNextSymbol();
@@ -3840,7 +3905,7 @@ namespace SOMTParser{
         std::shared_ptr<Sort>	                parseSort();
         std::shared_ptr<DAGNode>		        parseExpr();
         std::shared_ptr<DAGNode>		        parseConstFunc(const std::string& s);
-        std::shared_ptr<DAGNode>		        parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params);
+        std::shared_ptr<DAGNode>		        parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params, bool indexed_under_score = false);
         std::vector<std::shared_ptr<DAGNode>>	parseParams();
         std::shared_ptr<DAGNode>		        parsePreservingLet();
         std::shared_ptr<DAGNode>		        parseLet();
@@ -3850,6 +3915,9 @@ namespace SOMTParser{
         std::string                             parseGroup();
         std::string                             parseWeight();
         std::shared_ptr<DAGNode>                parseQuant(const std::string& type);
+        std::shared_ptr<DAGNode>                parseMatch();
+        /** Parse one <datatype_dec> ((ctor...)...) after its opening '('; register ctors/selectors/testers on @p dt_sort. */
+        void                                    defineDatatypeConstructors(const std::shared_ptr<Sort>& dt_sort);
         
         // parse optimization
         // single_opt = (maximize <expr> [:comp <symbol>] [:epsilon <symbol>] [:M <symbol>] [:id <symbol>]) 
@@ -3939,6 +4007,9 @@ namespace SOMTParser{
         
         // Check if two arrays are equal using canonical form
         bool                                    areArraysEqual(const std::shared_ptr<DAGNode>& a, const std::shared_ptr<DAGNode>& b);
+        
+        // Check if two DT ground values are structurally equal
+        bool                                    areDtValuesEqual(const std::shared_ptr<DAGNode>& a, const std::shared_ptr<DAGNode>& b);
         
         // Check if an array contains variables (that prevent equality determination)
         bool                                    arrayContainsVar(const std::shared_ptr<DAGNode>& array);
@@ -4102,6 +4173,12 @@ namespace SOMTParser{
         bool		evaluateBvNatToBv(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateBvIntToBv(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateBvToInt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvExtract(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvRepeat(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvZeroExt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvSignExt(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvRotLeft(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateBvRotRight(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpAbs(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpNeg(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpAdd(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
@@ -4123,6 +4200,7 @@ namespace SOMTParser{
         bool		evaluateFpToSbv(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpToReal(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateToFp(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateToFpUnsigned(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpIsNormal(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpIsSubnormal(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateFpIsZero(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
@@ -4132,6 +4210,7 @@ namespace SOMTParser{
         bool		evaluateFpIsPos(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateSelect(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateStore(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateConstArray(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateStrLen(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateStrConcat(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateStrSubstr(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
@@ -4169,6 +4248,11 @@ namespace SOMTParser{
         bool		evaluateRegRepeat(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateRegComplement(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateApplyFun(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateUFApply(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateDtConstructor(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateDtSelector(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateDtTester(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
+        bool		evaluateMatch(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool		evaluateLet(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool        evaluateMax(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);
         bool        evaluateMin(const std::shared_ptr<DAGNode>& expr, const std::shared_ptr<Model>& model, std::shared_ptr<DAGNode> &result);

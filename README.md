@@ -14,6 +14,7 @@
 ## Key Features
 
 - **SMT-LIB2 support**: Compliant with the SMT-LIB2 specification; multiple logics and theories.
+- **FloatingPoint dialect**: By default the parser accepts small **lenient** extensions (e.g. unary `fp.sqrt` canonicalized to `(fp.sqrt RNE …)` in the IR, and aliases like `fp.=`). For **stricter** surface syntax aligned with the official FloatingPoint theory, enable `strict_smtlib_fp` (`Parser::setStrictSmtlib(true)` or `GlobalOptions::setOption("strict_smtlib_fp", "true")`). Details and the full matrix are in [`gaps.md`](gaps.md) (section *FloatingPoint: SMT-LIB theory vs lenient extensions*).
 - **Multi-theory**: Booleans, integer/real arithmetic, bitvectors, IEEE-754 floating point, strings and regular expressions, arrays.
 - **Typed DAG IR**: Structure sharing and canonicalization for a more compact representation and easier analysis/transformation.
 - **OMT support**: Parses intermediate syntax such as `assert-soft`, `maximize`/`minimize`, `define-objective`, `lex-optimize`/`pareto-optimize`/`box-optimize`, `maxsat`/`minsat`, managed by `ObjectiveManager`.

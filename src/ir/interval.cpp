@@ -28,6 +28,13 @@
 #include "somtparser/ir/interval.h"
 #include "somtparser/core/asserting.h"
 
+namespace {
+    bool compareIntervalByLower(const SOMTParser::Interval& a, const SOMTParser::Interval& b) {
+        return a.getLower() < b.getLower() || (a.getLower() == b.getLower() && a.isLeftClosed() > b.isLeftClosed());
+    }
+    bool isNaNNumber(SOMTParser::Number x) { return x.isNaN(); }
+} // anonymous namespace
+
 namespace SOMTParser{
 
     Interval::Interval(Number lower, Number upper, bool leftClosed, bool rightClosed)
@@ -318,10 +325,7 @@ namespace SOMTParser{
         
         // sort the intervals by the lower bound
         std::vector<Interval> sortedIntervals = intervals;
-        std::sort(sortedIntervals.begin(), sortedIntervals.end(), 
-                  [](const Interval& a, const Interval& b) { 
-                      return a.lower < b.lower || (a.lower == b.lower && a.leftClosed > b.leftClosed); 
-                  });
+        std::sort(sortedIntervals.begin(), sortedIntervals.end(), compareIntervalByLower);
         
         std::vector<Interval> result;
         Interval current = sortedIntervals[0];
@@ -2036,8 +2040,7 @@ namespace SOMTParser{
             vals.push_back(lower.pow(exp.getUpper()));
             vals.push_back(upper.pow(exp.getLower()));
             vals.push_back(upper.pow(exp.getUpper()));
-            vals.erase(std::remove_if(vals.begin(), vals.end(), 
-                                       [](Number x) { return x.isNaN(); }), 
+            vals.erase(std::remove_if(vals.begin(), vals.end(), isNaNNumber), 
                         vals.end());
             // if all the values are NaN, then the result is undefined
             if(vals.empty()){

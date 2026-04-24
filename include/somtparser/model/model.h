@@ -132,10 +132,52 @@ namespace SOMTParser{
              * @return The string representation of the model
              */
             std::string toString();
+
+            // ── UF function tables ────────────────────────────────────────────
+
+            /// Store a UF result: func_name( arg_key ) → result_node
+            void setUF(const std::string& func, const std::string& arg_key,
+                       const std::shared_ptr<DAGNode>& result);
+
+            /// Look up a UF result by function name and argument key.
+            /// Returns NodeManager::UNKNOWN_NODE if not found.
+            std::shared_ptr<DAGNode> getUF(const std::string& func,
+                                           const std::string& arg_key) const;
+
+            /// Returns true if any UF entries exist for the given function name.
+            bool hasUF(const std::string& func) const;
+
+            // ── Array storage ─────────────────────────────────────────────────
+
+            /// Store an array element: array_name[ idx_key ] → val_node
+            void setArrayStore(const std::string& arr, const std::string& idx_key,
+                               const std::shared_ptr<DAGNode>& val);
+
+            /// Set the "else" (default) value for an array (from const-array).
+            void setArrayDefault(const std::string& arr,
+                                 const std::shared_ptr<DAGNode>& default_val);
+
+            /// Look up an array element. Returns the default value when the
+            /// index key is not in the store; returns UNKNOWN_NODE if the array
+            /// is not known at all.
+            std::shared_ptr<DAGNode> getArraySelect(const std::string& arr,
+                                                    const std::string& idx_key) const;
+
         private:
             std::unordered_map<std::string, size_t> model_name_index;
             std::vector<std::shared_ptr<DAGNode>> model_vars;
             std::vector<std::shared_ptr<DAGNode>> model_values;
+
+            // UF: func_name → { arg_key → result_node }
+            std::unordered_map<std::string,
+                std::unordered_map<std::string, std::shared_ptr<DAGNode>>> uf_tables_;
+
+            // Arrays: array_name → { index_key → value_node, default }
+            struct ArrayValue {
+                std::unordered_map<std::string, std::shared_ptr<DAGNode>> stores;
+                std::shared_ptr<DAGNode> default_value;
+            };
+            std::unordered_map<std::string, ArrayValue> array_values_;
     };
 
     // smart pointer

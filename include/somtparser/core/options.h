@@ -77,6 +77,11 @@ namespace SOMTParser{
         // if false (default), recursive functions will not be expanded
         bool expand_recursive_functions = false;
 
+        // When true: reject lenient FloatingPoint surface syntax (unary fp.sqrt /
+        // fp.roundToIntegral without RM; non-standard operator spellings like fp.=;
+        // flat (to_fp eb sb x) without indexed head). Default false keeps backward compatibility.
+        bool strict_smtlib_fp = false;
+
     public:
         GlobalOptions() = default;
         ~GlobalOptions() = default;
@@ -89,11 +94,14 @@ namespace SOMTParser{
                 logic_name == "QF_ANIA" ||
                 logic_name == "QF_AUFBV" ||
                 logic_name == "QF_AUFBVFP" ||
+                logic_name == "QF_AUFBVLIA" ||
+                logic_name == "QF_AUFBVNIA" ||
                 logic_name == "QF_AUFLIA" ||
                 logic_name == "QF_AUFNIA" ||
                 logic_name == "QF_AX" ||
                 logic_name == "QF_BV" ||
                 logic_name == "QF_BVFP" ||
+                logic_name == "QF_BVLRA" ||
                 logic_name == "QF_DT" ||
                 logic_name == "QF_BVFPLRA" ||
                 logic_name == "QF_FP" ||
@@ -112,6 +120,7 @@ namespace SOMTParser{
                 logic_name == "QF_UF" ||
                 logic_name == "QF_UFBV" ||
                 logic_name == "QF_UFBVDT" ||
+                logic_name == "QF_UFBVLIA" ||
                 logic_name == "QF_UFDT" ||
                 logic_name == "QF_UFDTLIA" ||
                 logic_name == "QF_UFDTLIRA" ||
@@ -158,6 +167,9 @@ namespace SOMTParser{
             }
             else if(key == "expand_recursive_functions"){
                 setExpandRecursiveFunctions(value == "true");
+            }
+            else if(key == "strict_smtlib_fp"){
+                setStrictSmtlib(value == "true");
             }
         }
 
@@ -219,6 +231,9 @@ namespace SOMTParser{
         
         void setExpandRecursiveFunctions(bool expand){ expand_recursive_functions = expand; }
         bool getExpandRecursiveFunctions() const { return expand_recursive_functions; }
+
+        void setStrictSmtlib(bool strict) { strict_smtlib_fp = strict; }
+        bool getStrictSmtlib() const { return strict_smtlib_fp; }
         
         /**
          * @brief Generate a detailed configuration report
@@ -294,9 +309,18 @@ namespace SOMTParser{
             result += "                like regular function definitions. This feature is planned for future\n";
             result += "                implementation using a 'this' placeholder mechanism to handle recursive\n";
             result += "                self-references during function body parsing and expansion.\n\n";
+
+            result += "8. Strict SMT-LIB FloatingPoint surface syntax\n";
+            result += "   Option: strict_smtlib_fp (set-option / GlobalOptions::setStrictSmtlib / Parser::setStrictSmtlib)\n";
+            result += "   Default: false\n";
+            result += "   Current: " + std::string(strict_smtlib_fp ? "true" : "false") + "\n";
+            result += "   Description: When true, rejects unary fp.sqrt/fp.roundToIntegral (requires explicit RM),\n";
+            result += "                non-standard FP operator aliases (e.g. fp.=, fp.toUbv), and non-indexed\n";
+            result += "                (to_fp eb sb x) calls. When false (default), lenient extensions are accepted\n";
+            result += "                and unary fp.sqrt is canonicalized to (fp.sqrt RNE x) in the IR.\n\n";
             
             // Command flags
-            result += "8. Command Flags\n";
+            result += "9. Command Flags\n";
             result += "   check_sat: " + std::string(check_sat ? "true" : "false") + "\n";
             result += "   get_assertions: " + std::string(get_assertions ? "true" : "false") + "\n";
             result += "   get_assignment: " + std::string(get_assignment ? "true" : "false") + "\n";
@@ -309,7 +333,7 @@ namespace SOMTParser{
             
             // Set-info
             if (!info.empty()) {
-                result += "8. Set-Info Attributes\n";
+                result += "10. Set-Info Attributes\n";
                 for (const auto& kv : info) {
                     result += "   " + kv.first + " = " + kv.second + "\n";
                 }
@@ -318,7 +342,7 @@ namespace SOMTParser{
             
             // Set-option
             if (!options.empty()) {
-                result += "9. Set-Option Values\n";
+                result += "11. Set-Option Values\n";
                 for (const auto& kv : options) {
                     result += "   " + kv.first + " = " + kv.second + "\n";
                 }
@@ -327,7 +351,7 @@ namespace SOMTParser{
             
             // Get-info
             if (!get_info.empty()) {
-                result += "10. Get-Info Queries\n";
+                result += "12. Get-Info Queries\n";
                 for (const auto& kv : get_info) {
                     result += "   " + kv.first + " = " + kv.second + "\n";
                 }
@@ -336,7 +360,7 @@ namespace SOMTParser{
             
             // Get-option
             if (!get_options.empty()) {
-                result += "11. Get-Option Queries\n";
+                result += "13. Get-Option Queries\n";
                 for (const auto& kv : get_options) {
                     result += "   " + kv.first + " = " + kv.second + "\n";
                 }
@@ -345,7 +369,7 @@ namespace SOMTParser{
             
             // Get-value
             if (!values.empty()) {
-                result += "12. Get-Value Queries\n";
+                result += "14. Get-Value Queries\n";
                 for (const auto& kv : values) {
                     result += "   " + kv.first + " = " + kv.second + "\n";
                 }

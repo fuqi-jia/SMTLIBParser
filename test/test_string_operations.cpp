@@ -114,6 +114,120 @@ void test_regex_operations(SOMTParser::ParserPtr& parser) {
     }
 }
 
+// ─── Issue #4: Regex evaluate ────────────────────────────────────────────────
+// These tests verify that the 10 NT_REG_* kinds previously returning
+// not_implemented_warning() are now handled by evaluateSimpleOp and
+// correctly propagate through evaluate().
+void test_regex_evaluate(SOMTParser::ParserPtr& parser) {
+    using namespace SOMTParser;
+    ModelPtr model = newModel();
+
+    std::cout << "=== Issue #4: Regex evaluate (constant folding via RegexUtils) ===" << std::endl;
+
+    // Helper macros — assert is disabled by -DNDEBUG, so we use explicit checks.
+#define EXPECT_TRUE(expr, label) \
+    do { \
+        auto _e = parser->mkExpr(expr); \
+        if (!_e || _e->isErr()) { \
+            std::cerr << "FAIL [" label "]: mkExpr returned error: " << ((_e) ? parser->toString(_e) : "null") << "\n"; \
+            exit(1); \
+        } \
+        /* After constant folding, mkExpr already returns true/false. */ \
+        /* evaluate() is a belt-and-suspenders call in case the fold path differs. */ \
+        auto _ev = parser->evaluate(_e, model); \
+        auto _node = (_ev && !_ev->isErr()) ? _ev : _e; \
+        if (!_node->isTrue()) { \
+            std::cerr << "FAIL [" label "]: expected true, got: " << parser->toString(_node) << "\n"; \
+            exit(1); \
+        } \
+        std::cout << "  [PASS] " label ": " << parser->toString(_node) << "\n"; \
+    } while (0)
+
+#define EXPECT_FALSE(expr, label) \
+    do { \
+        auto _e = parser->mkExpr(expr); \
+        if (!_e || _e->isErr()) { \
+            std::cerr << "FAIL [" label "]: mkExpr returned error: " << ((_e) ? parser->toString(_e) : "null") << "\n"; \
+            exit(1); \
+        } \
+        auto _ev = parser->evaluate(_e, model); \
+        auto _node = (_ev && !_ev->isErr()) ? _ev : _e; \
+        if (!_node->isFalse()) { \
+            std::cerr << "FAIL [" label "]: expected false, got: " << parser->toString(_node) << "\n"; \
+            exit(1); \
+        } \
+        std::cout << "  [PASS] " label ": " << parser->toString(_node) << "\n"; \
+    } while (0)
+
+    // ── Positive tests ────────────────────────────────────────────────
+
+    // re.* : empty string is always in Kleene star
+    EXPECT_TRUE(R"((str.in_re "" (re.* (re.range "a" "z"))))", "re.* empty");
+
+    // re.* : any sequence of [a-z] characters
+    EXPECT_TRUE(R"((str.in_re "abc" (re.* (re.range "a" "z"))))", "re.* abc");
+
+    // re.+ : at least one character
+    EXPECT_TRUE(R"((str.in_re "a" (re.+ (re.range "a" "z"))))", "re.+ single");
+
+    // re.opt : zero occurrences
+    EXPECT_TRUE(R"((str.in_re "" (re.opt (re.range "a" "z"))))", "re.opt empty");
+
+    // re.opt : one occurrence
+    EXPECT_TRUE(R"((str.in_re "a" (re.opt (re.range "a" "z"))))", "re.opt single");
+
+    // re.comp : "1" is NOT in [a-z], so it IS in the complement
+    EXPECT_TRUE(R"((str.in_re "1" (re.comp (re.range "a" "z"))))", "re.comp 1 not-in [a-z]");
+
+    // re.range : single character in range
+    EXPECT_TRUE(R"((str.in_re "m" (re.range "a" "z"))))", "re.range m in [a-z]");
+
+    // re.++ : concatenation
+    EXPECT_TRUE(R"((str.in_re "ab" (re.++ (re.range "a" "a") (re.range "b" "b"))))",
+                "re.concat ab");
+
+    // re.union : "5" is in [0-9]
+    EXPECT_TRUE(R"((str.in_re "5" (re.union (re.range "a" "z") (re.range "0" "9"))))",
+                "re.union 5 in [0-9]");
+
+    // re.inter : "abc" is in both [a-z]* and [a-m]*  (a,b,c all <= m)
+    EXPECT_TRUE(R"((str.in_re "abc" (re.inter (re.* (re.range "a" "z")) (re.* (re.range "a" "m")))))",
+                "re.inter abc in both");
+
+    // re.^ : exactly 3 repetitions
+    EXPECT_TRUE(R"((str.in_re "aaa" (re.^ (re.range "a" "z") 3)))", "re.repeat aaa x3");
+
+    // str.to_re : exact literal match
+    EXPECT_TRUE(R"((str.in_re "hello" (str.to_re "hello")))", "str.to_re hello");
+
+    // re.allchar : any single character
+    EXPECT_TRUE(R"((str.in_re "x" re.allchar))", "re.allchar x");
+
+    // ── Negative tests ────────────────────────────────────────────────
+
+    // re.range : "abc" is NOT in [a-z] because the range matches exactly 1 character
+    EXPECT_FALSE(R"((str.in_re "abc" (re.range "a" "z"))))", "re.range abc NOT 1-char");
+
+    // re.* : "1" is NOT in [a-z]*
+    EXPECT_FALSE(R"((str.in_re "1" (re.* (re.range "a" "z"))))", "re.* 1 not in [a-z]*");
+
+    // re.+ : empty string is NOT in re.+
+    EXPECT_FALSE(R"((str.in_re "" (re.+ (re.range "a" "z"))))", "re.+ empty NOT valid");
+
+    // re.diff : "abc" is in [a-z]* but ALSO in [a-m]*, so NOT in the difference
+    EXPECT_FALSE(
+        R"((str.in_re "abc" (re.diff (re.* (re.range "a" "z")) (re.* (re.range "a" "m")))))",
+        "re.diff abc not in diff");
+
+    // str.to_re : mismatch
+    EXPECT_FALSE(R"((str.in_re "world" (str.to_re "hello")))", "str.to_re mismatch");
+
+#undef EXPECT_TRUE
+#undef EXPECT_FALSE
+
+    std::cout << "  Issue #4 regex evaluate: all assertions passed\n";
+}
+
 int main() {
     std::cout << "======= String Operations Test =======" << std::endl;
     
@@ -123,6 +237,7 @@ int main() {
     test_string_operations(parser);
     test_string_comparisons(parser);
     test_regex_operations(parser);
+    test_regex_evaluate(parser);
     
     return 0;
 } 

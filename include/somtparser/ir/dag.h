@@ -103,8 +103,36 @@ namespace SOMTParser{
                     value = newValue(Number(name, true));
                 } else if(TypeChecker::isReal(name)){
                     value = newValue(Number(name, false));
-                } 
-                // TODO for value
+                } else if(sort && sort->isBv() && name.size() >= 2) {
+                    // Parse BV constant value from #b / #x / decimal format
+                    try {
+                        if(name[0] == '#' && name[1] == 'b') {
+                            // Binary: #b10110
+                            Integer bv_val(0);
+                            for(size_t i = 2; i < name.size(); ++i) {
+                                bv_val = bv_val * 2 + (name[i] == '1' ? 1 : 0);
+                            }
+                            value = newValue(Number(bv_val));
+                            value->setType(ValueType::BV);
+                            value->setBvWidth(static_cast<uint32_t>(sort->getBitWidth()));
+                        } else if(name[0] == '#' && name[1] == 'x') {
+                            // Hex: #xFF
+                            Integer bv_val(0);
+                            for(size_t i = 2; i < name.size(); ++i) {
+                                bv_val = bv_val * 16;
+                                char c = name[i];
+                                if(c >= '0' && c <= '9') bv_val = bv_val + (c - '0');
+                                else if(c >= 'a' && c <= 'f') bv_val = bv_val + (c - 'a' + 10);
+                                else if(c >= 'A' && c <= 'F') bv_val = bv_val + (c - 'A' + 10);
+                            }
+                            value = newValue(Number(bv_val));
+                            value->setType(ValueType::BV);
+                            value->setBvWidth(static_cast<uint32_t>(sort->getBitWidth()));
+                        }
+                    } catch(...) {
+                        // If parsing fails, leave value as nullptr
+                    }
+                }
             }
         }
         DAGNode(std::shared_ptr<Sort> sort, NODE_KIND kind, std::string name): sort(sort), kind(kind), name(name), value(nullptr) {
@@ -118,8 +146,32 @@ namespace SOMTParser{
                     value = newValue(Number(name, true));
                 } else if(TypeChecker::isReal(name)){
                     value = newValue(Number(name, false));
+                } else if(sort && sort->isBv() && name.size() >= 2) {
+                    // Parse BV constant value from #b / #x / decimal format
+                    try {
+                        if(name[0] == '#' && name[1] == 'b') {
+                            Integer bv_val(0);
+                            for(size_t i = 2; i < name.size(); ++i) {
+                                bv_val = bv_val * 2 + (name[i] == '1' ? 1 : 0);
+                            }
+                            value = newValue(Number(bv_val));
+                            value->setType(ValueType::BV);
+                            value->setBvWidth(static_cast<uint32_t>(sort->getBitWidth()));
+                        } else if(name[0] == '#' && name[1] == 'x') {
+                            Integer bv_val(0);
+                            for(size_t i = 2; i < name.size(); ++i) {
+                                bv_val = bv_val * 16;
+                                char c = name[i];
+                                if(c >= '0' && c <= '9') bv_val = bv_val + (c - '0');
+                                else if(c >= 'a' && c <= 'f') bv_val = bv_val + (c - 'a' + 10);
+                                else if(c >= 'A' && c <= 'F') bv_val = bv_val + (c - 'A' + 10);
+                            }
+                            value = newValue(Number(bv_val));
+                            value->setType(ValueType::BV);
+                            value->setBvWidth(static_cast<uint32_t>(sort->getBitWidth()));
+                        }
+                    } catch(...) {}
                 }
-                // TODO for value
             }
         }
         DAGNode(std::shared_ptr<Sort> sort, NODE_KIND kind): sort(sort), kind(kind), name(""), value(nullptr) {
@@ -354,6 +406,18 @@ namespace SOMTParser{
 
         // check UF
         bool isUFApplication() 			const { return (kind == NODE_KIND::NT_UF_APPLY); };
+        bool isConstructorApp()             const { return (kind == NODE_KIND::NT_DT_CONSTRUCTOR); };
+        bool isSelectorApp()                const { return (kind == NODE_KIND::NT_DT_SELECTOR); };
+        bool isTesterApp()                  const { return (kind == NODE_KIND::NT_DT_TESTER); };
+        bool isMatchApp()                   const { return (kind == NODE_KIND::NT_DT_MATCH); };
+        bool isDtGroundValue()              const {
+            if(kind != NODE_KIND::NT_DT_CONSTRUCTOR) return false;
+            for(size_t i = 0; i < getChildrenSize(); ++i){
+                auto c = getChild(i);
+                if(!c->isConst() && !c->isDtGroundValue()) return false;
+            }
+            return true;
+        };
 
         // check arithmetic operations
         bool isAdd() 				const { return (kind == NODE_KIND::NT_ADD); };
@@ -686,6 +750,33 @@ namespace SOMTParser{
         }
 
         std::string toString()      const { return getPureName(); };
+
+        /// Get the BV bit width. Returns 0 if not a BV sort.
+        size_t getBitWidth() const {
+            auto s = getSort();
+            return (s && s->isBv()) ? s->getBitWidth() : 0;
+        }
+
+        /// Extract raw string value from a string constant (strips SMT-LIB quotes, unescapes "").
+        std::string getStringLiteral() const {
+            std::string s = getName();
+            if(s.size() >= 2 && s.front() == '"' && s.back() == '"') {
+                s = s.substr(1, s.size() - 2);
+                // Handle SMT-LIB escape: "" → "
+                std::string result;
+                result.reserve(s.size());
+                for(size_t i = 0; i < s.size(); ++i) {
+                    if(i + 1 < s.size() && s[i] == '"' && s[i+1] == '"') {
+                        result += '"';
+                        ++i;
+                    } else {
+                        result += s[i];
+                    }
+                }
+                return result;
+            }
+            return s;
+        }
 
         // other functions
         /**

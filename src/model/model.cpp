@@ -36,6 +36,8 @@ namespace SOMTParser{
         model_vars = other.model_vars;
         model_values = other.model_values;
         model_name_index = other.model_name_index;
+        uf_tables_ = other.uf_tables_;
+        array_values_ = other.array_values_;
     }
 
     Model::~Model(){
@@ -140,6 +142,48 @@ namespace SOMTParser{
             ss << "(define-fun " << model_vars[i]->getName() << " () " << model_vars[i]->getSort()->toString() << " " << dumpSMTLIB2(model_values[i]) << ")" << std::endl;
         }
         return ss.str();
+    }
+
+    // ── UF tables ────────────────────────────────────────────────────────────
+
+    void Model::setUF(const std::string& func, const std::string& arg_key,
+                      const std::shared_ptr<DAGNode>& result) {
+        uf_tables_[func][arg_key] = result;
+    }
+
+    std::shared_ptr<DAGNode> Model::getUF(const std::string& func,
+                                          const std::string& arg_key) const {
+        auto it = uf_tables_.find(func);
+        if(it == uf_tables_.end()) return NodeManager::UNKNOWN_NODE;
+        auto jt = it->second.find(arg_key);
+        if(jt == it->second.end()) return NodeManager::UNKNOWN_NODE;
+        return jt->second;
+    }
+
+    bool Model::hasUF(const std::string& func) const {
+        return uf_tables_.count(func) > 0;
+    }
+
+    // ── Array storage ────────────────────────────────────────────────────────
+
+    void Model::setArrayStore(const std::string& arr, const std::string& idx_key,
+                              const std::shared_ptr<DAGNode>& val) {
+        array_values_[arr].stores[idx_key] = val;
+    }
+
+    void Model::setArrayDefault(const std::string& arr,
+                                const std::shared_ptr<DAGNode>& default_val) {
+        array_values_[arr].default_value = default_val;
+    }
+
+    std::shared_ptr<DAGNode> Model::getArraySelect(const std::string& arr,
+                                                   const std::string& idx_key) const {
+        auto it = array_values_.find(arr);
+        if(it == array_values_.end()) return NodeManager::UNKNOWN_NODE;
+        auto jt = it->second.stores.find(idx_key);
+        if(jt != it->second.stores.end()) return jt->second;
+        if(it->second.default_value) return it->second.default_value;
+        return NodeManager::UNKNOWN_NODE;
     }
 
     ModelPtr newModel(){

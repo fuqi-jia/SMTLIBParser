@@ -114,6 +114,8 @@ namespace SOMTParser{
         // TYPES NOT IN PARSEOPER
         NT_EQ_BOOL,NT_EQ_OTHER,NT_DISTINCT_BOOL,NT_DISTINCT_OTHER,
         NT_UF_APPLY,
+        // DATATYPE OPERATIONS
+        NT_DT_CONSTRUCTOR, NT_DT_SELECTOR, NT_DT_TESTER, NT_DT_MATCH,
         
         // ARITHMETIC CONSTANTS
         NT_CONST_PI,NT_CONST_E,NT_INFINITY,NT_NAN,NT_EPSILON,NT_POS_INFINITY,NT_NEG_INFINITY,NT_POS_EPSILON,NT_NEG_EPSILON,
@@ -382,11 +384,13 @@ namespace SOMTParser{
         {"str.>", NODE_KIND::NT_STR_GT},
         {"str.>=", NODE_KIND::NT_STR_GE},
         {"str.in_re", NODE_KIND::NT_STR_IN_REG},
+        {"str.in.re", NODE_KIND::NT_STR_IN_REG},    // SMT-LIB 2.5 alias
         {"str.contains", NODE_KIND::NT_STR_CONTAINS},
         {"str.is_digit", NODE_KIND::NT_STR_IS_DIGIT},
         {"str.from_int", NODE_KIND::NT_STR_FROM_INT},
         {"str.to_int", NODE_KIND::NT_STR_TO_INT},
         {"str.to_re", NODE_KIND::NT_STR_TO_REG},
+        {"str.to.re", NODE_KIND::NT_STR_TO_REG},    // SMT-LIB 2.5 alias
         {"str.to_code", NODE_KIND::NT_STR_TO_CODE},
         {"str.from_code", NODE_KIND::NT_STR_FROM_CODE},
         {"re.++", NODE_KIND::NT_REG_CONCAT},
@@ -409,7 +413,12 @@ namespace SOMTParser{
     std::string kindToString(const NODE_KIND& nk);
     NODE_KIND getFlipKind(const NODE_KIND& nk); // > -> <, < -> >, etc.
     NODE_KIND getNegatedKind(const NODE_KIND& nk); // > -> <=, < -> >=, etc.
-    NODE_KIND getOperKind(const std::string& s);
+    /** True iff @p s is in oper_key_map and may be shadowed by declare-fun / define-fun(-rec). */
+    bool builtinOperMayBeShadowedByUserFun(const std::string& s);
+    /** True iff @p s is a reserved built-in operator name (in oper_key_map but not in the shadow whitelist). */
+    bool isBuiltinNameReservedAgainstUserFun(const std::string& s);
+    /** Resolve built-in operator name. When @p strict_smtlib_fp, reject non-standard FP spellings. */
+    NODE_KIND getOperKind(const std::string& s, bool strict_smtlib_fp = false);
 }
 
 

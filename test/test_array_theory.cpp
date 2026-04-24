@@ -2,6 +2,9 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
+#include "somtparser/ir/number.h"
+#include "somtparser/ir/value.h"
+#include "somtparser/model/model.h"
 #include <cassert>
 
 // Test array creation and basic operations
@@ -43,13 +46,58 @@ void test_array_operations(SOMTParser::ParserPtr& parser) {
     }
 }
 
+// Model API: select uses array default + stored indices
+void test_array_model_select_evaluation(SOMTParser::ParserPtr& p) {
+    std::cout << "=== Array model + evaluate(select) ===" << std::endl;
+    p->parseStr("(set-logic ALL)");
+    p->parseStr("(declare-fun A () (Array Int Int))");
+
+    SOMTParser::ModelPtr m = SOMTParser::newModel();
+    auto v42 = p->mkExpr("42");
+    auto v0 = p->mkExpr("0");
+    m->setArrayDefault("A", v0);
+    m->setArrayStore("A", "1", v42);
+
+    auto sel = p->mkExpr("(select A 1)");
+    assert(sel && !sel->isErr());
+    auto ev = p->evaluate(sel, m);
+    assert(ev && !ev->isErr());
+    assert(ev->isCInt());
+    assert(p->toInt(ev) == SOMTParser::Integer(42));
+
+    auto sel2 = p->mkExpr("(select A 2)");
+    assert(sel2 && !sel2->isErr());
+    auto ev2 = p->evaluate(sel2, m);
+    assert(ev2 && !ev2->isErr());
+    assert(ev2->isCInt());
+    assert(p->toInt(ev2) == SOMTParser::Integer(0));
+}
+
+void test_value_array_operators_ir() {
+    std::cout << "=== Value class array store/select (IR) ===" << std::endl;
+    SOMTParser::Value arr(SOMTParser::ARRAY);
+    arr.setArrayDefault(SOMTParser::Value(SOMTParser::Number(SOMTParser::Integer(99))));
+
+    SOMTParser::Value stored =
+        arr.store("key1", SOMTParser::Value(SOMTParser::Number(SOMTParser::Integer(42))));
+    assert(stored.getType() == SOMTParser::ARRAY);
+
+    SOMTParser::Value selected = stored.select("key1");
+    assert(selected.toNumber() == SOMTParser::Number(SOMTParser::Integer(42)));
+
+    SOMTParser::Value def_val = stored.select("key2");
+    assert(def_val.toNumber() == SOMTParser::Number(SOMTParser::Integer(99)));
+}
+
 int main() {
     std::cout << "======= Array Theory Test =======" << std::endl;
-    
+
     SOMTParser::ParserPtr parser = SOMTParser::newParser();
-    
+
     test_array_creation(parser);
     test_array_operations(parser);
-    
+    test_array_model_select_evaluation(parser);
+    test_value_array_operators_ir();
+
     return 0;
 } 

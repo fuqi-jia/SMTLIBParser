@@ -61,13 +61,24 @@ namespace SOMTParser{
         std::string name;
         size_t arity;
         std::vector<std::shared_ptr<Sort>> children;
+
+        // Datatype constructor/selector information (non-null only when kind == SK_DATATYPE)
+        struct DtSelector {
+            std::string name;
+            std::shared_ptr<Sort> sort;
+        };
+        struct DtConstructor {
+            std::string name;
+            std::vector<DtSelector> selectors;
+        };
+        std::shared_ptr<std::vector<DtConstructor>> dt_constructors; // nullptr if not DT
         Sort(SORT_KIND kind, std::string name, size_t arity, std::vector<std::shared_ptr<Sort>> children): kind(kind), name(name), arity(arity), children(children) {}
         Sort(SORT_KIND kind, std::string name, size_t arity): kind(kind), name(name), arity(arity) {}
         Sort(SORT_KIND kind, std::string name): kind(kind), name(name), arity(0) {}
         Sort(SORT_KIND kind): kind(kind), name(""), arity(0) {}
         Sort(std::string name): kind(SORT_KIND::SK_UNKNOWN), name(name), arity(0) {}
         Sort(): kind(SORT_KIND::SK_UNKNOWN), name(""), arity(0) {}
-        Sort(const Sort& other): kind(other.kind), name(other.name), arity(other.arity), children(other.children) {}
+        Sort(const Sort& other): kind(other.kind), name(other.name), arity(other.arity), children(other.children), dt_constructors(other.dt_constructors) {}
 
 
         // check the type of the sort
@@ -98,6 +109,44 @@ namespace SOMTParser{
         bool isDef() const { return kind == SORT_KIND::SK_DEF; }
         bool isRoundingMode() const { return kind == SORT_KIND::SK_ROUNDING_MODE; }
 
+        // Datatype accessors
+        bool hasDtConstructors() const { return dt_constructors != nullptr && !dt_constructors->empty(); }
+
+        const std::vector<DtConstructor>& getDtConstructors() const {
+            static const std::vector<DtConstructor> empty;
+            return dt_constructors ? *dt_constructors : empty;
+        }
+
+        /// Find a constructor by name. Returns nullptr if not found.
+        const DtConstructor* getDtConstructorByName(const std::string& ctor_name) const {
+            if(!dt_constructors) return nullptr;
+            for(const auto& c : *dt_constructors)
+                if(c.name == ctor_name) return &c;
+            return nullptr;
+        }
+
+        /// Check if the given name is a constructor of this datatype.
+        bool hasDtConstructor(const std::string& ctor_name) const {
+            return getDtConstructorByName(ctor_name) != nullptr;
+        }
+
+        /// Check if the given name is a selector of any constructor in this datatype.
+        bool hasDtSelector(const std::string& sel_name) const {
+            if(!dt_constructors) return false;
+            for(const auto& c : *dt_constructors)
+                for(const auto& s : c.selectors)
+                    if(s.name == sel_name) return true;
+            return false;
+        }
+
+        /// Check if the given name is a tester (is-<ctor>) of this datatype.
+        bool hasDtTester(const std::string& tester_name) const {
+            if(!dt_constructors) return false;
+            if(tester_name.size() <= 3 || tester_name.rfind("is-", 0) != 0) return false;
+            std::string ctor_name = tester_name.substr(3);
+            return hasDtConstructor(ctor_name);
+        }
+
         // compare two sorts
         bool operator==(const Sort& other) const {
             // same sort name and arity
@@ -117,7 +166,7 @@ namespace SOMTParser{
             else if(isFp() && other.isFp()){
                 // For floating point types, compare exponent and significand widths
                 return getExponentWidth() == other.getExponentWidth() && 
-                       getSignificandWidth() == other.getSignificandWidth();
+                    getSignificandWidth() == other.getSignificandWidth();
             }
 
             // other sorts
@@ -141,7 +190,7 @@ namespace SOMTParser{
                     return "(_ FloatingPoint " + std::to_string(children[0]->arity) + " " + std::to_string(children[1]->arity) + ")";
                 case SORT_KIND::SK_STR: return "String";
                 case SORT_KIND::SK_ARRAY: return "(Array " + children[0]->toString() + " " + children[1]->toString() + ")";
-                case SORT_KIND::SK_DATATYPE: return "Datatype";
+                case SORT_KIND::SK_DATATYPE: return name.empty() ? "Datatype" : name;
                 case SORT_KIND::SK_SET: return "Set";
                 case SORT_KIND::SK_RELATION: return "Relation";
                 case SORT_KIND::SK_BAG: return "Bag";
@@ -163,26 +212,33 @@ namespace SOMTParser{
 
         size_t getBitWidth() const {
             condAssert(kind == SORT_KIND::SK_BV, "Cannot get bit width of non-bitvector sort");
+            condAssert(children.size() >= 1 && children[0], "Malformed bit-vector sort: missing width");
             return children[0]->arity;
         }
 
+        /** SMT-LIB exponent field width `e` for `(_ FloatingPoint e s)`. Stored as `children[0]->arity`; well-formed FP sorts come from `SortManager::createFPSort` or static `FLOAT*` sorts. */
         size_t getExponentWidth() const {
             condAssert(kind == SORT_KIND::SK_FP, "Cannot get exponent width of non-floating-point sort");
+            condAssert(children.size() >= 2 && children[0], "Malformed FP sort: missing exponent width (use SortManager::createFPSort)");
             return children[0]->arity;
         }
 
+        /** Total significand width \(s\) (incl. hidden bit) for `(_ FloatingPoint e s)`. Stored as `children[1]->arity`. */
         size_t getSignificandWidth() const {
             condAssert(kind == SORT_KIND::SK_FP, "Cannot get significand width of non-floating-point sort");
+            condAssert(children.size() >= 2 && children[1], "Malformed FP sort: missing significand width (use SortManager::createFPSort)");
             return children[1]->arity;
         }
 
         std::shared_ptr<Sort> getIndexSort() const {
             condAssert(kind == SORT_KIND::SK_ARRAY, "Cannot get index sort of non-array sort");
+            if (children.size() < 1 || !children[0]) return nullptr;
             return children[0];
         }
 
         std::shared_ptr<Sort> getElemSort() const {
             condAssert(kind == SORT_KIND::SK_ARRAY, "Cannot get element sort of non-array sort");
+            if (children.size() < 2 || !children[1]) return nullptr;
             return children[1];
         }
         
@@ -252,6 +308,8 @@ namespace SOMTParser{
             std::shared_ptr<Sort> createBVSort(size_t width);
             std::shared_ptr<Sort> createFPSort(size_t exp, size_t sig);
             std::shared_ptr<Sort> createArraySort(std::shared_ptr<Sort> index, std::shared_ptr<Sort> elem);
+            std::shared_ptr<Sort> createDatatypeSort(const std::string& name,
+                const std::vector<Sort::DtConstructor>& constructors);
             std::shared_ptr<Sort> createSortDec(const std::string& name, size_t arity);
             std::shared_ptr<Sort> createSortDef(const std::string& name, const std::vector<std::shared_ptr<Sort>> &params, std::shared_ptr<Sort> out_sort);
             
@@ -316,3 +374,4 @@ namespace SOMTParser{
     typedef std::shared_ptr<SortManager> SortManagerPtr;
 }
 #endif
+ 

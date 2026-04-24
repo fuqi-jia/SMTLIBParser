@@ -308,6 +308,8 @@ namespace SOMTParser {
             // Type conversion
             HighPrecisionInteger toInteger() const;
             HighPrecisionReal toReal(mpfr_prec_t precision = 128) const;
+            /** Exact rational / real value (same representation as toReal; for API parity with client code expecting toRational). */
+            HighPrecisionReal toRational(mpfr_prec_t precision = 128) const { return toReal(precision); }
 
             // Constants
             static Number zero();

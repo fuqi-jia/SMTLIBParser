@@ -106,8 +106,17 @@ namespace SOMTParser{
                         parseLpar();
                         std::string s = getSymbol();
                         if(s == "_"){
+                            std::string idx = getSymbol();
+                            if(idx == "is"){
+                                std::string ctor = getSymbol();
+                                parseRpar();
+                                frame.headSymbol = "_";
+                                frame.second_symbol = "is-" + ctor;
+                                frame.state = FrameState::ProcessingParams;
+                                break;
+                            }
                             frame.special_type = SpecialType::ParamFunc;
-                            frame.second_symbol = getSymbol();
+                            frame.second_symbol = idx;
                             frame.state = FrameState::ProcessingParamFuncArgs;
                             break;
                         }
@@ -327,6 +336,12 @@ namespace SOMTParser{
                             parseRpar();
                             frame.state = FrameState::Finish;
                         }
+                        else if(second == "is"){
+                            std::string ctor = getSymbol();
+                            parseRpar();
+                            frame.second_symbol = "is-" + ctor;
+                            frame.state = FrameState::ProcessingParams;
+                        }
                         else{
                             frame.second_symbol = second;
                             frame.state = FrameState::ProcessingParams;
@@ -422,6 +437,12 @@ namespace SOMTParser{
                         
                         // Create root-of-with-interval node
                         frame.result = mkRootOfWithInterval(coeffs_list, lower_bound, upper_bound);
+                        frame.state = FrameState::Finish;
+                    }
+                    else if(head == "match"){
+                        auto res = parseMatch();
+                        parseRpar();
+                        frame.result = res;
                         frame.state = FrameState::Finish;
                     }
 
@@ -556,7 +577,7 @@ namespace SOMTParser{
                         // inline the most common operators
                         const std::string& opName = frame.second_symbol;
                         
-                        res = parseOper(opName, frame.func_args, frame.oper_params);
+                        res = parseOper(opName, frame.func_args, frame.oper_params, true);
                         
                         if(res->isErr()) err_all(res, frame.second_symbol, frame.line);
                         frame.result = res;
@@ -628,6 +649,11 @@ namespace SOMTParser{
 			// applyFunPostOrder and potential performance issues on large files.
 			std::shared_ptr<DAGNode> func = getSymbolManager()->resolveFun(s);
 			if (func && func->getFuncParamsSize() == 0) {
+				// Check if this is a nullary DT constructor
+				auto ret_sort = func->getSort();
+				if(ret_sort && ret_sort->isDatatype() && ret_sort->hasDtConstructor(s)) {
+					return getNodeManager()->createNode(ret_sort, NODE_KIND::NT_DT_CONSTRUCTOR, s, {});
+				}
 				return mkApplyFunc(func, std::vector<std::shared_ptr<DAGNode>>{});
 			}
 		}
@@ -722,32 +748,27 @@ namespace SOMTParser{
 	}
 
     NODE_KIND Parser::getKind(const std::string& s){
-        auto kind = SOMTParser::getOperKind(s);
+        auto kind = SOMTParser::getOperKind(s, getOptions()->getStrictSmtlib());
         if(kind == NODE_KIND::NT_UNKNOWN && getSymbolManager()->resolveFun(s)){
-            kind = NODE_KIND::NT_FUNC_APPLY;
+            if(!SOMTParser::isBuiltinNameReservedAgainstUserFun(s)){
+                kind = NODE_KIND::NT_FUNC_APPLY;
+            }
         }
         return kind;
     }
     
-	std::shared_ptr<DAGNode> Parser::parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params){
+	std::shared_ptr<DAGNode> Parser::parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params, bool indexed_under_score){
 		TIME_FUNC();
-        auto func = getSymbolManager()->resolveFun(s);
-        if(func){
-            // Found a function definition or declaration, apply it with parameters
-            return applyFun(func, oper_params);
-        }
-        
-        // Special handling for root-obj
-        if(s == "root-obj"){
-            condAssert(oper_params.size() == 2, "root-obj requires exactly 2 parameters");
-            auto expr = oper_params[0];
-            auto index_node = oper_params[1];
-            condAssert(index_node->isConst() && index_node->getSort()->isInt(), "root-obj index must be integer constant");
-            int index = std::stoi(index_node->getName());
-            return mkRootObj(expr, index);
-        }
-        
-		NODE_KIND kind = SOMTParser::getOperKind(s);
+		auto func = getSymbolManager()->resolveFun(s);
+		// Non-indexed (op ...): user define-fun / define-fun-rec / pending declare-fun (body) may shadow only allow_builtin_shadow names.
+		if(!indexed_under_score && func && (func->isFuncDef() || func->isFuncRec() || func->isFuncDec())){
+			if(!SOMTParser::isBuiltinNameReservedAgainstUserFun(s)){
+				return applyFun(func, oper_params);
+			}
+		}
+		// Indexed (_ op ...): builtins first so (declare-fun to_real ...) does not swallow (_ to_real x).
+		NODE_KIND kind = SOMTParser::getOperKind(s, getOptions()->getStrictSmtlib());
+		if(kind != NODE_KIND::NT_UNKNOWN){
 		switch(kind){
 			case NODE_KIND::NT_AND:
 				return mkAnd(oper_params);
@@ -1080,7 +1101,11 @@ namespace SOMTParser{
                 return mkFpFma(oper_params);
             case NODE_KIND::NT_FP_SQRT:
                 if(oper_params.size() == 1) {
-                    return mkFpSqrt(oper_params[0]);
+                    if(getOptions()->getStrictSmtlib()) {
+                        err_param_mis("fp.sqrt", line_number);
+                        return mkErr(ERROR_TYPE::ERR_PARAM_MIS);
+                    }
+                    return mkFpSqrt(mkRoundingMode("RNE"), oper_params[0]);
                 } else if(oper_params.size() == 2) {
                     return mkFpSqrt(oper_params[0], oper_params[1]);
                 } else {
@@ -1092,7 +1117,11 @@ namespace SOMTParser{
                 return mkFpRem(oper_params[0], oper_params[1]);
             case NODE_KIND::NT_FP_ROUND_TO_INTEGRAL:
                 if(oper_params.size() == 1) {
-                    return mkFpRoundToIntegral(oper_params[0]);
+                    if(getOptions()->getStrictSmtlib()) {
+                        err_param_mis("fp.roundToIntegral", line_number);
+                        return mkErr(ERROR_TYPE::ERR_PARAM_MIS);
+                    }
+                    return mkFpRoundToIntegral(mkRoundingMode("RNE"), oper_params[0]);
                 } else if(oper_params.size() == 2) {
                     return mkFpRoundToIntegral(oper_params[0], oper_params[1]);
                 } else {
@@ -1176,7 +1205,11 @@ namespace SOMTParser{
                         return mkErr(ERROR_TYPE::ERR_PARAM_MIS);
                     }
                 } else if(oper_params.size() == 3) {
-                    // Direct to_fp call with 3 parameters: eb, sb, value/rm+value
+                    if(getOptions()->getStrictSmtlib()) {
+                        err_param_mis("to_fp", line_number);
+                        return mkErr(ERROR_TYPE::ERR_PARAM_MIS);
+                    }
+                    // Lenient dialect: flat (to_fp eb sb arg) without indexed head
                     return mkToFp(oper_params[0], oper_params[1], oper_params[2]);
                 } else {
                     err_param_mis("to_fp", line_number);
@@ -1186,7 +1219,7 @@ namespace SOMTParser{
                 // Handle to_fp_unsigned syntax:
                 // ((_ to_fp_unsigned eb sb) RoundingMode (_ BitVec m)) -> func_args: [eb, sb], oper_params: [RoundingMode, BitVec]
                 if(func_args.size() == 2 && oper_params.size() == 2) {
-                    return mkToFpUnsigned(oper_params[0], oper_params[1], func_args[0], func_args[1]);
+                    return mkToFpUnsigned(func_args[0], func_args[1], oper_params[0], oper_params[1]);
                 } else {
                     err_param_mis("to_fp_unsigned", line_number);
                     return mkErr(ERROR_TYPE::ERR_PARAM_MIS);
@@ -1219,6 +1252,15 @@ namespace SOMTParser{
             case NODE_KIND::NT_STORE:
                 condAssert(oper_params.size() == 3, "Invalid number of parameters for store");
                 return mkStore(oper_params[0], oper_params[1], oper_params[2]);
+            case NODE_KIND::NT_ROOT_OBJ:
+                condAssert(oper_params.size() == 2, "root-obj requires exactly 2 parameters");
+                {
+                    auto expr = oper_params[0];
+                    auto index_node = oper_params[1];
+                    condAssert(index_node->isConst() && index_node->getSort()->isInt(), "root-obj index must be integer constant");
+                    int index = std::stoi(index_node->getName());
+                    return mkRootObj(expr, index);
+                }
             case NODE_KIND::NT_STR_LEN:
                 condAssert(oper_params.size() == 1, "Invalid number of parameters for str.len");
                 return mkStrLen(oper_params[0]);
@@ -1378,5 +1420,13 @@ namespace SOMTParser{
                 err_unkwn_sym(s, line_number);
                 return mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
 		}
+		}
+
+        if(func && !SOMTParser::isBuiltinNameReservedAgainstUserFun(s)){
+            return applyFun(func, oper_params);
+        }
+
+        err_unkwn_sym(s, line_number);
+        return mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
 	}
 }

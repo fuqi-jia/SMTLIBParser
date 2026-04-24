@@ -67,6 +67,13 @@ if [ -z "$TEST_EXES" ]; then
         ./test_umbrella
         ./test_visitor_api
         ./test_define_fun_assert_roundtrip
+        ./test_datatype_eval
+        ./test_fp_util_wrappers
+        ./test_uf_model_api
+        ./test_evaluate_fp_dispatch
+        ./test_parse_oper_builtin_priority
+        ./test_fp_util_wrappers
+        ./test_datatype_eval
     )
     for t in "${POTENTIAL_TESTS[@]}"; do
         [ -x "$t" ] && TEST_EXES="$TEST_EXES $t"
@@ -91,7 +98,6 @@ for test in $TEST_EXES; do
         echo -e "${GREEN}$test passed!${NC}"
     else
         echo -e "${RED}$test failed!${NC}"
-        # if the output contains "error:", output the error information
         if grep -q "error:" $OUTPUT; then
             echo -e "${RED}Found error information:${NC}"
             grep "error:" $OUTPUT

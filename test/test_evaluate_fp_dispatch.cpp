@@ -1,0 +1,198 @@
+#include <cmath>
+#include <iostream>
+#include <string>
+
+#include "somtparser/core/kind.h"
+#include "somtparser/core/util.h"
+#include "somtparser/frontend/parser.h"
+#include "somtparser/ir/number.h"
+#include <cassert>
+
+static std::string dirname_of(const std::string& path) {
+    auto p = path.find_last_of("/\\");
+    return p == std::string::npos ? std::string(".") : path.substr(0, p);
+}
+
+static void assert_fp32_near(const std::shared_ptr<SOMTParser::DAGNode>& ev, float expected, float eps = 5e-4f) {
+    assert(ev && !ev->isErr() && ev->isCFP());
+    auto v = SOMTParser::fpNodeToFloat32(ev);
+    assert(v.has_value());
+    assert(std::fabs(*v - expected) < eps);
+}
+
+static void eval_expect_fp32(SOMTParser::ParserPtr& parser, SOMTParser::ModelPtr& model, const char* smt, float expected,
+                             float eps = 5e-4f) {
+    auto e = parser->mkExpr(smt);
+    assert(e && !e->isErr());
+    auto ev = parser->evaluate(e, model);
+    assert_fp32_near(ev, expected, eps);
+}
+
+static void eval_expect_bool(SOMTParser::ParserPtr& parser, SOMTParser::ModelPtr& model, const char* smt, bool want_true) {
+    auto e = parser->mkExpr(smt);
+    assert(e && !e->isErr());
+    auto ev = parser->evaluate(e, model);
+    assert(ev && !ev->isErr());
+    if (want_true) {
+        assert(ev->isTrue());
+    } else {
+        assert(ev->isFalse());
+    }
+}
+
+/// For operators that do not fold to a single constant, check evaluate preserves shape and constant leaves.
+static void eval_expect_structure_unchanged(SOMTParser::ParserPtr& parser, SOMTParser::ModelPtr& model, const char* smt) {
+    auto e = parser->mkExpr(smt);
+    assert(e && !e->isErr());
+    auto ev = parser->evaluate(e, model);
+    assert(ev && !ev->isErr());
+    assert(ev->getKind() == e->getKind());
+    assert(ev->getChildrenSize() == e->getChildrenSize());
+    for (size_t i = 0; i < e->getChildrenSize(); ++i) {
+        auto a = e->getChild(i);
+        auto b = ev->getChild(i);
+        assert(a && b);
+        if (a->isConst()) {
+            assert(b->isConst());
+            assert(parser->toString(a) == parser->toString(b));
+        }
+    }
+}
+
+static void assert_bv_unsigned_eq(const std::shared_ptr<SOMTParser::DAGNode>& ev, unsigned long expect_nat) {
+    assert(ev && !ev->isErr() && ev->isCBV());
+    const std::string bits = ev->toString();
+    assert(bits.size() >= 3 && bits[0] == '#' && bits[1] == 'b');
+    SOMTParser::Integer n = SOMTParser::BitVectorUtils::bvToNat(bits);
+    assert(n.toULong() == expect_nat);
+}
+
+static void assert_bv_signed_eq(const std::shared_ptr<SOMTParser::DAGNode>& ev, long expect_s) {
+    assert(ev && !ev->isErr() && ev->isCBV());
+    const std::string bits = ev->toString();
+    assert(bits.size() >= 3 && bits.substr(0, 2) == "#b");
+    SOMTParser::Integer s = SOMTParser::BitVectorUtils::bvToInt(bits);
+    assert(s.toLong() == expect_s);
+}
+
+int main() {
+    using namespace SOMTParser;
+
+    ParserPtr parser = newParser();
+    ModelPtr model = newModel();
+
+    // Phase A regression: run before other mkExpr/evaluate on the main parser — shared lexer/parser
+    // global state can otherwise break a fresh Parser's declare-fun + mkExpr sequence.
+    {
+        ParserPtr p = newParser();
+        if (!p->parseStr("(set-logic ALL)") || !p->parseStr("(declare-fun x_fp () (_ FloatingPoint 8 24))")) {
+            std::cerr << "test_evaluate_fp_dispatch: declare-fun setup failed\n";
+            return 1;
+        }
+        auto phi = p->mkExpr("(fp.add RNE x_fp ((_ to_fp 8 24) RNE 1.0))");
+        if (!phi || phi->isErr()) {
+            std::cerr << "test_evaluate_fp_dispatch: mkExpr fp.add with x_fp failed\n";
+            return 1;
+        }
+        auto ev = p->evaluate(phi, model);
+        assert(ev && !ev->isErr());
+        assert(ev->getKind() == NODE_KIND::NT_FP_ADD);
+        assert(ev->getChildrenSize() == 3u);
+        assert(ev->getChild(2)->isCFP());
+        assert_fp32_near(ev->getChild(2), 1.0f);
+    }
+
+    const std::string dir = dirname_of(__FILE__);
+    {
+        const std::string p1 = dir + "/instances/eval_dispatch_qf_s.smt2";
+        ParserPtr p = newParser();
+        assert(p->parse(p1) && "eval_dispatch_qf_s.smt2 must parse");
+    }
+    {
+        const std::string p2 = dir + "/instances/eval_const_array.smt2";
+        ParserPtr p = newParser();
+        assert(p->parse(p2) && "eval_const_array.smt2 must parse");
+    }
+
+    // --- Phase A: FP constant folding (expected float32 values) ---
+    eval_expect_fp32(parser, model, "(fp.abs ((_ to_fp 8 24) RNE -2.0))", 2.0f);
+    eval_expect_fp32(parser, model, "(fp.neg ((_ to_fp 8 24) RNE 3.5))", -3.5f);
+    eval_expect_fp32(parser, model, "(fp.add RNE ((_ to_fp 8 24) RNE 1.25) ((_ to_fp 8 24) RNE 2.0))", 3.25f);
+    eval_expect_fp32(parser, model, "(fp.sub RNE ((_ to_fp 8 24) RNE 5.0) ((_ to_fp 8 24) RNE 2.0))", 3.0f);
+    eval_expect_fp32(parser, model, "(fp.mul RNE ((_ to_fp 8 24) RNE 2.5) ((_ to_fp 8 24) RNE 4.0))", 10.0f);
+    eval_expect_fp32(parser, model, "(fp.div RNE ((_ to_fp 8 24) RNE 9.0) ((_ to_fp 8 24) RNE 3.0))", 3.0f);
+    eval_expect_fp32(parser, model,
+                     "(fp.fma RNE ((_ to_fp 8 24) RNE 2.0) ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 1.0))", 7.0f);
+    eval_expect_fp32(parser, model, "(fp.sqrt RNE ((_ to_fp 8 24) RNE 16.0))", 4.0f);
+    eval_expect_fp32(parser, model, "(fp.rem ((_ to_fp 8 24) RNE 7.0) ((_ to_fp 8 24) RNE 3.0))", 1.0f);
+    eval_expect_fp32(parser, model, "(fp.roundToIntegral RNE ((_ to_fp 8 24) RNE 3.7))", 4.0f);
+    eval_expect_fp32(parser, model, "(fp.min ((_ to_fp 8 24) RNE 2.0) ((_ to_fp 8 24) RNE 5.0))", 2.0f);
+    eval_expect_fp32(parser, model, "(fp.max ((_ to_fp 8 24) RNE 2.0) ((_ to_fp 8 24) RNE 5.0))", 5.0f);
+
+    eval_expect_bool(parser, model, "(fp.eq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))", true);
+    eval_expect_bool(parser, model, "(fp.lt ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 4.0))", true);
+    eval_expect_bool(parser, model, "(fp.gt ((_ to_fp 8 24) RNE 5.0) ((_ to_fp 8 24) RNE 4.0))", true);
+    eval_expect_bool(parser, model, "(fp.leq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 3.0))", true);
+    eval_expect_bool(parser, model, "(fp.geq ((_ to_fp 8 24) RNE 4.0) ((_ to_fp 8 24) RNE 3.0))", true);
+
+    eval_expect_bool(parser, model, "(fp.eq ((_ to_fp 8 24) RNE 3.0) ((_ to_fp 8 24) RNE 4.0))", false);
+    eval_expect_bool(parser, model, "(fp.lt ((_ to_fp 8 24) RNE 4.0) ((_ to_fp 8 24) RNE 3.0))", false);
+
+    eval_expect_bool(parser, model, "(fp.isNormal ((_ to_fp 8 24) RNE 1.0))", true);
+    eval_expect_bool(parser, model, "(fp.isSubnormal (fp #b0 #b00000000 #b00000000000000000000001))", true);
+    eval_expect_bool(parser, model, "(fp.isZero ((_ to_fp 8 24) RNE 0.0))", true);
+    eval_expect_bool(parser, model, "(fp.isInfinite (_ +oo 8 24))", true);
+    eval_expect_bool(parser, model, "(fp.isNaN (_ NaN 8 24))", true);
+    eval_expect_bool(parser, model, "(fp.isNegative ((_ to_fp 8 24) RNE -1.0))", true);
+    eval_expect_bool(parser, model, "(fp.isPositive ((_ to_fp 8 24) RNE 1.0))", true);
+
+    eval_expect_bool(parser, model, "(fp.isPositive ((_ to_fp 8 24) RNE -1.0))", false);
+    eval_expect_bool(parser, model, "(fp.isNegative ((_ to_fp 8 24) RNE 1.0))", false);
+    eval_expect_bool(parser, model, "(fp.isZero ((_ to_fp 8 24) RNE 1.0))", false);
+    eval_expect_bool(parser, model, "(fp.isNaN ((_ to_fp 8 24) RNE 1.0))", false);
+    eval_expect_bool(parser, model, "(fp.isNormal (fp #b0 #b00000000 #b00000000000000000000001))", false);
+
+    // --- Phase B: const_array default value simplifies to integer 3 ---
+    {
+        auto ca = parser->mkExpr("((as const (Array Int Int)) (+ 1 2))");
+        assert(ca && !ca->isErr());
+        auto ev = parser->evaluate(ca, model);
+        assert(ev && !ev->isErr());
+        assert(ev->isConstArray());
+        assert(ev->getChildrenSize() >= 1u);
+        auto defv = ev->getChild(0);
+        assert(defv && defv->isConst());
+        assert(parser->toInt(defv) == Integer(3));
+    }
+    {
+        auto ca = parser->mkExpr("((as const (Array Int Int)) 0)");
+        assert(ca && !ca->isErr());
+        auto ev = parser->evaluate(ca, model);
+        assert(ev && !ev->isErr());
+        (void)ev;
+    }
+
+    // --- Phase B: string / regex dispatch (no constant folding yet): structure + constant leaves preserved ---
+    eval_expect_structure_unchanged(parser, model, "(str.indexof_re \"abc\" (str.to_re \"b\"))");
+    eval_expect_structure_unchanged(parser, model, "(str.replace_re \"aba\" (str.to_re \"a\") \"x\")");
+    eval_expect_structure_unchanged(parser, model, "(str.replace_re_all \"aaa\" (str.to_re \"a\") \"b\")");
+    eval_expect_structure_unchanged(parser, model, "((_ re.loop 1 2) (str.to_re \"x\"))");
+
+    // --- Phase C: fp <-> bv / to_fp (exact bit patterns where defined) ---
+    {
+        auto e = parser->mkExpr("((_ fp.to_ubv 16) RNE ((_ to_fp 8 24) RNE 2.0))");
+        assert(e && !e->isErr());
+        auto ev = parser->evaluate(e, model);
+        assert_bv_unsigned_eq(ev, 2ul);
+    }
+    {
+        auto e = parser->mkExpr("((_ fp.to_sbv 16) RNE ((_ to_fp 8 24) RNE -1.0))");
+        assert(e && !e->isErr());
+        auto ev = parser->evaluate(e, model);
+        assert_bv_signed_eq(ev, -1l);
+    }
+    eval_expect_fp32(parser, model, "((_ to_fp 8 24) RNE 3.14)", 3.14f, 1e-2f);
+
+    std::cout << "test_evaluate_fp_dispatch: all assertions passed\n";
+    return 0;
+}

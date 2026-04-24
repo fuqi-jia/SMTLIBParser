@@ -163,6 +163,13 @@ namespace SOMTParser{
         return insertSortToBucket(sort);
     }
 
+    std::shared_ptr<Sort> SortManager::createDatatypeSort(const std::string& name,
+            const std::vector<Sort::DtConstructor>& constructors) {
+        auto sort = std::make_shared<Sort>(SORT_KIND::SK_DATATYPE, name, 0);
+        sort->dt_constructors = std::make_shared<std::vector<Sort::DtConstructor>>(constructors);
+        return insertSortToBucket(sort);
+    }
+
     std::shared_ptr<Sort> SortManager::createSortDec(const std::string& name, size_t arity) {
         auto sort = std::make_shared<Sort>(SORT_KIND::SK_DEC, name, arity);
         return insertSortToBucket(sort);
@@ -178,14 +185,17 @@ namespace SOMTParser{
 
 
     size_t SortManager::getBitWidth(const std::shared_ptr<Sort> &sort) {
+        condAssert(sort != nullptr, "Sort is null");
         return sort->getBitWidth();
     }
     
     size_t SortManager::getExponentWidth(const std::shared_ptr<Sort> &sort) {
+        condAssert(sort != nullptr, "Sort is null");
         return sort->getExponentWidth();
     }
     
     size_t SortManager::getSignificandWidth(const std::shared_ptr<Sort> &sort) {
+        condAssert(sort != nullptr, "Sort is null");
         return sort->getSignificandWidth();
     }
     

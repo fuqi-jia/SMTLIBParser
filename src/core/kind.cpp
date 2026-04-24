@@ -697,7 +697,42 @@ namespace SOMTParser{
         }
     }
 
-    NODE_KIND getOperKind(const std::string& s) {
+    static bool isNonStandardFpOperSpelling(const std::string& s) {
+        return s == "fp.=" || s == "fp.==" || s == "fp.toUbv" || s == "fp.toSbv" ||
+               s == "fp.isInf" || s == "fp.isNan" || s == "fp.isNeg" || s == "fp.isPos";
+    }
+
+    // Names in oper_key_map that may be shadowed by declare-fun / define-fun(-rec).
+    // Only non-core Ints/Reals extensions (parser sugar / extra ops). Excludes Reals
+    // algebraic roots (root-obj, ...), BV/FP/Strings/Arrays, and boolean/core arithmetic.
+    const std::unordered_set<std::string> allow_builtin_shadow = {
+        "is_divisible", "is_prime", "is_even", "is_odd",
+        "gcd", "lcm", "factorial",
+        "pow2", "iand", "pow", "**", "^",
+        "sqrt", "safesqrt", "safeSqrt", "ceil", "floor", "round", "exp",
+        "ln", "loge", "lg", "log10", "lb", "log2", "log",
+        "sin", "cos", "tan", "sec", "csc", "cot",
+        "asin", "arcsin", "acos", "arccos", "atan", "arctan",
+        "asec", "arcsec", "acsc", "arccsc", "acot", "arccot",
+        "atan2", "arctan2",
+        "sinh", "cosh", "tanh", "sech", "csch", "coth",
+        "asinh", "arcsinh", "acosh", "arccosh", "atanh", "arctanh",
+        "asech", "acsch", "arccsch", "acoth", "arccoth",
+    };
+
+    bool builtinOperMayBeShadowedByUserFun(const std::string& s) {
+        return allow_builtin_shadow.find(s) != allow_builtin_shadow.end();
+    }
+
+    bool isBuiltinNameReservedAgainstUserFun(const std::string& s) {
+        if (builtinOperMayBeShadowedByUserFun(s)) return false;
+        return oper_key_map.find(s) != oper_key_map.end();
+    }
+
+    NODE_KIND getOperKind(const std::string& s, bool strict_smtlib_fp) {
+        if(strict_smtlib_fp && isNonStandardFpOperSpelling(s)) {
+            return NODE_KIND::NT_UNKNOWN;
+        }
         auto it = oper_key_map.find(s);
         if (it != oper_key_map.end()) {
             return it->second;
