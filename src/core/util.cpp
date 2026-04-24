@@ -1342,48 +1342,27 @@ namespace SOMTParser{
     std::string ConversionUtils::escapeString(const std::string& s){
         std::string result = "";
         for(char c : s){
+            // SMT-LIB2 string escaping rules:
+            //   - double quote is escaped as "" (two consecutive double-quotes)
+            //   - backslash is escaped as two backslashes
+            //   - single quotes and other printable chars need no escaping
+            //   - non-printable/control characters use \u{X} Unicode escape
             switch(c) {
-                case '\n':   // newline
-                    result += "\\n";
-                    break;
-                case '\t':   // tab
-                    result += "\\t";
-                    break;
-                case '\r':   // carriage return
-                    result += "\\r";
+                case '"':    // double quote: SMT-LIB2 standard encoding
+                    result += "\"\"";
                     break;
                 case '\\':   // backslash
                     result += "\\\\";
                     break;
-                case '"':    // double quote
-                    result += "\\\"";
-                    break;
-                case '\'':   // single quote
-                    result += "\\'";
-                    break;
-                case '\0':   // null character
-                    result += "\\0";
-                    break;
-                case '\a':   // alert
-                    result += "\\a";
-                    break;
-                case '\b':   // backspace
-                    result += "\\b";
-                    break;
-                case '\f':   // form feed
-                    result += "\\f";
-                    break;
-                case '\v':   // vertical tab
-                    result += "\\v";
-                    break;
                 default:
-                    // for non-printable characters, use hexadecimal escape
-                    if(c < 32 || c > 126) {
-                        std::ostringstream oss;
-                        oss << "\\x" << std::hex << std::setfill('0') << std::setw(2) << (unsigned char)c;
-                        result += oss.str();
-                    } else {
+                    // printable ASCII: no escaping needed
+                    if(c >= 32 && c <= 126) {
                         result += c;
+                    } else {
+                        // non-printable: use SMT-LIB2 Unicode escape \u{X}
+                        std::ostringstream oss;
+                        oss << "\\u{" << std::hex << static_cast<unsigned int>((unsigned char)c) << "}";
+                        result += oss.str();
                     }
                     break;
             }
@@ -1455,6 +1434,10 @@ namespace SOMTParser{
                         break;
                 }
                 i += 2; // skip the escape character and the next character
+            } else if (s[i] == '"' && i + 1 < s.length() && s[i + 1] == '"') {
+                // SMT-LIB2: doubled double-quote inside a string literal = one literal '"'
+                result += '"';
+                i += 2;
             } else {
                 result += s[i]; // if the current character is not an escape character, add it directly
                 i++;

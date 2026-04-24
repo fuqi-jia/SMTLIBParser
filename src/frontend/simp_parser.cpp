@@ -775,7 +775,7 @@ namespace SOMTParser{
             }
             case NODE_KIND::NT_STR_FROM_CODE:{
                 if(p->isCInt()){
-                    if(toInt(p) >= 0 && toInt(p) <= 127){
+                    if(toInt(p) >= 0 && toInt(p) <= 255){
                         return mkConstStr(std::string(1, static_cast<char>(toInt(p).toULong())));
                     }
                     else{
