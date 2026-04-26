@@ -79,6 +79,7 @@ if(BUILD_BOTH_LIBS)
     # set static library include directories (include root so that #include <somtparser/...> works)
     target_include_directories(somtparser_static PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/third_party
         ${GMP_INCLUDE_DIRS}
         ${MPFR_INCLUDE_DIRS}
     )
@@ -104,6 +105,7 @@ if(BUILD_BOTH_LIBS)
     # set shared library include directories
     target_include_directories(somtparser_shared PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/third_party
         ${GMP_INCLUDE_DIRS}
         ${MPFR_INCLUDE_DIRS}
     )
@@ -134,6 +136,7 @@ else()
     # set library include directories
     target_include_directories(somtparser PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/third_party
         ${GMP_INCLUDE_DIRS}
         ${MPFR_INCLUDE_DIRS}
     )

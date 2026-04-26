@@ -3,8 +3,8 @@
  * MiniZinc Frontend — Lexer Tests
  */
 
-#include "somtparser/minizinc/mzn_lexer.h"
-#include "somtparser/minizinc/mzn_token.h"
+#include "somtparser/frontends/minizinc/mzn_lexer.h"
+#include "somtparser/frontends/minizinc/mzn_token.h"
 #include <iostream>
 #include <cassert>
 #include <vector>

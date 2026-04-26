@@ -3,8 +3,8 @@
  * MiniZinc Frontend — Type Tests
  */
 
-#include "somtparser/minizinc/mzn_parser.h"
-#include "somtparser/minizinc/mzn_type_checker.h"
+#include "somtparser/frontends/minizinc/mzn_parser.h"
+#include "somtparser/frontends/minizinc/mzn_type_checker.h"
 #include <iostream>
 #include <cassert>
 

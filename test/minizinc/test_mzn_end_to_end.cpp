@@ -6,7 +6,7 @@
  * and verifies the resulting DAG structure.
  */
 
-#include "somtparser/minizinc/mzn_parser.h"
+#include "somtparser/frontends/minizinc/mzn_parser.h"
 #include <iostream>
 #include <cassert>
 

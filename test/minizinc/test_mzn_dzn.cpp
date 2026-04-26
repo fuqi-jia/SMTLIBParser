@@ -3,8 +3,8 @@
  * MiniZinc Frontend — .dzn Parser & Merger Tests
  */
 
-#include "somtparser/minizinc/mzn_dzn_parser.h"
-#include "somtparser/minizinc/mzn_parser.h"
+#include "somtparser/frontends/minizinc/mzn_dzn_parser.h"
+#include "somtparser/frontends/minizinc/mzn_parser.h"
 #include <iostream>
 #include <cassert>
 #include <sstream>
