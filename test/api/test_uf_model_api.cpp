@@ -7,11 +7,6 @@
 #include "somtparser/core/util.h"
 #include <cassert>
 
-static std::string dirname_of(const std::string& path) {
-    auto p = path.find_last_of("/\\");
-    return p == std::string::npos ? std::string(".") : path.substr(0, p);
-}
-
 static std::string uf_sanitize(const std::string& s) {
     std::string out;
     out.reserve(s.size());
@@ -101,9 +96,23 @@ int main() {
         assert(m->getArraySelect("B", "#b0")->isUnknown());
     }
 
-    std::string uf_inst = dirname_of(__FILE__) + "/instances/uf.smt2";
     ParserPtr p2 = newParser();
-    assert(p2->parse(uf_inst));
+    bool ok = p2->parseStr(R"(
+; Parse regression: uninterpreted function applications in assertions
+(set-logic ALL)
+
+(declare-fun f (Int) Int)
+(declare-fun h (Int Int) Int)
+
+(assert (= (f 0) (f 0)))
+(assert (> (+ (f 1) (f 2)) 0))
+(assert (= (h 2 3) (h 2 3)))
+(assert (not (= (h 1 1) (h 2 2))))
+
+(check-sat)
+(exit)
+)");
+    assert(ok && "uf inline must parse");
 
     std::cout << "test_uf_model_api: all assertions passed\n";
     return 0;

@@ -4,31 +4,33 @@
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/dag.h"
 #include <cassert>
-
-// NDEBUG-safe assertion for side-effectful expressions
-#define VERIFY(expr) do { if(!(expr)) { std::cerr << "VERIFY failed: " #expr << " at " << __FILE__ << ":" << __LINE__ << "\n"; std::abort(); } } while(0)
-
-static std::string dirname_of(const std::string& path) {
-    auto p = path.find_last_of("/\\");
-    return p == std::string::npos ? std::string(".") : path.substr(0, p);
-}
+#include "../test_helpers.h"
 
 int main() {
     using namespace SOMTParser;
 
-    std::string instance = dirname_of(__FILE__) + "/instances/datatypes.smt2";
-
     ParserPtr parser = newParser();
-    bool parsed = parser->parse(instance);
+    bool parsed = parser->parseStr(R"(
+; Parse regression: declare-datatypes (Either: left / right, Int selectors only)
+(set-logic ALL)
+
+(declare-datatypes ((Either 0)) (((left (lv Int)) (right (rv Int)))))
+
+(assert (is-left (left 7)))
+(assert (not (is-right (left 7))))
+(assert (is-right (right 3)))
+(assert (not (is-left (right 3))))
+(assert (= (lv (left 42)) 42))
+(assert (= (rv (right 99)) 99))
+
+(check-sat)
+(exit)
+)");
     if (!parsed) {
-        parser = newParser();
-        VERIFY(parser->parseStr("(set-logic ALL)"));
-        VERIFY(parser->parseStr(
-            "(declare-datatypes ((Either 0)) (((left (lv Int)) (right (rv Int)))))"));
-        std::cerr << "note: parseStr fallback (could not read " << instance << ")\n";
-    } else {
-        std::cout << "parsed " << instance << "\n";
+        std::cerr << "test_datatype_eval: failed to parse inline datatypes\n";
+        return 1;
     }
+    std::cout << "parsed inline datatypes\n";
 
     ModelPtr model = newModel();
 

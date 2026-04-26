@@ -8,11 +8,6 @@
 #include "somtparser/ir/number.h"
 #include <cassert>
 
-static std::string dirname_of(const std::string& path) {
-    auto p = path.find_last_of("/\\");
-    return p == std::string::npos ? std::string(".") : path.substr(0, p);
-}
-
 static void assert_fp32_near(const std::shared_ptr<SOMTParser::DAGNode>& ev, float expected, float eps = 5e-4f) {
     assert(ev && !ev->isErr() && ev->isCFP());
     auto v = SOMTParser::fpNodeToFloat32(ev);
@@ -102,16 +97,48 @@ int main() {
         assert_fp32_near(ev->getChild(2), 1.0f);
     }
 
-    const std::string dir = dirname_of(__FILE__);
     {
-        const std::string p1 = dir + "/instances/eval_dispatch_qf_s.smt2";
         ParserPtr p = newParser();
-        assert(p->parse(p1) && "eval_dispatch_qf_s.smt2 must parse");
+        bool ok = p->parseStr(R"(
+; Parser smoke test: string/regex ops used by evaluateSimpleOp dispatch (Phase B)
+(set-logic ALL)
+
+(declare-const s String)
+(declare-const t String)
+(assert (= s "aba"))
+(assert (= t "aaa"))
+
+; Binary: str.indexof_re
+(assert (>= (str.indexof_re s (str.to_re "b")) 0))
+
+; Ternary: str.replace_re / str.replace_re_all
+(assert (= (str.replace_re s (str.to_re "a") "x") "xbx"))
+(assert (= (str.replace_re_all t (str.to_re "a") "b") "bbb"))
+
+; Ternary: ((_ re.loop m n) Reg) — Reg, then loop bounds as Int children in internal DAG
+(assert (str.in_re "xx" ((_ re.loop 1 2) (str.to_re "x"))))
+
+(check-sat)
+(exit)
+)");
+        assert(ok && "eval_dispatch_qf_s inline must parse");
     }
     {
-        const std::string p2 = dir + "/instances/eval_const_array.smt2";
         ParserPtr p = newParser();
-        assert(p->parse(p2) && "eval_const_array.smt2 must parse");
+        bool ok = p->parseStr(R"(
+; Parser smoke test: const array + store/select (evaluates via NT_CONST_ARRAY / array simplification)
+(set-logic ALL)
+
+(declare-const i Int)
+(declare-const a (Array Int Int))
+
+(assert (= a (store ((as const (Array Int Int)) 0) i 1)))
+(assert (= (select ((as const (Array Int Int)) 7) 42) 7))
+
+(check-sat)
+(exit)
+)");
+        assert(ok && "eval_const_array inline must parse");
     }
 
     // --- Phase A: FP constant folding (expected float32 values) ---

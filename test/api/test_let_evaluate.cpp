@@ -7,9 +7,7 @@
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/dag.h"
 #include <cassert>
-
-// NDEBUG-safe assertion
-#define VERIFY(expr) do { if(!(expr)) { std::cerr << "VERIFY failed: " #expr " at " << __FILE__ << ":" << __LINE__ << "\n"; std::abort(); } } while(0)
+#include "../test_helpers.h"
 
 using namespace SOMTParser;
 

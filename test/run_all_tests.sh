@@ -36,44 +36,45 @@ fi
 echo -e "${YELLOW}Running tests...${NC}"
 cd test
 
-# Find all test executables (built by CMake from test/*.cpp)
+# Find all test executables (built by CMake from test/**/*.cpp)
+# All executables land in build/test/ regardless of source subdirectory.
 TEST_EXES=$(find . -maxdepth 1 -type f -executable -name "test_*" 2>/dev/null | sort)
 
-# If no executables found, try explicit list (e.g. when find fails or cwd is wrong)
+# Fallback explicit list if find returns empty
 if [ -z "$TEST_EXES" ]; then
-    echo -e "${YELLOW}No test executables found in current dir, trying explicit list...${NC}"
+    echo -e "${YELLOW}No test executables found via find, trying explicit list...${NC}"
     POTENTIAL_TESTS=(
+        ./test_arithmetic
         ./test_array_simplify
         ./test_array_theory
-        ./test_arithmetic
         ./test_bitvector
         ./test_boolean_logic
         ./test_context_dispatcher
+        ./test_datatype_eval
+        ./test_define_fun_assert_roundtrip
         ./test_error
+        ./test_evaluate_fp_dispatch
         ./test_expressions
         ./test_floating_point
+        ./test_fp_util_wrappers
+        ./test_incremental
+        ./test_issue1_4_7
+        ./test_let_evaluate
         ./test_node_api
         ./test_optimization
         ./test_options_config
         ./test_parse_model
+        ./test_parse_oper_builtin_priority
         ./test_parser
         ./test_quantifiers
         ./test_readme
         ./test_rewriter
-        ./test_somtparser_exe
         ./test_string_handling
         ./test_string_operations
         ./test_theory_combination
+        ./test_uf_model_api
         ./test_umbrella
         ./test_visitor_api
-        ./test_define_fun_assert_roundtrip
-        ./test_datatype_eval
-        ./test_fp_util_wrappers
-        ./test_uf_model_api
-        ./test_evaluate_fp_dispatch
-        ./test_parse_oper_builtin_priority
-        ./test_fp_util_wrappers
-        ./test_datatype_eval
     )
     for t in "${POTENTIAL_TESTS[@]}"; do
         [ -x "$t" ] && TEST_EXES="$TEST_EXES $t"
@@ -117,4 +118,4 @@ if [ $FAILED_TESTS -eq 0 ]; then
 else
     echo -e "${RED}$FAILED_TESTS tests failed!${NC}"
     exit 1
-fi 
+fi
