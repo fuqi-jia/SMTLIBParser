@@ -1,0 +1,8 @@
+n_customers = 3;
+n_warehouses = 2;
+demand = [5, 4, 3];
+capacity = [10, 10];
+fixed_cost = [10, 10];
+transport_cost = [|2, 3|
+                  3, 2|
+                  4, 1|];
