@@ -1737,11 +1737,15 @@ namespace SOMTParser{
 			}
 
 			if (sort->arity > 0 ){
+				// sort may be a shared cached object from symbol manager or BASIC_SORTS.
+				// Clone to avoid mutating the canonical sort.
+				auto instantiated = std::make_shared<Sort>(*sort);
+				instantiated->children.clear();
 				for (size_t i = 0; i < sort->arity; i++){
 					std::shared_ptr<Sort> sort_child = parseSort();
-					if (sort_child->arity != sort_child->children.size())
-						sort->children.push_back(sort_child);
+					instantiated->children.push_back(sort_child);
 				}
+				sort = instantiated;
 			}
 		}
 		//err_unkwn_sym(s, expr_ln);

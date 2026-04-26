@@ -324,6 +324,91 @@ void test_substitution(SOMTParser::ParserPtr& parser) {
     std::cout << std::endl;
 }
 
+void test_collectvars_let_binding(SOMTParser::ParserPtr& parser) {
+    std::cout << "=== Testing collectVars with let bindings ===" << std::endl;
+
+    // Declare free variables used in the tests
+    parser->mkVarInt("x");
+    parser->mkVarInt("b");
+    parser->mkVarInt("d");
+    parser->mkVarInt("p");
+    parser->mkVarInt("q");
+
+    // Helper to extract variable names from a set of DAGNodes
+    auto getVarNames = [&](const std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>>& vars) {
+        std::unordered_set<std::string> names;
+        for (const auto& v : vars) names.insert(v->getName());
+        return names;
+    };
+
+    // Test 1: (let ((y x)) y) → should find {x}, NOT y
+    {
+        auto formula = parser->mkExpr("(let ((y x)) y)");
+        assert(formula);
+        std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> vars;
+        parser->collectVars(formula, vars);
+        auto names = getVarNames(vars);
+        std::cout << "  Test 1 vars: ";
+        for (const auto& n : names) std::cout << n << " ";
+        std::cout << std::endl;
+        assert(names.size() == 1);
+        assert(names.find("x") != names.end());
+        assert(names.find("y") == names.end());
+    }
+
+    // Test 2: (let ((a b) (c d)) (+ a c)) → should find {b, d}
+    {
+        auto formula = parser->mkExpr("(let ((a b) (c d)) (+ a c))");
+        assert(formula);
+        std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> vars;
+        parser->collectVars(formula, vars);
+        auto names = getVarNames(vars);
+        std::cout << "  Test 2 vars: ";
+        for (const auto& n : names) std::cout << n << " ";
+        std::cout << std::endl;
+        assert(names.size() == 2);
+        assert(names.find("b") != names.end());
+        assert(names.find("d") != names.end());
+        assert(names.find("a") == names.end());
+        assert(names.find("c") == names.end());
+    }
+
+    // Test 3: Nested let: (let ((y x)) (let ((z y)) z)) → should find {x}
+    {
+        auto formula = parser->mkExpr("(let ((y x)) (let ((z y)) z))");
+        assert(formula);
+        std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> vars;
+        parser->collectVars(formula, vars);
+        auto names = getVarNames(vars);
+        std::cout << "  Test 3 vars: ";
+        for (const auto& n : names) std::cout << n << " ";
+        std::cout << std::endl;
+        assert(names.size() == 1);
+        assert(names.find("x") != names.end());
+        assert(names.find("y") == names.end());
+        assert(names.find("z") == names.end());
+    }
+
+    // Test 4: Let with expression: (let ((v (+ p q))) v) → should find {p, q}
+    {
+        auto formula = parser->mkExpr("(let ((v (+ p q))) v)");
+        assert(formula);
+        std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> vars;
+        parser->collectVars(formula, vars);
+        auto names = getVarNames(vars);
+        std::cout << "  Test 4 vars: ";
+        for (const auto& n : names) std::cout << n << " ";
+        std::cout << std::endl;
+        assert(names.size() == 2);
+        assert(names.find("p") != names.end());
+        assert(names.find("q") != names.end());
+        assert(names.find("v") == names.end());
+    }
+
+    std::cout << "  test_collectvars_let_binding: all assertions passed" << std::endl;
+    std::cout << std::endl;
+}
+
 int main() {
     std::cout << "======= Complex Expressions Test =======" << std::endl;
     
@@ -336,6 +421,7 @@ int main() {
     test_binarization(parser);
     test_collect_atoms_variables(parser);
     test_substitution(parser);
+    test_collectvars_let_binding(parser);
     
     return 0;
 } 

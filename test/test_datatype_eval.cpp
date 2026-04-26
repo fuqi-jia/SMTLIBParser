@@ -347,6 +347,53 @@ int main() {
         std::cout << "test_datatype_eval: mkDefaultDTValue (non-nullary constructor) passed\n";
     }
 
+    // ─── Parametric sort parsing (parseSort shared-Sort mutation) ───────
+    {
+        ParserPtr pp = newParser();
+        VERIFY(pp->parseStr("(set-logic ALL)"));
+        VERIFY(pp->parseStr("(declare-sort S 1)"));
+        VERIFY(pp->parseStr("(define-sort SB () (S Bool))"));
+        VERIFY(pp->parseStr("(declare-fun A () (S Bool))"));
+        VERIFY(pp->parseStr("(declare-fun B () SB)"));
+
+        auto vars = pp->getVariables();
+        std::shared_ptr<SOMTParser::DAGNode> varA = nullptr;
+        std::shared_ptr<SOMTParser::DAGNode> varB = nullptr;
+        for (auto& v : vars) {
+            if (v->getName() == "A") varA = v;
+            if (v->getName() == "B") varB = v;
+        }
+        VERIFY(varA && varB);
+
+        auto sortA = varA->getSort();
+        auto sortB = varB->getSort();
+        VERIFY(sortA && sortA->name == "S");
+        VERIFY(sortB && sortB->name == "S");
+        VERIFY(sortA->children.size() == 1);
+        VERIFY(sortB->children.size() == 1);
+        VERIFY(sortA->children[0]->isBool());
+        VERIFY(sortB->children[0]->isBool());
+
+        // Parse a second parametric sort (S Int) — must NOT corrupt the sort of A
+        VERIFY(pp->parseStr("(declare-fun C () (S Int))"));
+        auto vars2 = pp->getVariables();
+        std::shared_ptr<SOMTParser::DAGNode> varC = nullptr;
+        for (auto& v : vars2) {
+            if (v->getName() == "C") varC = v;
+        }
+        VERIFY(varC);
+        auto sortC = varC->getSort();
+        VERIFY(sortC && sortC->name == "S");
+        VERIFY(sortC->children.size() == 1);
+        VERIFY(sortC->children[0]->isInt());
+
+        // A and B must still have Bool child, not Int
+        VERIFY(varA->getSort()->children[0]->isBool());
+        VERIFY(varB->getSort()->children[0]->isBool());
+
+        std::cout << "test_datatype_eval: parametric sort parsing passed\n";
+    }
+
     std::cout << "test_datatype_eval: all assertions passed\n";
     return 0;
 }

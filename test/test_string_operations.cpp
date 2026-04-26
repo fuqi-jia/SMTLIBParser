@@ -186,6 +186,18 @@ void test_regex_evaluate(SOMTParser::ParserPtr& parser) {
     EXPECT_TRUE(R"((str.in_re "ab" (re.++ (re.range "a" "a") (re.range "b" "b"))))",
                 "re.concat ab");
 
+    // re.++ : 3-level nested concatenation
+    EXPECT_TRUE(R"((str.in_re "abc" (re.++ (re.range "a" "a") (re.++ (re.range "b" "b") (re.range "c" "c")))))",
+                "re.concat nested abc");
+
+    // re.++ with re.* as subexpr
+    EXPECT_TRUE(R"((str.in_re "ab" (re.++ (re.range "a" "a") (re.* (re.range "b" "b")))))",
+                "re.concat with re.*");
+
+    // re.++ with re.union as subexpr
+    EXPECT_TRUE(R"((str.in_re "ac" (re.++ (re.union (re.range "a" "a") (re.range "b" "b")) (re.range "c" "c"))))",
+                "re.concat with re.union");
+
     // re.union : "5" is in [0-9]
     EXPECT_TRUE(R"((str.in_re "5" (re.union (re.range "a" "z") (re.range "0" "9"))))",
                 "re.union 5 in [0-9]");

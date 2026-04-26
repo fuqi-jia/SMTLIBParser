@@ -371,6 +371,7 @@ static OpDispatcher<bool, EvalContext> buildEvalDispatcher() {
 
     // Let
     d.on(NODE_KIND::NT_LET, A::h_let);
+    d.on(NODE_KIND::NT_LET_CHAIN, A::h_let);
 
     // Fallback: return expression unchanged
     d.otherwise([](Node n, EvalContext& ctx) -> bool {

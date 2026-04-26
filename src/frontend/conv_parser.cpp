@@ -177,8 +177,12 @@ namespace SOMTParser {
             return;
         }
         visited.insert(expr);
-        if (expr->isVar()) {
+        if (expr->isVar() && !expr->isLetBindVar()) {
             vars.insert(expr);
+        }
+        else if (expr->isLetBindVar()) {
+            if (expr->getChildrenSize() >= 1)
+                collectVars(expr->getChild(0), vars, visited);
         }
         else{
             for (size_t i = 0; i < expr->getChildrenSize(); i++) {
