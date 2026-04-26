@@ -72,6 +72,7 @@ public:
     // --- Sort (user-defined sort names) ---
     void registerSort(const std::string& name, const std::shared_ptr<Sort>& sort);
     bool hasSort(const std::string& name) const;
+    void removeSort(const std::string& name);
 
     // --- Quantifier scope ---
     void registerQuantVar(const std::string& name, const std::shared_ptr<DAGNode>& node);
@@ -83,6 +84,7 @@ public:
     void registerVar(const std::string& name, const std::shared_ptr<DAGNode>& node);
     std::shared_ptr<DAGNode> getVar(const std::string& name) const;
     bool hasVar(const std::string& name) const;
+    void removeVar(const std::string& name);
     void renameVar(const std::string& old_name, const std::string& new_name);
     const std::unordered_map<std::string, std::shared_ptr<DAGNode>>& getVarNames() const;
 

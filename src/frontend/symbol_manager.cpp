@@ -191,6 +191,10 @@ bool SymbolManager::hasSort(const std::string& name) const {
     return sort_key_map_.find(name) != sort_key_map_.end();
 }
 
+void SymbolManager::removeSort(const std::string& name) {
+    sort_key_map_.erase(name);
+}
+
 void SymbolManager::registerQuantVar(const std::string& name, const std::shared_ptr<DAGNode>& node) {
     quant_var_map_[name] = node;
 }
@@ -219,6 +223,10 @@ std::shared_ptr<DAGNode> SymbolManager::getVar(const std::string& name) const {
 
 bool SymbolManager::hasVar(const std::string& name) const {
     return var_names_.find(name) != var_names_.end();
+}
+
+void SymbolManager::removeVar(const std::string& name) {
+    var_names_.erase(name);
 }
 
 void SymbolManager::renameVar(const std::string& old_name, const std::string& new_name) {

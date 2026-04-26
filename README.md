@@ -348,6 +348,7 @@ int main() {
 | **Format Conversion** | `toCNF`, `toDNF`, `toNNF`, `toTseitinCNF`, ... |
 | **Formula Analysis** | `collectAtoms`, `collectVars`, `expandLet`, `replaceAtoms`, ... |
 | **Model Operations** | `add`, `get`, `isEmpty`, `toString`, ... |
+| **Incremental / Command** | `push`, `pop`, `resetAssertions`, `reset`, `nextCommand`, `getScript`, `setCommandLogging` |
 | **Debugging & Output** | `toString`, `getAssertions`, ... |
 
 ## Usage Examples

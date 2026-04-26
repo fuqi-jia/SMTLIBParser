@@ -257,6 +257,12 @@ namespace SOMTParser{
         /** Get the ordered list of objectives. */
         std::vector<std::shared_ptr<Objective>> getObjectives() const;
 
+        /** Truncate objectives list to size n and clean up objective_map_. */
+        void popToSize(size_t n);
+
+        /** Clear all objectives and named objectives. */
+        void clear();
+
         /** Create an empty Objective (for multi-objective; caller adds sub-objectives then addObjective). */
         std::shared_ptr<Objective> createObjective(OPT_KIND opt_type, const std::string& grp_id);
         /** Add a single objective (maxsat/minsat) to the list and return it. */

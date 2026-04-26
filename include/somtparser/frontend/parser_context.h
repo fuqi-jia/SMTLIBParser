@@ -43,6 +43,25 @@
 namespace SOMTParser {
 
 /**
+ * Snapshot of parser state for a single push/pop scope level.
+ */
+struct ScopeFrame {
+    size_t assertions_size = 0;
+    size_t assumptions_size = 0;
+    size_t soft_assertions_size = 0;
+    size_t soft_weights_size = 0;
+    size_t objectives_size = 0;
+    size_t split_lemmas_size = 0;
+
+    std::vector<std::string> added_vars;
+    std::vector<std::string> added_funs;
+    std::vector<std::string> added_sorts;
+    std::vector<std::string> added_named_assertion_keys;
+    std::vector<std::string> added_assertion_group_keys;
+    std::vector<std::string> added_soft_assertion_group_keys;
+};
+
+/**
  * Context implementation that holds parser data (symbols, objectives, assertions, etc.).
  * Inherits NodeManager, SortManager, Options from Context; adds SymbolManager, ObjectiveManager.
  */
@@ -79,6 +98,22 @@ public:
     std::unordered_map<std::string, std::unordered_set<size_t>> getGroupedSoftAssertions() const;
     std::vector<std::shared_ptr<Objective>> getObjectives() const;
     std::vector<std::shared_ptr<DAGNode>> getSplitLemmas() const;
+
+    // --- Incremental push/pop scope stack ---
+    std::vector<ScopeFrame> scope_stack_;
+
+    void pushScope(size_t n = 1);
+    void popScope(size_t n = 1);
+    void resetAssertions();
+    void resetAll();
+
+    // Helpers to record additions in the current scope (no-op if no scope is active)
+    void registerVarInScope(const std::string& name);
+    void registerFunInScope(const std::string& name);
+    void registerSortInScope(const std::string& name);
+    void registerNamedAssertionInScope(const std::string& name);
+    void registerAssertionGroupInScope(const std::string& name);
+    void registerSoftAssertionGroupInScope(const std::string& name);
 };
 
 } // namespace SOMTParser

@@ -763,7 +763,13 @@ namespace SOMTParser{
 		try {
 			while (*bufptr) {
 				parseLpar();
-				if (parseCommand() == CMD_TYPE::CT_EXIT) break;
+				CMD_TYPE type = parseCommand();
+				if (command_logging_) {
+					Command cmd(type);
+					cmd.line_number = line_number;
+					script_.addCommand(cmd);
+				}
+				if (type == CMD_TYPE::CT_EXIT) break;
 				parseRpar();
 			}
 		} catch (const ParseErrorException&) {
@@ -799,7 +805,13 @@ namespace SOMTParser{
 		try {
 			while (*bufptr) {
 				parseLpar();
-				if (parseCommand() == CMD_TYPE::CT_EXIT) break;
+				CMD_TYPE type = parseCommand();
+				if (command_logging_) {
+					Command cmd(type);
+					cmd.line_number = line_number;
+					script_.addCommand(cmd);
+				}
+				if (type == CMD_TYPE::CT_EXIT) break;
 				parseRpar();
 			}
 		} catch (const ParseErrorException&) {
@@ -924,6 +936,10 @@ namespace SOMTParser{
 			//if named_name is not empty, insert to named_assertions
 			if (named_name != ""){
 				context_.named_assertions[named_name] = assert_expr;
+				context_.registerNamedAssertionInScope(named_name);
+			}
+			if(grp_id != ""){
+				context_.registerAssertionGroupInScope(grp_id);
 			}
 			skipToRpar();
 			return CMD_TYPE::CT_ASSERT;
@@ -970,6 +986,7 @@ namespace SOMTParser{
 
 			// multiple declarations
 			if (res->isErr()) err_all(res, name, name_ln);
+			else context_.registerVarInScope(name);
 			skipToRpar();
 
 			return CMD_TYPE::CT_DECLARE_CONST;
@@ -993,6 +1010,7 @@ namespace SOMTParser{
 				parseRpar();
 				std::shared_ptr<Sort> out_sort = parseSort();
 				res = mkVar(out_sort, name);
+				if(!res->isErr()) context_.registerVarInScope(name);
 			}
 			else{
 				// (declare-fun <symbol> (<sort>+) <sort>)
@@ -1005,6 +1023,7 @@ namespace SOMTParser{
 				res = mkFuncDec(name, params, out_sort);
 				if(!res->isErr()){
 					getSymbolManager()->addFunctionName(name);
+					context_.registerFunInScope(name);
 				}
 			}
 
@@ -1027,6 +1046,7 @@ namespace SOMTParser{
 			// make sort
 			std::shared_ptr<Sort> sort = mkSortDec(name, num);
 			getSymbolManager()->registerSort(name, sort);
+			context_.registerSortInScope(name);
 			skipToRpar();
 
 			return CMD_TYPE::CT_DECLARE_SORT;
@@ -1038,6 +1058,7 @@ namespace SOMTParser{
 			std::string dt_name = getSymbol();
 			auto ps = getSortManager()->createSort(SORT_KIND::SK_DATATYPE, dt_name, 0);
 			getSymbolManager()->registerSort(dt_name, ps);
+			context_.registerSortInScope(dt_name);
 			parseLpar();
 			defineDatatypeConstructors(ps);
 			skipToRpar();
@@ -1069,6 +1090,7 @@ namespace SOMTParser{
 			for(auto& sd : sort_decls) {
 				auto ps = getSortManager()->createSort(SORT_KIND::SK_DATATYPE, sd.first, sd.second);
 				getSymbolManager()->registerSort(sd.first, ps);
+				context_.registerSortInScope(sd.first);
 				placeholder_sorts.push_back(ps);
 			}
 
@@ -1099,6 +1121,7 @@ namespace SOMTParser{
 			}
 			// keep the function name with the same order
 			getSymbolManager()->addFunctionName(name);
+			context_.registerFunInScope(name);
 
 			// get returned type and body
 			std::shared_ptr<Sort> out_sort = parseSort();
@@ -1126,6 +1149,7 @@ namespace SOMTParser{
 			}
 			// keep the function name with the same order
 			getSymbolManager()->addFunctionName(name);
+			context_.registerFunInScope(name);
 
 			// parse ((x Int))
 			//       ^
@@ -1189,6 +1213,7 @@ namespace SOMTParser{
 			}
 			// keep the function name with the same order
 			getSymbolManager()->addFunctionName(name);
+			context_.registerFunInScope(name);
 
 			// parse ((x Int))
 			//       ^
@@ -1454,29 +1479,35 @@ namespace SOMTParser{
 		}
 
 		if (command == "pop") {
-			//ignore
-			warn_cmd_nsup(command, command_ln);
+			size_t n = 1;
+			if (*bufptr != ')') {
+				std::string num = getSymbol();
+				n = std::stoul(num);
+			}
+			context_.popScope(n);
 			skipToRpar();
 			return CMD_TYPE::CT_POP;
 		}
 
 		if (command == "push") {
-			//ignore
-			warn_cmd_nsup(command, command_ln);
+			size_t n = 1;
+			if (*bufptr != ')') {
+				std::string num = getSymbol();
+				n = std::stoul(num);
+			}
+			context_.pushScope(n);
 			skipToRpar();
 			return CMD_TYPE::CT_PUSH;
 		}
 
 		if (command == "reset") {
-			//ignore
-			warn_cmd_nsup(command, command_ln);
+			context_.resetAll();
 			skipToRpar();
 			return CMD_TYPE::CT_RESET;
 		}
 
 		if (command == "reset-assertions") {
-			//ignore
-			warn_cmd_nsup(command, command_ln);
+			context_.resetAssertions();
 			skipToRpar();
 			return CMD_TYPE::CT_RESET_ASSERTIONS;
 		}
@@ -1612,6 +1643,64 @@ namespace SOMTParser{
 
 		return CMD_TYPE::CT_UNKNOWN;
 
+	}
+
+	// --- Incremental / sequential API ---
+
+	Command Parser::nextCommand() {
+		if (!bufptr || !*bufptr) return Command(CMD_TYPE::CT_EOF);
+		parseLpar();
+		CMD_TYPE type = parseCommand();
+		Command cmd(type);
+		cmd.line_number = line_number;
+		parseRpar();
+		if (command_logging_) {
+			script_.addCommand(cmd);
+		}
+		return cmd;
+	}
+
+	bool Parser::push(size_t n) {
+		context_.pushScope(n);
+		if (command_logging_) {
+			Command cmd(CMD_TYPE::CT_PUSH);
+			cmd.push_pop_level = n;
+			script_.addCommand(cmd);
+		}
+		return true;
+	}
+
+	bool Parser::pop(size_t n) {
+		if (n > context_.scope_stack_.size()) {
+			return false; // pop underflow
+		}
+		context_.popScope(n);
+		if (command_logging_) {
+			Command cmd(CMD_TYPE::CT_POP);
+			cmd.push_pop_level = n;
+			script_.addCommand(cmd);
+		}
+		return true;
+	}
+
+	bool Parser::resetAssertions() {
+		context_.resetAssertions();
+		if (command_logging_) {
+			script_.addCommand(Command(CMD_TYPE::CT_RESET_ASSERTIONS));
+		}
+		return true;
+	}
+
+	bool Parser::reset() {
+		context_.resetAll();
+		// Reset SymbolManager and ObjectiveManager by creating new instances
+		context_.setSymbolManager(std::make_shared<SymbolManager>());
+		context_.setObjectiveManager(std::make_shared<ObjectiveManager>());
+		// Re-initialize options if needed (keep existing options)
+		if (command_logging_) {
+			script_.addCommand(Command(CMD_TYPE::CT_RESET));
+		}
+		return true;
 	}
 
 	// sort ::= <identifier> | (<identifier> <sort>+)

@@ -342,6 +342,26 @@ namespace SOMTParser{
         return objectives_;
     }
 
+    void ObjectiveManager::popToSize(size_t n) {
+        if (n >= objectives_.size()) return;
+        // Remove entries from objective_map_ that correspond to objectives being popped
+        for (size_t i = n; i < objectives_.size(); ++i) {
+            for (auto it = objective_map_.begin(); it != objective_map_.end(); ) {
+                if (it->second == objectives_[i]) {
+                    it = objective_map_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
+        objectives_.resize(n);
+    }
+
+    void ObjectiveManager::clear() {
+        objectives_.clear();
+        objective_map_.clear();
+    }
+
     std::shared_ptr<Objective> ObjectiveManager::createObjective(OPT_KIND opt_type, const std::string& grp_id) {
         return std::make_shared<Objective>(opt_type, grp_id);
     }

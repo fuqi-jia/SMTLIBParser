@@ -39,6 +39,7 @@
 #include "somtparser/frontend/parser_context.h"
 #include "somtparser/passes/op_dispatcher.h"
 #include "somtparser/frontend/symbol_manager.h"
+#include "somtparser/frontend/command.h"
 #include <exception>
 
 namespace SOMTParser{
@@ -120,7 +121,7 @@ namespace SOMTParser{
     Parser
     */
 
-    // NOTE: only non-incremental mode
+    // Incremental mode supported via push/pop/reset and nextCommand()
     class Parser {
     private:
 
@@ -210,6 +211,12 @@ namespace SOMTParser{
 
         /** Context holding assertions, assumptions, objectives, etc. */
         ParserContext                                 context_;
+
+        /** Accumulated command script (when command_logging_ is true). */
+        Script                                        script_;
+
+        /** Whether to log each parsed command into script_. */
+        bool                                          command_logging_ = false;
 
     public:
         
@@ -3295,6 +3302,48 @@ namespace SOMTParser{
          * @return Boolean indicating success
          */
         bool 	                 parseSmtlib2File(const std::string filename);
+
+        // --- Incremental / sequential API ---
+
+        /**
+         * @brief Parse the next command from the current buffer.
+         * @return The parsed Command object. type == CT_EOF if no more commands.
+         */
+        Command nextCommand();
+
+        /**
+         * @brief Push n scope levels.
+         * @return true on success, false on error.
+         */
+        bool push(size_t n = 1);
+
+        /**
+         * @brief Pop n scope levels.
+         * @return true on success, false on error.
+         */
+        bool pop(size_t n = 1);
+
+        /**
+         * @brief Reset assertions (keep declarations and options).
+         * @return true on success.
+         */
+        bool resetAssertions();
+
+        /**
+         * @brief Full reset (return to initial state).
+         * @return true on success.
+         */
+        bool reset();
+
+        /**
+         * @brief Enable or disable command logging to the Script.
+         */
+        void setCommandLogging(bool enable) { command_logging_ = enable; }
+
+        /**
+         * @brief Get the accumulated command script.
+         */
+        const Script& getScript() const { return script_; }
 
         /**
          * @brief Get the arity of a node kind

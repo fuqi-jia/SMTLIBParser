@@ -106,6 +106,7 @@ namespace SOMTParser{
             else{
                 context_.soft_assertion_groups[grp_id].insert(index);
             }
+            context_.registerSoftAssertionGroupInScope(grp_id);
         }
     }
     // (maximize <expr> [:comp <symbol>] [:epsilon <symbol>] [:M <symbol>] [:id <symbol>])
