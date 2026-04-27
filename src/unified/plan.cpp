@@ -1,11 +1,11 @@
 /* -*- C++ -*-
  *
- * NL Plan implementation
+ * Plan implementation
  */
 
-#include "somtparser/frontends/natural/nl_plan.h"
+#include "somtparser/unified/plan.h"
 
-namespace SOMTParser::Frontend::Natural {
+namespace SOMTParser::Unified {
 
 Plan Plan::fromJson(const nlohmann::json& j) {
     return j.get<Plan>();
@@ -44,4 +44,4 @@ PlanConstraint PlanConstraint::mkLit(bool v) {
     return PlanConstraint(j);
 }
 
-} // namespace SOMTParser::Frontend::Natural
+} // namespace SOMTParser::Unified

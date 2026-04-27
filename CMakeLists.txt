@@ -27,11 +27,23 @@ if(ENABLE_TIMING)
     add_compile_definitions(ENABLE_TIMING)
 endif()
 
-# use pkg-config to find GMP and MPFR
+# use pkg-config to find GMP, MPFR, and libcurl
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(GMP QUIET gmp)
     pkg_check_modules(MPFR QUIET mpfr)
+    pkg_check_modules(CURL QUIET libcurl)
+endif()
+
+# find curl manually if pkg-config fails
+if(NOT CURL_FOUND)
+    find_library(CURL_LIBRARIES NAMES curl libcurl)
+    find_path(CURL_INCLUDE_DIRS NAMES curl/curl.h)
+    if(CURL_LIBRARIES AND CURL_INCLUDE_DIRS)
+        set(CURL_FOUND TRUE)
+    else()
+        message(WARNING "libcurl not found. NL4SMT LLM backend will not be available. Install libcurl-dev.")
+    endif()
 endif()
 
 # if pkg-config doesn't find the libraries, try manually finding them
@@ -82,12 +94,14 @@ if(BUILD_BOTH_LIBS)
         ${CMAKE_CURRENT_SOURCE_DIR}/include/third_party
         ${GMP_INCLUDE_DIRS}
         ${MPFR_INCLUDE_DIRS}
+        ${CURL_INCLUDE_DIRS}
     )
     
     # link static library dependencies
     target_link_libraries(somtparser_static PUBLIC
         ${GMP_LIBRARIES}
         ${MPFR_LIBRARIES}
+        ${CURL_LIBRARIES}
     )
     
     # create shared library
@@ -108,12 +122,14 @@ if(BUILD_BOTH_LIBS)
         ${CMAKE_CURRENT_SOURCE_DIR}/include/third_party
         ${GMP_INCLUDE_DIRS}
         ${MPFR_INCLUDE_DIRS}
+        ${CURL_INCLUDE_DIRS}
     )
     
     # link shared library dependencies
     target_link_libraries(somtparser_shared PUBLIC
         ${GMP_LIBRARIES}
         ${MPFR_LIBRARIES}
+        ${CURL_LIBRARIES}
     )
     
     # create alias target for compatibility

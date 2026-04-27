@@ -3,7 +3,8 @@
  */
 
 #include "somtparser/frontends/natural/nl_frontend.h"
-#include "somtparser/frontends/natural/nl_plan.h"
+#include "somtparser/unified/plan.h"
+#include "somtparser/unified/plan_builder.h"
 #include "somtparser/unified/unified_op_registry.h"
 #include "somtparser/unified/unified_printer.h"
 

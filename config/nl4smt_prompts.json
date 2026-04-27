@@ -1,0 +1,313 @@
+{
+  "version": "1.0",
+  "description": "NL4SMT prompt template library. Load this file to configure the LLM prompt for natural-language to Plan conversion.",
+  "system_message": "You are an expert constraint modeling assistant specialized in translating natural language problem descriptions into structured JSON Plans. Your output is consumed by an automated pipeline that converts Plans into SMT-LIB2 for solving by Z3, cvc5, and OptiMathSAT. Be precise with operator names and types. Output ONLY valid JSON.",
+  "output_rules": [
+    "Output ONLY a single valid JSON object matching the Plan schema. No markdown outside the JSON block.",
+    "Wrap the JSON in ```json ... ``` fences for reliable extraction.",
+    "Use unified op names EXACTLY as listed in the catalog. Do not invent new names.",
+    "All variables used in constraints or objectives must be declared in 'symbols' with correct unified_type.",
+    "Supported unified_types: bool, int, real, string, array(int), array(bool), array(real).",
+    "logic_hint should be one of: QF_LIA, QF_LRA, QF_BV, QF_NIA, CP, SAT, QF_LIRA.",
+    "If the problem has no objective, omit the 'objective' field entirely.",
+    "Use {'var': 'name'} for variable references and {'lit': value} for literals.",
+    "Literal values: integers are JSON numbers, booleans are true/false, reals are JSON numbers, strings are JSON strings."
+  ],
+  "op_catalog_note": "The following operators are available. The actual catalog is built dynamically from the UnifiedOpRegistry at runtime.",
+  "few_shot_examples": [
+    {
+      "name": "integer_arithmetic_optimization",
+      "logic": "QF_LIA",
+      "problem": "x and y are integers. x is at least 3. y is at most 10. Minimize x + y.",
+      "plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "y",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 3
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "y"
+              },
+              {
+                "lit": 10
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "op": "int_add",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "var": "y"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "boolean_implication",
+      "logic": "SAT",
+      "problem": "a and b are boolean variables. If a is true then b must be false.",
+      "plan": {
+        "version": "1",
+        "logic_hint": "SAT",
+        "symbols": [
+          {
+            "name": "a",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "b",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "bool_implies",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "op": "bool_not",
+                "args": [
+                  {
+                    "var": "b"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "cp_all_different",
+      "logic": "CP",
+      "problem": "All elements in array A of size 5 must be different. Each element is an integer from 1 to 5.",
+      "plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "A",
+            "unified_type": "array(int)",
+            "is_var": true,
+            "domain": "1..5"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "A"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "real_optimization",
+      "logic": "QF_LRA",
+      "problem": "p and q are real numbers. p is strictly greater than 0.5. q equals 2 times p. Maximize q.",
+      "plan": {
+        "version": "1",
+        "logic_hint": "QF_LRA",
+        "symbols": [
+          {
+            "name": "p",
+            "unified_type": "real",
+            "is_var": true
+          },
+          {
+            "name": "q",
+            "unified_type": "real",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "p"
+              },
+              {
+                "lit": 0.5
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "q"
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 2
+                  },
+                  {
+                    "var": "p"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "maximize",
+          "expr": {
+            "var": "q"
+          }
+        }
+      }
+    },
+    {
+      "name": "mixed_constraints",
+      "logic": "QF_LIA",
+      "problem": "n is a non-negative integer. m is an integer. m is exactly 3 more than n. Either n is even or m is greater than 10.",
+      "plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "n",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "m",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "n"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "m"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "n"
+                  },
+                  {
+                    "lit": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "bool_or",
+            "args": [
+              {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "int_mod",
+                    "args": [
+                      {
+                        "var": "n"
+                      },
+                      {
+                        "lit": 2
+                      }
+                    ]
+                  },
+                  {
+                    "lit": 0
+                  }
+                ]
+              },
+              {
+                "op": "gt",
+                "args": [
+                  {
+                    "var": "m"
+                  },
+                  {
+                    "lit": 10
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "schema_description": {
+    "Plan": {
+      "version": "string, always '1'",
+      "logic_hint": "string, one of QF_LIA, QF_LRA, QF_BV, QF_NIA, CP, SAT, QF_LIRA",
+      "symbols": "array of PlanSymbol",
+      "constraints": "array of PlanConstraint",
+      "objective": "optional PlanObjective"
+    },
+    "PlanSymbol": {
+      "name": "string, variable name",
+      "unified_type": "string, one of bool, int, real, string, array(int), array(bool), array(real)",
+      "is_var": "boolean, true for decision variables, false for parameters",
+      "domain": "optional string, e.g. '1..10', '{1,3,5}', 'true,false'"
+    },
+    "PlanConstraint": {
+      "expr": "JSON expression tree using unified ops, vars, and literals"
+    },
+    "PlanObjective": {
+      "mode": "string, one of satisfy, minimize, maximize",
+      "expr": "JSON expression tree"
+    }
+  }
+}

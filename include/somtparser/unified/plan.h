@@ -1,15 +1,17 @@
 /* -*- Header -*-
  *
- * NL Plan — Structured plan schema for Natural Language → Unified IR.
+ * Plan — Structured JSON plan schema for Unified IR.
  *
  * The Plan is a JSON-serializable intermediate representation that uses
  * Unified op names (e.g., "int_add", "all_different", "forall").
+ * It is produced by an LLM (or any external tool) and consumed by the
+ * PlanEmitter to produce a Unified::Model.
  *
  * Copyright (C) 2025 Fuqi Jia
  */
 
-#ifndef NL_PLAN_H
-#define NL_PLAN_H
+#ifndef SOMTPARSER_UNIFIED_PLAN_H
+#define SOMTPARSER_UNIFIED_PLAN_H
 
 #include "somtparser/unified/unified_ir.h"
 
@@ -18,7 +20,7 @@
 #include <optional>
 #include <nlohmann/json.hpp>
 
-namespace SOMTParser::Frontend::Natural {
+namespace SOMTParser::Unified {
 
 // ── Plan symbol (variable / parameter) ─────────────────────────────
 
@@ -112,6 +114,6 @@ inline void from_json(const nlohmann::json& j, Plan& p) {
     }
 }
 
-} // namespace SOMTParser::Frontend::Natural
+} // namespace SOMTParser::Unified
 
-#endif // NL_PLAN_H
+#endif // SOMTPARSER_UNIFIED_PLAN_H

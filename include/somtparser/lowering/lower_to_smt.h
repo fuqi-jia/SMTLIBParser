@@ -58,6 +58,9 @@ private:
     std::shared_ptr<Sort> lowerSort(const Unified::UnifiedSort& sort);
     std::shared_ptr<DAGNode> lowerVarDecl(const Unified::UnifiedVarDecl& decl);
 
+    /** Convert a Bool-typed DAGNode to Int via (ite x 1 0). No-op if already Int. */
+    std::shared_ptr<DAGNode> coerceToInt(std::shared_ptr<DAGNode> node);
+
     void addError(const std::string& msg);
 };
 

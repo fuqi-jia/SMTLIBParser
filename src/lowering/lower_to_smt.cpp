@@ -59,49 +59,74 @@ std::shared_ptr<DAGNode> LowerToSmt::lowerVarDecl(const Unified::UnifiedVarDecl&
     return nullptr;
 }
 
+// ── Type coercion helper ───────────────────────────────────────────
+
+std::shared_ptr<DAGNode> LowerToSmt::coerceToInt(std::shared_ptr<DAGNode> node) {
+    if (!node) return node;
+    if (node->getSort()->isBool()) {
+        return parser_.mkIte(node, parser_.mkConstInt(1), parser_.mkConstInt(0));
+    }
+    return node;
+}
+
 // ── Native op lowering ─────────────────────────────────────────────
 
 std::shared_ptr<DAGNode> LowerToSmt::lowerNative(const Unified::UnifiedOpDef& def,
                                                    const std::vector<std::shared_ptr<DAGNode>>& args) {
     const std::string& name = def.smt_lowering.native_smt_name;
 
+    // Helper to coerce arithmetic args (Bool -> Int)
+    auto coerceArgs = [&](const std::vector<std::shared_ptr<DAGNode>>& in) {
+        std::vector<std::shared_ptr<DAGNode>> out;
+        out.reserve(in.size());
+        for (auto& a : in) out.push_back(coerceToInt(a));
+        return out;
+    };
+
     // Handle variadic / multi-ary ops
     if (name == "+") {
-        if (args.empty()) return parser_.mkConstInt(0);
-        if (args.size() == 1) return args[0];
-        return parser_.mkAdd(args);
+        auto a = coerceArgs(args);
+        if (a.empty()) return parser_.mkConstInt(0);
+        if (a.size() == 1) return a[0];
+        return parser_.mkAdd(a);
     }
     if (name == "-") {
-        if (args.size() == 1) return parser_.mkNeg(args[0]);
-        if (args.size() == 2) return parser_.mkSub(args[0], args[1]);
+        auto a = coerceArgs(args);
+        if (a.size() == 1) return parser_.mkNeg(a[0]);
+        if (a.size() == 2) return parser_.mkSub(a[0], a[1]);
         addError("'-' with >2 args not supported");
         return nullptr;
     }
     if (name == "*") {
-        if (args.empty()) return parser_.mkConstInt(1);
-        if (args.size() == 1) return args[0];
+        auto a = coerceArgs(args);
+        if (a.empty()) return parser_.mkConstInt(1);
+        if (a.size() == 1) return a[0];
         // Parser may not have variadic mkMul; chain binary
-        auto result = args[0];
-        for (size_t i = 1; i < args.size(); ++i) result = parser_.mkMul(result, args[i]);
+        auto result = a[0];
+        for (size_t i = 1; i < a.size(); ++i) result = parser_.mkMul(result, a[i]);
         return result;
     }
     if (name == "div") {
-        if (args.size() == 2) return parser_.mkDivInt(args[0], args[1]);
+        auto a = coerceArgs(args);
+        if (a.size() == 2) return parser_.mkDivInt(a[0], a[1]);
         addError("'div' requires 2 args");
         return nullptr;
     }
     if (name == "/") {
-        if (args.size() == 2) return parser_.mkDivReal(args[0], args[1]);
+        auto a = coerceArgs(args);
+        if (a.size() == 2) return parser_.mkDivReal(a[0], a[1]);
         addError("'/' requires 2 args");
         return nullptr;
     }
     if (name == "mod") {
-        if (args.size() == 2) return parser_.mkMod(args[0], args[1]);
+        auto a = coerceArgs(args);
+        if (a.size() == 2) return parser_.mkMod(a[0], a[1]);
         addError("'mod' requires 2 args");
         return nullptr;
     }
     if (name == "^") {
-        if (args.size() == 2) return parser_.mkPow(args[0], args[1]);
+        auto a = coerceArgs(args);
+        if (a.size() == 2) return parser_.mkPow(a[0], a[1]);
         addError("'^' requires 2 args");
         return nullptr;
     }
@@ -194,11 +219,37 @@ std::shared_ptr<DAGNode> LowerToSmt::lowerNative(const Unified::UnifiedOpDef& de
     return nullptr;
 }
 
-// ── Decomposition lowering (stub) ──────────────────────────────────
+// ── Decomposition lowering ─────────────────────────────────────────
 
 std::shared_ptr<DAGNode> LowerToSmt::lowerDecompose(const Unified::UnifiedOpDef& def,
                                                      const std::vector<std::shared_ptr<DAGNode>>& args) {
-    (void)args;
+    // Special-case: all_different with multiple scalar args -> pairwise distinct
+    if (def.unified_name == "all_different" && args.size() >= 2) {
+        return parser_.mkDistinct(args);
+    }
+
+    // Special-case: strictly_increasing -> pairwise <
+    if (def.unified_name == "strictly_increasing" && args.size() >= 2) {
+        std::vector<std::shared_ptr<DAGNode>> lts;
+        for (size_t i = 0; i + 1 < args.size(); ++i) {
+            lts.push_back(parser_.mkLt(args[i], args[i + 1]));
+        }
+        if (lts.empty()) return parser_.mkTrue();
+        if (lts.size() == 1) return lts[0];
+        return parser_.mkAnd(lts);
+    }
+
+    // Special-case: increasing -> pairwise <=
+    if (def.unified_name == "increasing" && args.size() >= 2) {
+        std::vector<std::shared_ptr<DAGNode>> les;
+        for (size_t i = 0; i + 1 < args.size(); ++i) {
+            les.push_back(parser_.mkLe(args[i], args[i + 1]));
+        }
+        if (les.empty()) return parser_.mkTrue();
+        if (les.size() == 1) return les[0];
+        return parser_.mkAnd(les);
+    }
+
     addError("DECOMPOSE strategy not yet implemented for op: " + def.unified_name +
              " (template: " + def.smt_lowering.decomposition_template + ")");
     return parser_.mkTrue(); // fallback: no-op

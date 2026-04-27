@@ -1,89 +1,56 @@
-name: CI Tests
+name: CI
 
 on:
   push:
     branches: [ main, master, develop ]
-    paths:
-      - '**.h'
-      - '**.hpp'
-      - '**.cpp'
-      - '**.c'
-      - '**/CMakeLists.txt'
-      - '**.cmake'
-      - '**.py'
-      - '**.pyx'
-      - '**.pxd'
-      - '**.pyi'
-      - 'setup.py'
-      - 'requirements.txt'
-      - '.github/workflows/**'
   pull_request:
     branches: [ main, master, develop ]
-    paths:
-      - '**.h'
-      - '**.hpp'
-      - '**.cpp'
-      - '**.c'
-      - '**/CMakeLists.txt'
-      - '**.cmake'
-      - '**.py'
-      - '**.pyx'
-      - '**.pxd'
-      - '**.pyi'
-      - 'setup.py'
-      - 'requirements.txt'
-      - '.github/workflows/**'
 
 jobs:
-  test:
-    name: CI Tests
+  build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/apt
-          build/
-        key: ${{ runner.os }}-deps-${{ hashFiles('CMakeLists.txt', 'test/CMakeLists.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-
-    
+    - uses: actions/checkout@v4
+
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          cmake \
-          pkg-config \
-          libgmp-dev \
-          libmpfr-dev \
-          gcc \
-          g++
-    
-    - name: Verify dependencies
+        sudo apt-get install -y build-essential cmake libgmp-dev libmpfr-dev libcurl4-openssl-dev
+
+    - name: Configure CMake
       run: |
-        cmake --version
-        gcc --version
-        g++ --version
-        pkg-config --version
-        pkg-config --exists gmp || echo "GMP not found via pkg-config"
-        pkg-config --exists mpfr || echo "MPFR not found via pkg-config"
-    
-    - name: Make test script executable
-      run: chmod +x test/run_all_tests.sh
-    
-    - name: Run all tests
+        cmake -B build \
+          -DBUILD_TESTS=ON \
+          -DBUILD_NL2SMT=ON \
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build -j$(nproc)
+
+    - name: Run Unified Framework Tests
       run: |
-        cd test
-        ./run_all_tests.sh
-    
-    - name: Verify test completion
+        cd build
+        ./test/test_unified_ir
+        ./test/test_unified_registry
+        ./test/test_smt_to_unified
+        ./test/test_mzn_to_unified
+        ./test/test_lower_to_smt
+        ./test/test_nl_frontend
+        ./test/test_context_dispatcher
+        ./test/test_benchmark_nl4smt
+        ./test/test_ablation_nl4smt
+
+    - name: Test nl2smt CLI (mock mode)
       run: |
-        echo "✅ All tests completed successfully!"
-        echo "The workflow will only reach this step if run_all_tests.sh exits with code 0"
-        echo "and outputs 'All tests passed!'"
+        cd build
+        echo '{"version":"1","symbols":[{"name":"x","unified_type":"int","is_var":true}],"constraints":[{"op":"gt","args":[{"var":"x"},{"lit":0}]}]}' > /tmp/test_plan.json
+        ./nl2smt --mock --plan /tmp/test_plan.json --output /tmp/test_out.smt2
+        cat /tmp/test_out.smt2
+        grep -q "assert (> x 0)" /tmp/test_out.smt2
+
+    - name: Test nl2smt with solver
+      run: |
+        cd build
+        echo '{"version":"1","symbols":[{"name":"x","unified_type":"int","is_var":true}],"constraints":[{"op":"gt","args":[{"var":"x"},{"lit":0}]}],"objective":{"mode":"minimize","expr":{"var":"x"}}}' > /tmp/test_opt.json
+        ./nl2smt --mock --plan /tmp/test_opt.json --solver z3 | grep -q "sat"

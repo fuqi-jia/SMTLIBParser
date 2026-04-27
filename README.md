@@ -22,6 +22,63 @@
 - **Formula conversion**: NNF, CNF, DNF; CNF supports theory-atom-to-Boolean abstraction and bidirectional mapping for CDCL(T)-style reasoning.
 - **Model interface**: Parse solver-produced model output and evaluate formulas/terms under full or partial models.
 - **Rewriting and traversal**: Extensible rewrite rules, kind-based dispatcher, visit-once traversal over the DAG.
+- **NL4SMT**: Natural language interface that converts English problem descriptions into SMT-LIB/OMT via LLM-powered prompt engineering (see [NL4SMT](#nl4smt-natural-language-interface) below).
+
+## NL4SMT: Natural Language Interface
+
+SOMTParser includes **NL4SMT**, a natural-language-to-SMT pipeline that converts English problem descriptions into SMT-LIB2 scripts via LLM-powered prompt engineering. The library's responsibility stops at producing `.smt2` output; solver invocation is the caller's responsibility.
+
+### Architecture
+
+```
+Natural Language → Nl2Plan (LLM + Prompt Engineering) → Plan JSON
+  → PlanValidator → PlanEmitter → Unified::Model → LowerToSmt → SMT-LIB2
+```
+
+### Library API
+
+```cpp
+#include "somtparser/unified/unified_op_registry.h"
+#include "somtparser/unified/unified_pipeline.h"
+
+// Load the operator registry
+UnifiedOpRegistry registry;
+registry.loadFromFile("config/unified_ops.json");
+
+// Convert a Plan (e.g., from LLM output) directly to SMT-LIB2
+UnifiedPipeline pipe(registry);
+Plan plan = Plan::fromJson(json_from_llm);
+std::string smt2 = pipe.planToSmt2(plan);
+std::ofstream("out.smt2") << smt2;
+
+// Or use the NaturalFrontend for end-to-end NL → UnifiedModel
+Parser parser;
+NaturalFrontend frontend(parser, registry);
+auto model = frontend.parseString("x is int, x > 5, minimize x");
+```
+
+### Benchmarks
+
+The `benchmarks/nl4smt/` directory contains 48 problems across arithmetic, boolean logic, optimization, CP globals, scheduling, puzzles, and mixed theories.
+
+Run the benchmark test suite (validates Plan → SMT-LIB2 lowering):
+
+```bash
+./build/test/test_benchmark_nl4smt
+```
+
+Generate `.smt2` files and invoke an external solver:
+
+```bash
+./benchmarks/nl4smt/run_benchmark.sh --solve
+```
+
+### Configuration
+
+- `OPENAI_API_KEY` — API key for OpenAI-compatible endpoints (DeepSeek, etc.)
+- `NL2SMT_MODEL` — Model name (default: `gpt-4o-mini`)
+- `OLLAMA_HOST` — Ollama URL for local LLMs (default: `http://localhost:11434`)
+- `config/nl4smt_prompts.json` — Versioned prompt library with few-shot examples
 
 ## System Requirements
 

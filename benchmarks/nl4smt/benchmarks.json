@@ -1,0 +1,5473 @@
+{
+  "version": "1.1",
+  "description": "NL4SMT benchmark dataset with 25 problems across arithmetic, boolean, optimization, CP, mixed, quantifiers, string, and bitvector categories.",
+  "categories": [
+    "arithmetic",
+    "boolean",
+    "optimization",
+    "cp_global",
+    "mixed",
+    "quantifiers",
+    "string",
+    "bitvector"
+  ],
+  "problems": [
+    {
+      "id": "arith_01",
+      "category": "arithmetic",
+      "difficulty": "easy",
+      "nl": "x is an integer. x is greater than 5 and less than 20.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 5
+              }
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 20
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "integer",
+        "bounds"
+      ]
+    },
+    {
+      "id": "arith_02",
+      "category": "arithmetic",
+      "difficulty": "easy",
+      "nl": "a and b are integers. The sum of a and b equals 100. a is at least 30. b is positive.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "a",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "b",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "a"
+                  },
+                  {
+                    "var": "b"
+                  }
+                ]
+              },
+              {
+                "lit": 100
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "lit": 30
+              }
+            ]
+          },
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "b"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "integer",
+        "equality",
+        "bounds"
+      ]
+    },
+    {
+      "id": "arith_03",
+      "category": "arithmetic",
+      "difficulty": "easy",
+      "nl": "m and n are integers. m is exactly 7. n is the product of m and 3.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "m",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "n",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "m"
+              },
+              {
+                "lit": 7
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "n"
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "var": "m"
+                  },
+                  {
+                    "lit": 3
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "integer",
+        "equality",
+        "product"
+      ]
+    },
+    {
+      "id": "arith_04",
+      "category": "arithmetic",
+      "difficulty": "medium",
+      "nl": "p, q, r are integers. p plus q plus r equals 30. p is less than q. q is less than r. p is at least 1.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "p",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "q",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "r",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "p"
+                  },
+                  {
+                    "var": "q"
+                  },
+                  {
+                    "var": "r"
+                  }
+                ]
+              },
+              {
+                "lit": 30
+              }
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "p"
+              },
+              {
+                "var": "q"
+              }
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "q"
+              },
+              {
+                "var": "r"
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "p"
+              },
+              {
+                "lit": 1
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "integer",
+        "ordering",
+        "sum"
+      ]
+    },
+    {
+      "id": "arith_05",
+      "category": "arithmetic",
+      "difficulty": "medium",
+      "nl": "x is an even integer between 2 and 20 inclusive.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 2
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 20
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_mod",
+                "args": [
+                  {
+                    "var": "x"
+                  },
+                  {
+                    "lit": 2
+                  }
+                ]
+              },
+              {
+                "lit": 0
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "integer",
+        "parity",
+        "bounds"
+      ]
+    },
+    {
+      "id": "arith_06",
+      "category": "arithmetic",
+      "difficulty": "medium",
+      "nl": "a and b are positive integers. a divided by b equals 3 with remainder 1.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "a",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "b",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "b"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 3
+                      },
+                      {
+                        "var": "b"
+                      }
+                    ]
+                  },
+                  {
+                    "lit": 1
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "integer",
+        "division",
+        "remainder"
+      ]
+    },
+    {
+      "id": "bool_01",
+      "category": "boolean",
+      "difficulty": "easy",
+      "nl": "p and q are booleans. p implies q. q is false.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "SAT",
+        "symbols": [
+          {
+            "name": "p",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "q",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "bool_implies",
+            "args": [
+              {
+                "var": "p"
+              },
+              {
+                "var": "q"
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "q"
+              },
+              {
+                "lit": false
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "boolean",
+        "implication"
+      ]
+    },
+    {
+      "id": "bool_02",
+      "category": "boolean",
+      "difficulty": "medium",
+      "nl": "x, y, z are boolean variables. At least two of them must be true.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "SAT",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "y",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "z",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "bool_or",
+            "args": [
+              {
+                "op": "bool_and",
+                "args": [
+                  {
+                    "var": "x"
+                  },
+                  {
+                    "var": "y"
+                  }
+                ]
+              },
+              {
+                "op": "bool_and",
+                "args": [
+                  {
+                    "var": "x"
+                  },
+                  {
+                    "var": "z"
+                  }
+                ]
+              },
+              {
+                "op": "bool_and",
+                "args": [
+                  {
+                    "var": "y"
+                  },
+                  {
+                    "var": "z"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "boolean",
+        "cardinality"
+      ]
+    },
+    {
+      "id": "bool_03",
+      "category": "boolean",
+      "difficulty": "easy",
+      "nl": "a and b are booleans. a is true if and only if b is true.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "SAT",
+        "symbols": [
+          {
+            "name": "a",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "b",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "bool_iff",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "var": "b"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "boolean",
+        "equivalence"
+      ]
+    },
+    {
+      "id": "bool_04",
+      "category": "boolean",
+      "difficulty": "medium",
+      "nl": "p, q, r are booleans. If p is true then both q and r must be true. Otherwise at least one of q or r is false.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "SAT",
+        "symbols": [
+          {
+            "name": "p",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "q",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "r",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "bool_or",
+            "args": [
+              {
+                "op": "bool_and",
+                "args": [
+                  {
+                    "var": "p"
+                  },
+                  {
+                    "op": "bool_and",
+                    "args": [
+                      {
+                        "var": "q"
+                      },
+                      {
+                        "var": "r"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "op": "bool_and",
+                "args": [
+                  {
+                    "op": "bool_not",
+                    "args": [
+                      {
+                        "var": "p"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "bool_or",
+                    "args": [
+                      {
+                        "op": "bool_not",
+                        "args": [
+                          {
+                            "var": "q"
+                          }
+                        ]
+                      },
+                      {
+                        "op": "bool_not",
+                        "args": [
+                          {
+                            "var": "r"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "boolean",
+        "conditional"
+      ]
+    },
+    {
+      "id": "bool_05",
+      "category": "boolean",
+      "difficulty": "easy",
+      "nl": "x is a boolean. x is not false.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "SAT",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": true
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "boolean",
+        "literal"
+      ]
+    },
+    {
+      "id": "opt_01",
+      "category": "optimization",
+      "difficulty": "easy",
+      "nl": "u and v are non-negative integers. u plus v is at most 50. Maximize u.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "u",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "v",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "u"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "v"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "u"
+                  },
+                  {
+                    "var": "v"
+                  }
+                ]
+              },
+              {
+                "lit": 50
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "maximize",
+          "expr": {
+            "var": "u"
+          }
+        }
+      },
+      "tags": [
+        "optimization",
+        "integer",
+        "maximize"
+      ]
+    },
+    {
+      "id": "opt_02",
+      "category": "optimization",
+      "difficulty": "medium",
+      "nl": "cost and quality are real variables. cost is at least 1.0. quality equals 10 minus cost. Minimize cost.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LRA",
+        "symbols": [
+          {
+            "name": "cost",
+            "unified_type": "real",
+            "is_var": true
+          },
+          {
+            "name": "quality",
+            "unified_type": "real",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "cost"
+              },
+              {
+                "lit": 1.0
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "quality"
+              },
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "lit": 10
+                  },
+                  {
+                    "var": "cost"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "var": "cost"
+          }
+        }
+      },
+      "tags": [
+        "optimization",
+        "real",
+        "tradeoff"
+      ]
+    },
+    {
+      "id": "opt_03",
+      "category": "optimization",
+      "difficulty": "easy",
+      "nl": "x is an integer between 0 and 100. Minimize x squared.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 100
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "op": "int_mul",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "var": "x"
+              }
+            ]
+          }
+        }
+      },
+      "tags": [
+        "optimization",
+        "integer",
+        "nonlinear"
+      ]
+    },
+    {
+      "id": "opt_04",
+      "category": "optimization",
+      "difficulty": "medium",
+      "nl": "a, b, c are non-negative integers. a plus b plus c equals 30. Maximize the product of a and b.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "a",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "b",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "c",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "b"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "c"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "a"
+                  },
+                  {
+                    "var": "b"
+                  },
+                  {
+                    "var": "c"
+                  }
+                ]
+              },
+              {
+                "lit": 30
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "maximize",
+          "expr": {
+            "op": "int_mul",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "var": "b"
+              }
+            ]
+          }
+        }
+      },
+      "tags": [
+        "optimization",
+        "integer",
+        "product"
+      ]
+    },
+    {
+      "id": "cp_01",
+      "category": "cp_global",
+      "difficulty": "medium",
+      "nl": "We have 4 tasks T0, T1, T2, T3. Each task duration is an integer between 1 and 5. All tasks must have different durations.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "T0",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..5"
+          },
+          {
+            "name": "T1",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..5"
+          },
+          {
+            "name": "T2",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..5"
+          },
+          {
+            "name": "T3",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..5"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "T0"
+              },
+              {
+                "var": "T1"
+              },
+              {
+                "var": "T2"
+              },
+              {
+                "var": "T3"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "cp",
+        "all_different",
+        "scheduling"
+      ]
+    },
+    {
+      "id": "cp_02",
+      "category": "cp_global",
+      "difficulty": "medium",
+      "nl": "Array B contains 3 integers. The elements must be in strictly increasing order. Each element is between 1 and 10.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "B1",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..10"
+          },
+          {
+            "name": "B2",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..10"
+          },
+          {
+            "name": "B3",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..10"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "B1"
+              },
+              {
+                "var": "B2"
+              }
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "B2"
+              },
+              {
+                "var": "B3"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "cp",
+        "ordering"
+      ]
+    },
+    {
+      "id": "cp_03",
+      "category": "cp_global",
+      "difficulty": "medium",
+      "nl": "Three workers W1, W2, W3 each choose a shift from 1 to 3. All workers must choose different shifts.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "W1",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..3"
+          },
+          {
+            "name": "W2",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..3"
+          },
+          {
+            "name": "W3",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..3"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "W1"
+              },
+              {
+                "var": "W2"
+              },
+              {
+                "var": "W3"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "cp",
+        "all_different",
+        "assignment"
+      ]
+    },
+    {
+      "id": "cp_04",
+      "category": "cp_global",
+      "difficulty": "medium",
+      "nl": "x, y, z are integers from 1 to 10. They must be in non-decreasing order.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..10"
+          },
+          {
+            "name": "y",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..10"
+          },
+          {
+            "name": "z",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..10"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "var": "y"
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "y"
+              },
+              {
+                "var": "z"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "cp",
+        "ordering"
+      ]
+    },
+    {
+      "id": "mixed_01",
+      "category": "mixed",
+      "difficulty": "medium",
+      "nl": "i is an integer. r is a real. i is greater than 0. r equals i plus 0.5. If i is even then r is greater than 2.0.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIRA",
+        "symbols": [
+          {
+            "name": "i",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "r",
+            "unified_type": "real",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "i"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "r"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "i"
+                  },
+                  {
+                    "lit": 0.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "bool_implies",
+            "args": [
+              {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "int_mod",
+                    "args": [
+                      {
+                        "var": "i"
+                      },
+                      {
+                        "lit": 2
+                      }
+                    ]
+                  },
+                  {
+                    "lit": 0
+                  }
+                ]
+              },
+              {
+                "op": "gt",
+                "args": [
+                  {
+                    "var": "r"
+                  },
+                  {
+                    "lit": 2.0
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "mixed",
+        "integer",
+        "real",
+        "conditional"
+      ]
+    },
+    {
+      "id": "mixed_02",
+      "category": "mixed",
+      "difficulty": "medium",
+      "nl": "n is a positive integer. A1, A2, A3 are positive integers. All A values are different. Their sum is at most 100.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "n",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "A1",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "A2",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "A3",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "n"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "A1"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "A2"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "A3"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "A1"
+              },
+              {
+                "var": "A2"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "A1"
+              },
+              {
+                "var": "A3"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "A2"
+              },
+              {
+                "var": "A3"
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "A1"
+                  },
+                  {
+                    "var": "A2"
+                  },
+                  {
+                    "var": "A3"
+                  }
+                ]
+              },
+              {
+                "lit": 100
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "mixed",
+        "all_different",
+        "sum"
+      ]
+    },
+    {
+      "id": "mixed_03",
+      "category": "mixed",
+      "difficulty": "medium",
+      "nl": "x is a boolean. y is an integer. If x is true then y is greater than 10. Otherwise y is less than 0.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "y",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "bool_or",
+            "args": [
+              {
+                "op": "bool_and",
+                "args": [
+                  {
+                    "var": "x"
+                  },
+                  {
+                    "op": "gt",
+                    "args": [
+                      {
+                        "var": "y"
+                      },
+                      {
+                        "lit": 10
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "op": "bool_and",
+                "args": [
+                  {
+                    "op": "bool_not",
+                    "args": [
+                      {
+                        "var": "x"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "lt",
+                    "args": [
+                      {
+                        "var": "y"
+                      },
+                      {
+                        "lit": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "mixed",
+        "boolean",
+        "integer",
+        "conditional"
+      ]
+    },
+    {
+      "id": "mixed_04",
+      "category": "mixed",
+      "difficulty": "hard",
+      "nl": "a and b are integers. c is a real. a is at least 1. b is at least 1. c equals a divided by b. c is less than 1.0.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIRA",
+        "symbols": [
+          {
+            "name": "a",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "b",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "c",
+            "unified_type": "real",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "b"
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "c"
+              },
+              {
+                "op": "int_div",
+                "args": [
+                  {
+                    "var": "a"
+                  },
+                  {
+                    "var": "b"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "c"
+              },
+              {
+                "lit": 1.0
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "mixed",
+        "integer",
+        "real",
+        "division"
+      ]
+    },
+    {
+      "id": "quant_01",
+      "category": "quantifiers",
+      "difficulty": "hard",
+      "nl": "For all integers x, if x is greater than 0 then x plus 1 is greater than x.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "LIA",
+        "symbols": [],
+        "constraints": [
+          {
+            "op": "forall",
+            "args": [
+              {
+                "var": "x"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "quantifier",
+        "forall"
+      ],
+      "note": "Quantifiers require special handling; this is a placeholder."
+    },
+    {
+      "id": "string_01",
+      "category": "string",
+      "difficulty": "medium",
+      "nl": "s is a string. t is a string. s equals t.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_S",
+        "symbols": [
+          {
+            "name": "s",
+            "unified_type": "string",
+            "is_var": true
+          },
+          {
+            "name": "t",
+            "unified_type": "string",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "s"
+              },
+              {
+                "var": "t"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "string",
+        "equality"
+      ]
+    },
+    {
+      "id": "bv_01",
+      "category": "bitvector",
+      "difficulty": "hard",
+      "nl": "x is an integer between 0 and 255. x is greater than 100.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_BV",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 255
+              }
+            ]
+          },
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 100
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "bitvector",
+        "bounds"
+      ]
+    },
+    {
+      "id": "arith_07",
+      "category": "arithmetic",
+      "difficulty": "medium",
+      "nl": "x, y, z are integers. x plus y equals z. x is 5. y is 7.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "y",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "z",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x"
+                  },
+                  {
+                    "var": "y"
+                  }
+                ]
+              },
+              {
+                "var": "z"
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 5
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "y"
+              },
+              {
+                "lit": 7
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "integer",
+        "equality"
+      ]
+    },
+    {
+      "id": "bool_06",
+      "category": "boolean",
+      "difficulty": "easy",
+      "nl": "a, b, c are booleans. a and b and c are all true.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "SAT",
+        "symbols": [
+          {
+            "name": "a",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "b",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "c",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "bool_and",
+            "args": [
+              {
+                "var": "a"
+              },
+              {
+                "var": "b"
+              },
+              {
+                "var": "c"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "boolean",
+        "conjunction"
+      ]
+    },
+    {
+      "id": "opt_05",
+      "category": "optimization",
+      "difficulty": "easy",
+      "nl": "x is an integer between 1 and 10. Minimize x.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "lit": 10
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "var": "x"
+          }
+        }
+      },
+      "tags": [
+        "optimization",
+        "integer",
+        "bounds"
+      ]
+    },
+    {
+      "id": "cp_05",
+      "category": "cp_global",
+      "difficulty": "easy",
+      "nl": "x and y are integers from 1 to 5. x and y must be different.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "x",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..5"
+          },
+          {
+            "name": "y",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..5"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "var": "y"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "cp",
+        "disequality"
+      ]
+    },
+    {
+      "id": "mixed_05",
+      "category": "mixed",
+      "difficulty": "medium",
+      "nl": "n is an integer. b is a boolean. b is true if and only if n is greater than 10.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "n",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "b",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "bool_iff",
+            "args": [
+              {
+                "var": "b"
+              },
+              {
+                "op": "gt",
+                "args": [
+                  {
+                    "var": "n"
+                  },
+                  {
+                    "lit": 10
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "mixed",
+        "boolean",
+        "integer",
+        "equivalence"
+      ]
+    },
+    {
+      "id": "sched_01",
+      "category": "scheduling",
+      "difficulty": "hard",
+      "nl": "We have 3 jobs J1, J2, J3 and 2 machines M1, M2. Each job must be assigned to exactly one machine. J1 takes 2 hours, J2 takes 3 hours, J3 takes 4 hours. Each machine can handle at most 5 hours total. Minimize the makespan (maximum load across machines).",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "on1_1",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "on1_2",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "on1_3",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "load1",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "load2",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "makespan",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "load1"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "on1_1"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 3
+                      },
+                      {
+                        "var": "on1_2"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 4
+                      },
+                      {
+                        "var": "on1_3"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "load2"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "op": "int_sub",
+                        "args": [
+                          {
+                            "lit": 1
+                          },
+                          {
+                            "var": "on1_1"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 3
+                      },
+                      {
+                        "op": "int_sub",
+                        "args": [
+                          {
+                            "lit": 1
+                          },
+                          {
+                            "var": "on1_2"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 4
+                      },
+                      {
+                        "op": "int_sub",
+                        "args": [
+                          {
+                            "lit": 1
+                          },
+                          {
+                            "var": "on1_3"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "load1"
+              },
+              {
+                "lit": 5
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "load2"
+              },
+              {
+                "lit": 5
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "makespan"
+              },
+              {
+                "var": "load1"
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "makespan"
+              },
+              {
+                "var": "load2"
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "var": "makespan"
+          }
+        }
+      },
+      "tags": [
+        "scheduling",
+        "assignment",
+        "makespan"
+      ]
+    },
+    {
+      "id": "graph_01",
+      "category": "graph",
+      "difficulty": "hard",
+      "nl": "We have 4 nodes A, B, C, D. Each node must be colored with 1, 2, or 3. Adjacent nodes cannot share the same color. A is adjacent to B and C. B is adjacent to A, C, and D. C is adjacent to A, B, and D. D is adjacent to B and C.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "A",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..3"
+          },
+          {
+            "name": "B",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..3"
+          },
+          {
+            "name": "C",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..3"
+          },
+          {
+            "name": "D",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..3"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "A"
+              },
+              {
+                "var": "B"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "A"
+              },
+              {
+                "var": "C"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "B"
+              },
+              {
+                "var": "C"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "B"
+              },
+              {
+                "var": "D"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "C"
+              },
+              {
+                "var": "D"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "graph",
+        "coloring",
+        "all_different"
+      ]
+    },
+    {
+      "id": "sudoku_01",
+      "category": "puzzle",
+      "difficulty": "hard",
+      "nl": "A 4x4 Sudoku grid. Each cell Cij (i,j from 1 to 4) contains a digit 1 to 4. Each row must contain all different digits. Each column must contain all different digits. Each 2x2 subgrid must contain all different digits. Cell C11 is 1. Cell C23 is 3.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "C11",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C12",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C13",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C14",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C21",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C22",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C23",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C24",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C31",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C32",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C33",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C34",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C41",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C42",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C43",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "C44",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "C11"
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "C23"
+              },
+              {
+                "lit": 3
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C11"
+              },
+              {
+                "var": "C12"
+              },
+              {
+                "var": "C13"
+              },
+              {
+                "var": "C14"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C21"
+              },
+              {
+                "var": "C22"
+              },
+              {
+                "var": "C23"
+              },
+              {
+                "var": "C24"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C31"
+              },
+              {
+                "var": "C32"
+              },
+              {
+                "var": "C33"
+              },
+              {
+                "var": "C34"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C41"
+              },
+              {
+                "var": "C42"
+              },
+              {
+                "var": "C43"
+              },
+              {
+                "var": "C44"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C11"
+              },
+              {
+                "var": "C21"
+              },
+              {
+                "var": "C31"
+              },
+              {
+                "var": "C41"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C12"
+              },
+              {
+                "var": "C22"
+              },
+              {
+                "var": "C32"
+              },
+              {
+                "var": "C42"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C13"
+              },
+              {
+                "var": "C23"
+              },
+              {
+                "var": "C33"
+              },
+              {
+                "var": "C43"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C14"
+              },
+              {
+                "var": "C24"
+              },
+              {
+                "var": "C34"
+              },
+              {
+                "var": "C44"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C11"
+              },
+              {
+                "var": "C12"
+              },
+              {
+                "var": "C21"
+              },
+              {
+                "var": "C22"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C13"
+              },
+              {
+                "var": "C14"
+              },
+              {
+                "var": "C23"
+              },
+              {
+                "var": "C24"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C31"
+              },
+              {
+                "var": "C32"
+              },
+              {
+                "var": "C41"
+              },
+              {
+                "var": "C42"
+              }
+            ]
+          },
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C33"
+              },
+              {
+                "var": "C34"
+              },
+              {
+                "var": "C43"
+              },
+              {
+                "var": "C44"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "puzzle",
+        "sudoku",
+        "all_different"
+      ]
+    },
+    {
+      "id": "knapsack_01",
+      "category": "optimization",
+      "difficulty": "hard",
+      "nl": "We have 4 items with values 10, 20, 15, 25 and weights 2, 3, 4, 5. The knapsack capacity is 8. Each item can be taken at most once. Maximize total value without exceeding capacity.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x1",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x2",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x3",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x4",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "x1"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 3
+                      },
+                      {
+                        "var": "x2"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 4
+                      },
+                      {
+                        "var": "x3"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 5
+                      },
+                      {
+                        "var": "x4"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "lit": 8
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "maximize",
+          "expr": {
+            "op": "int_add",
+            "args": [
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 10
+                  },
+                  {
+                    "var": "x1"
+                  }
+                ]
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 20
+                  },
+                  {
+                    "var": "x2"
+                  }
+                ]
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 15
+                  },
+                  {
+                    "var": "x3"
+                  }
+                ]
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 25
+                  },
+                  {
+                    "var": "x4"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "tags": [
+        "optimization",
+        "knapsack",
+        "binary"
+      ]
+    },
+    {
+      "id": "seq_01",
+      "category": "ordering",
+      "difficulty": "medium",
+      "nl": "We have 5 tasks T1 through T5. Each task has a duration: T1=2, T2=3, T3=1, T4=4, T5=2. We need to schedule them in a sequence. The start time of each task equals the end time of the previous task. All tasks must finish by time 15. Minimize the total completion time.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "S1",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S2",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S3",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S4",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S5",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "E5",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "S2"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S1"
+                  },
+                  {
+                    "lit": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "S3"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S2"
+                  },
+                  {
+                    "lit": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "S4"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S3"
+                  },
+                  {
+                    "lit": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "S5"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S4"
+                  },
+                  {
+                    "lit": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "E5"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S5"
+                  },
+                  {
+                    "lit": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "E5"
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "S1"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "var": "E5"
+          }
+        }
+      },
+      "tags": [
+        "scheduling",
+        "sequence",
+        "cumulative"
+      ]
+    },
+    {
+      "id": "sw_01",
+      "category": "software",
+      "difficulty": "hard",
+      "nl": "We have an array A of size 5. Index i is an integer. We access A[i]. The index i must be at least 0 and less than 5. All elements of A are non-negative. The sum of all elements is at most 100.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "i",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "A1",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "A2",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "A3",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "A4",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "A5",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "i"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "i"
+              },
+              {
+                "lit": 4
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "A1"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "A2"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "A3"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "A4"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "A5"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "A1"
+                  },
+                  {
+                    "var": "A2"
+                  },
+                  {
+                    "var": "A3"
+                  },
+                  {
+                    "var": "A4"
+                  },
+                  {
+                    "var": "A5"
+                  }
+                ]
+              },
+              {
+                "lit": 100
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "software",
+        "array",
+        "bounds"
+      ]
+    },
+    {
+      "id": "circuit_01",
+      "category": "circuit",
+      "difficulty": "medium",
+      "nl": "A half adder has inputs A and B, outputs S (sum) and C (carry). S is true if exactly one of A or B is true. C is true if both A and B are true. A and B are boolean inputs.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "SAT",
+        "symbols": [
+          {
+            "name": "A",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "B",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "S",
+            "unified_type": "bool",
+            "is_var": true
+          },
+          {
+            "name": "C",
+            "unified_type": "bool",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "S"
+              },
+              {
+                "op": "bool_xor",
+                "args": [
+                  {
+                    "var": "A"
+                  },
+                  {
+                    "var": "B"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "C"
+              },
+              {
+                "op": "bool_and",
+                "args": [
+                  {
+                    "var": "A"
+                  },
+                  {
+                    "var": "B"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "circuit",
+        "boolean",
+        "adder"
+      ]
+    },
+    {
+      "id": "resource_01",
+      "category": "allocation",
+      "difficulty": "hard",
+      "nl": "3 students S1, S2, S3 must choose one project each from 3 projects P1, P2, P3. Each project can be chosen by at most 2 students. S1 prefers P1 or P2. S2 prefers P2 or P3. S3 prefers P1 or P3. Maximize the number of students who get their preferred project.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "x11",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x12",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x13",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x21",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x22",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x23",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x31",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x32",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "x33",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x11"
+                  },
+                  {
+                    "var": "x12"
+                  },
+                  {
+                    "var": "x13"
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x21"
+                  },
+                  {
+                    "var": "x22"
+                  },
+                  {
+                    "var": "x23"
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x31"
+                  },
+                  {
+                    "var": "x32"
+                  },
+                  {
+                    "var": "x33"
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x11"
+                  },
+                  {
+                    "var": "x21"
+                  },
+                  {
+                    "var": "x31"
+                  }
+                ]
+              },
+              {
+                "lit": 2
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x12"
+                  },
+                  {
+                    "var": "x22"
+                  },
+                  {
+                    "var": "x32"
+                  }
+                ]
+              },
+              {
+                "lit": 2
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x13"
+                  },
+                  {
+                    "var": "x23"
+                  },
+                  {
+                    "var": "x33"
+                  }
+                ]
+              },
+              {
+                "lit": 2
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "maximize",
+          "expr": {
+            "op": "int_add",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x11"
+                  },
+                  {
+                    "var": "x12"
+                  }
+                ]
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x22"
+                  },
+                  {
+                    "var": "x23"
+                  }
+                ]
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "x31"
+                  },
+                  {
+                    "var": "x33"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "tags": [
+        "allocation",
+        "preference",
+        "binary"
+      ]
+    },
+    {
+      "id": "puzzle_01",
+      "category": "puzzle",
+      "difficulty": "hard",
+      "nl": "A 3-digit lock code ABC where A, B, C are digits 0-9. The first digit A is odd. The sum of all three digits is 15. The second digit B is greater than the first digit A. The third digit C is the sum of A and B.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "A",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "B",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "C",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_mod",
+                "args": [
+                  {
+                    "var": "A"
+                  },
+                  {
+                    "lit": 2
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "A"
+                  },
+                  {
+                    "var": "B"
+                  },
+                  {
+                    "var": "C"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "gt",
+            "args": [
+              {
+                "var": "B"
+              },
+              {
+                "var": "A"
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "C"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "A"
+                  },
+                  {
+                    "var": "B"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "puzzle",
+        "digits",
+        "cryptarithmetic"
+      ]
+    },
+    {
+      "id": "lp_01",
+      "category": "optimization",
+      "difficulty": "hard",
+      "nl": "A factory produces two products X and Y. Each unit of X requires 2 hours of labor and 3 units of raw material. Each unit of Y requires 4 hours of labor and 1 unit of raw material. Total labor available is 40 hours. Total raw material available is 30 units. Profit per unit of X is 50 dollars and per unit of Y is 40 dollars. Maximize total profit.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "X",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "Y",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "X"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "Y"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 4
+                      },
+                      {
+                        "var": "Y"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "lit": 40
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_mul",
+                    "args": [
+                      {
+                        "lit": 3
+                      },
+                      {
+                        "var": "X"
+                      }
+                    ]
+                  },
+                  {
+                    "var": "Y"
+                  }
+                ]
+              },
+              {
+                "lit": 30
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "maximize",
+          "expr": {
+            "op": "int_add",
+            "args": [
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 50
+                  },
+                  {
+                    "var": "X"
+                  }
+                ]
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 40
+                  },
+                  {
+                    "var": "Y"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "tags": [
+        "optimization",
+        "linear",
+        "production"
+      ]
+    },
+    {
+      "id": "route_01",
+      "category": "routing",
+      "difficulty": "hard",
+      "nl": "We have 4 cities connected by roads: 1-2 (distance 10), 1-3 (distance 15), 2-3 (distance 20), 2-4 (distance 25), 3-4 (distance 30). Find the shortest path from city 1 to city 4. Let Xij be 1 if road i-j is used, 0 otherwise. The total distance is the sum of Xij times road distances.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "X12",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "X13",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "X23",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "X24",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          },
+          {
+            "name": "X34",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..1"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "X12"
+                  },
+                  {
+                    "var": "X13"
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "X24"
+                  },
+                  {
+                    "var": "X34"
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "X12"
+                  },
+                  {
+                    "var": "X13"
+                  }
+                ]
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "X24"
+                  },
+                  {
+                    "var": "X34"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "op": "int_add",
+            "args": [
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 10
+                  },
+                  {
+                    "var": "X12"
+                  }
+                ]
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 15
+                  },
+                  {
+                    "var": "X13"
+                  }
+                ]
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 20
+                  },
+                  {
+                    "var": "X23"
+                  }
+                ]
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 25
+                  },
+                  {
+                    "var": "X24"
+                  }
+                ]
+              },
+              {
+                "op": "int_mul",
+                "args": [
+                  {
+                    "lit": 30
+                  },
+                  {
+                    "var": "X34"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "tags": [
+        "routing",
+        " shortest_path",
+        "network"
+      ]
+    },
+    {
+      "id": "timing_01",
+      "category": "timing",
+      "difficulty": "hard",
+      "nl": "Three events E1, E2, E3 have start times T1, T2, T3. E1 must happen before E2. E2 must happen at least 5 units after E1. E3 must happen after E2. All events must start between time 0 and time 100. Minimize T3.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "T1",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "T2",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "T3",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "T1"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "T1"
+              },
+              {
+                "lit": 100
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "T2"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "T2"
+              },
+              {
+                "lit": 100
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "T3"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "T3"
+              },
+              {
+                "lit": 100
+              }
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "T1"
+              },
+              {
+                "var": "T2"
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "T2"
+                  },
+                  {
+                    "var": "T1"
+                  }
+                ]
+              },
+              {
+                "lit": 5
+              }
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "T2"
+              },
+              {
+                "var": "T3"
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "var": "T3"
+          }
+        }
+      },
+      "tags": [
+        "timing",
+        "precedence",
+        "optimization"
+      ]
+    },
+    {
+      "id": "nqueens_01",
+      "category": "puzzle",
+      "difficulty": "hard",
+      "nl": "Place 4 queens on a 4x4 chessboard so that no two queens threaten each other. Let Q1, Q2, Q3, Q4 be the row positions of queens in columns 1, 2, 3, 4 respectively. Each queen must be in a different row. No two queens can be on the same diagonal.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "Q1",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "Q2",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "Q3",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          },
+          {
+            "name": "Q4",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..4"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "Q1"
+              },
+              {
+                "var": "Q2"
+              },
+              {
+                "var": "Q3"
+              },
+              {
+                "var": "Q4"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q1"
+                  },
+                  {
+                    "var": "Q2"
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q1"
+                  },
+                  {
+                    "var": "Q2"
+                  }
+                ]
+              },
+              {
+                "op": "int_neg",
+                "args": [
+                  {
+                    "lit": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q1"
+                  },
+                  {
+                    "var": "Q3"
+                  }
+                ]
+              },
+              {
+                "lit": 2
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q1"
+                  },
+                  {
+                    "var": "Q3"
+                  }
+                ]
+              },
+              {
+                "op": "int_neg",
+                "args": [
+                  {
+                    "lit": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q1"
+                  },
+                  {
+                    "var": "Q4"
+                  }
+                ]
+              },
+              {
+                "lit": 3
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q1"
+                  },
+                  {
+                    "var": "Q4"
+                  }
+                ]
+              },
+              {
+                "op": "int_neg",
+                "args": [
+                  {
+                    "lit": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q2"
+                  },
+                  {
+                    "var": "Q3"
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q2"
+                  },
+                  {
+                    "var": "Q3"
+                  }
+                ]
+              },
+              {
+                "op": "int_neg",
+                "args": [
+                  {
+                    "lit": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q2"
+                  },
+                  {
+                    "var": "Q4"
+                  }
+                ]
+              },
+              {
+                "lit": 2
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q2"
+                  },
+                  {
+                    "var": "Q4"
+                  }
+                ]
+              },
+              {
+                "op": "int_neg",
+                "args": [
+                  {
+                    "lit": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q3"
+                  },
+                  {
+                    "var": "Q4"
+                  }
+                ]
+              },
+              {
+                "lit": 1
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "op": "int_sub",
+                "args": [
+                  {
+                    "var": "Q3"
+                  },
+                  {
+                    "var": "Q4"
+                  }
+                ]
+              },
+              {
+                "op": "int_neg",
+                "args": [
+                  {
+                    "lit": 1
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "puzzle",
+        "nqueens",
+        "all_different"
+      ]
+    },
+    {
+      "id": "magic_01",
+      "category": "puzzle",
+      "difficulty": "hard",
+      "nl": "A 3x3 magic square using digits 1 through 9 exactly once. The sum of each row, each column, and both main diagonals must equal 15. Cell Cij is in row i, column j.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "CP",
+        "symbols": [
+          {
+            "name": "C11",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          },
+          {
+            "name": "C12",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          },
+          {
+            "name": "C13",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          },
+          {
+            "name": "C21",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          },
+          {
+            "name": "C22",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          },
+          {
+            "name": "C23",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          },
+          {
+            "name": "C31",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          },
+          {
+            "name": "C32",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          },
+          {
+            "name": "C33",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..9"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "C11"
+              },
+              {
+                "var": "C12"
+              },
+              {
+                "var": "C13"
+              },
+              {
+                "var": "C21"
+              },
+              {
+                "var": "C22"
+              },
+              {
+                "var": "C23"
+              },
+              {
+                "var": "C31"
+              },
+              {
+                "var": "C32"
+              },
+              {
+                "var": "C33"
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "C11"
+                  },
+                  {
+                    "var": "C12"
+                  },
+                  {
+                    "var": "C13"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "C21"
+                  },
+                  {
+                    "var": "C22"
+                  },
+                  {
+                    "var": "C23"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "C31"
+                  },
+                  {
+                    "var": "C32"
+                  },
+                  {
+                    "var": "C33"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "C11"
+                  },
+                  {
+                    "var": "C21"
+                  },
+                  {
+                    "var": "C31"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "C12"
+                  },
+                  {
+                    "var": "C22"
+                  },
+                  {
+                    "var": "C32"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "C13"
+                  },
+                  {
+                    "var": "C23"
+                  },
+                  {
+                    "var": "C33"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "C11"
+                  },
+                  {
+                    "var": "C22"
+                  },
+                  {
+                    "var": "C33"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "C13"
+                  },
+                  {
+                    "var": "C22"
+                  },
+                  {
+                    "var": "C31"
+                  }
+                ]
+              },
+              {
+                "lit": 15
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "puzzle",
+        "magic_square",
+        "all_different"
+      ]
+    },
+    {
+      "id": "smm_01",
+      "category": "puzzle",
+      "difficulty": "hard",
+      "nl": "Solve the cryptarithmetic puzzle SEND + MORE = MONEY. Each letter S, E, N, D, M, O, R, Y represents a unique digit 0-9. M must not be 0. S must not be 0.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "S",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "E",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "N",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "D",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "M",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "O",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "R",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          },
+          {
+            "name": "Y",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "0..9"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "all_different",
+            "args": [
+              {
+                "var": "S"
+              },
+              {
+                "var": "E"
+              },
+              {
+                "var": "N"
+              },
+              {
+                "var": "D"
+              },
+              {
+                "var": "M"
+              },
+              {
+                "var": "O"
+              },
+              {
+                "var": "R"
+              },
+              {
+                "var": "Y"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "S"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "M"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_add",
+                    "args": [
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 1000
+                          },
+                          {
+                            "var": "S"
+                          }
+                        ]
+                      },
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 100
+                          },
+                          {
+                            "var": "E"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_add",
+                    "args": [
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 10
+                          },
+                          {
+                            "var": "N"
+                          }
+                        ]
+                      },
+                      {
+                        "var": "D"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_add",
+                    "args": [
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 1000
+                          },
+                          {
+                            "var": "M"
+                          }
+                        ]
+                      },
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 100
+                          },
+                          {
+                            "var": "O"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_add",
+                    "args": [
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 10
+                          },
+                          {
+                            "var": "R"
+                          }
+                        ]
+                      },
+                      {
+                        "var": "E"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_add",
+                    "args": [
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 1000
+                          },
+                          {
+                            "var": "M"
+                          }
+                        ]
+                      },
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 100
+                          },
+                          {
+                            "var": "O"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_add",
+                    "args": [
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 10
+                          },
+                          {
+                            "var": "N"
+                          }
+                        ]
+                      },
+                      {
+                        "var": "E"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_add",
+                    "args": [
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 10000
+                          },
+                          {
+                            "var": "M"
+                          }
+                        ]
+                      },
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 1000
+                          },
+                          {
+                            "var": "O"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_add",
+                    "args": [
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 100
+                          },
+                          {
+                            "var": "N"
+                          }
+                        ]
+                      },
+                      {
+                        "op": "int_mul",
+                        "args": [
+                          {
+                            "lit": 10
+                          },
+                          {
+                            "var": "E"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "var": "Y"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "puzzle",
+        "cryptarithmetic",
+        "all_different"
+      ]
+    },
+    {
+      "id": "jobshop_01",
+      "category": "scheduling",
+      "difficulty": "hard",
+      "nl": "3 jobs must be processed on 2 machines. Job 1 takes 2 hours on machine A and 3 hours on machine B. Job 2 takes 4 hours on machine A and 1 hour on machine B. Job 3 takes 3 hours on machine A and 2 hours on machine B. Each machine can only process one job at a time. Jobs must complete machine A before starting machine B. Minimize the total completion time (makespan).",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "S1A",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S1B",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S2A",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S2B",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S3A",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "S3B",
+            "unified_type": "int",
+            "is_var": true
+          },
+          {
+            "name": "makespan",
+            "unified_type": "int",
+            "is_var": true
+          }
+        ],
+        "constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "S1B"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S1A"
+                  },
+                  {
+                    "lit": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "S2B"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S2A"
+                  },
+                  {
+                    "lit": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "S3B"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S3A"
+                  },
+                  {
+                    "lit": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "makespan"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S1B"
+                  },
+                  {
+                    "lit": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "makespan"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S2B"
+                  },
+                  {
+                    "lit": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "makespan"
+              },
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "var": "S3B"
+                  },
+                  {
+                    "lit": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "S1A"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "S2A"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "S3A"
+              },
+              {
+                "lit": 0
+              }
+            ]
+          }
+        ],
+        "objective": {
+          "mode": "minimize",
+          "expr": {
+            "var": "makespan"
+          }
+        }
+      },
+      "tags": [
+        "scheduling",
+        "job_shop",
+        "disjunctive"
+      ]
+    },
+    {
+      "id": "golfer_01",
+      "category": "scheduling",
+      "difficulty": "hard",
+      "nl": "6 golfers G1-G6 play in 2 groups of 3 for 2 weeks. Each week, every golfer is in exactly one group. No two golfers can be in the same group more than once across all weeks. Let Xgw be the group number (1 or 2) for golfer g in week w.",
+      "expected_plan": {
+        "version": "1",
+        "logic_hint": "QF_LIA",
+        "symbols": [
+          {
+            "name": "X11",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X21",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X31",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X41",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X51",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X61",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X12",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X22",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X32",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X42",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X52",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          },
+          {
+            "name": "X62",
+            "unified_type": "int",
+            "is_var": true,
+            "domain": "1..2"
+          }
+        ],
+        "constraints": [
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X11"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X21"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X31"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X41"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X51"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X61"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "lit": 3
+              }
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "int_add",
+                "args": [
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X12"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X22"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X32"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X42"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X52"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "int_sub",
+                    "args": [
+                      {
+                        "lit": 2
+                      },
+                      {
+                        "var": "X62"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "lit": 3
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "X11"
+              },
+              {
+                "var": "X21"
+              }
+            ]
+          },
+          {
+            "op": "neq",
+            "args": [
+              {
+                "var": "X12"
+              },
+              {
+                "var": "X22"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "scheduling",
+        "social_golfer",
+        "grouping"
+      ]
+    }
+  ]
+}
