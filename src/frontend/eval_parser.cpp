@@ -396,6 +396,7 @@ namespace SOMTParser{
                     if(child->isConst()){
                         // go on until the child is not constant
                         std::shared_ptr<DAGNode> child_ = NodeManager::NULL_NODE;
+                        i++; // skip the already-evaluated first constant
                         while(i < expr->getChildren().size()){
                             changed |= evaluate(expr->getChildren()[i], model, child_);
                             if(!child_->isConst()) break;
@@ -412,8 +413,9 @@ namespace SOMTParser{
                             children.emplace_back(child);
                         }
                         else{
-                            condAssert(!child->isConst(), "evaluateSimpleOp: child is constant");
+                            // child is the constant prefix; child_ is the non-constant child
                             children.emplace_back(child);
+                            children.emplace_back(child_);
                         }
                     }
                     else{
@@ -429,7 +431,7 @@ namespace SOMTParser{
                 condAssert(!children.empty(), "evaluateSimpleOp: children is empty");
                 if(children.size() == 1){
                     result = children.back();
-                    return false;
+                    return true;
                 }
                 else{
                     result = mkOper(expr->getSort(), op, children);
