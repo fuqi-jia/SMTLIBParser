@@ -1117,7 +1117,7 @@ namespace SOMTParser{
                         return mkFalse();
                     }
                 }
-                else if(l->isCReal() && r->isCReal()){
+                else if((l->isCReal() && r->isCReal()) || (l->isCInt() && r->isCReal()) || (l->isCReal() && r->isCInt())){
                     if(getEvaluateUseFloating()){
                         if(toReal(l) > toReal(r)){
                             return mkTrue();
@@ -1515,6 +1515,11 @@ namespace SOMTParser{
                 else if(l->isCReal() && r->isCReal()){
                     return mkConstReal(toReal(l) + toReal(r));
                 }
+                else if((l->isCInt() || l->isCReal()) && (r->isCInt() || r->isCReal())){
+                    Real lv = l->isCReal() ? toReal(l) : Real(toInt(l).toString());
+                    Real rv = r->isCReal() ? toReal(r) : Real(toInt(r).toString());
+                    return mkConstReal(lv + rv);
+                }
                 return mkUnknown();
             }
             case NODE_KIND::NT_MUL:{
@@ -1527,6 +1532,11 @@ namespace SOMTParser{
                 }
                 else if(l->isCReal() && r->isCReal()){
                     return mkConstReal(toReal(l) * toReal(r));
+                }
+                else if((l->isCInt() || l->isCReal()) && (r->isCInt() || r->isCReal())){
+                    Real lv = l->isCReal() ? toReal(l) : Real(toInt(l).toString());
+                    Real rv = r->isCReal() ? toReal(r) : Real(toInt(r).toString());
+                    return mkConstReal(lv * rv);
                 }
                 return mkUnknown();
             }
@@ -1546,6 +1556,11 @@ namespace SOMTParser{
                 }
                 else if(l->isCReal() && r->isCReal()){
                     return mkConstReal(toReal(l) - toReal(r));
+                }
+                else if((l->isCInt() || l->isCReal()) && (r->isCInt() || r->isCReal())){
+                    Real lv = l->isCReal() ? toReal(l) : Real(toInt(l).toString());
+                    Real rv = r->isCReal() ? toReal(r) : Real(toInt(r).toString());
+                    return mkConstReal(lv - rv);
                 }
                 else if(isZero(l)){
                     return mkNeg(r);
