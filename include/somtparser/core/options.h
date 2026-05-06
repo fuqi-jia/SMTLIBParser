@@ -139,6 +139,7 @@ namespace SOMTParser{
                 logic_name == "LRA" ||
                 logic_name == "UFLRA" ||
                 logic_name == "UFNIA" ||
+                logic_name == "BV" ||
                 logic_name == "ALL") {
                     logic = logic_name;
                     return true;
