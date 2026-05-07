@@ -527,6 +527,11 @@ namespace SOMTParser{
 						bufptr++;
 						continue;
 					}
+					// handle right parenthesis when no open bracket — end of symbol
+					else if (*bufptr == ')' && !has_open_bracket) {
+						std::string tmp_s(beg, bufptr - beg);
+						return tmp_s;
+					}
 					// handle space, allow space in scientific notation mode
 					else if (isblank(*bufptr)) {
 						bufptr++;
