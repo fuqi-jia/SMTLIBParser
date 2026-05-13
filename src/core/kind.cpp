@@ -382,6 +382,8 @@ namespace SOMTParser{
             return "to_fp";
         case NODE_KIND::NT_FP_TO_FP_UNSIGNED:
             return "to_fp_unsigned";
+        case NODE_KIND::NT_FP_TO_IEEE_BV:
+            return "fp.to_ieee_bv";
 
         // FLOATING POINT PROPERTIES
         case NODE_KIND::NT_FP_IS_NORMAL:

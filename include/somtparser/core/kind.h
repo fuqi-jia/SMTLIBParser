@@ -79,7 +79,7 @@ namespace SOMTParser{
         // FLOATING POINT OPERATORS (in parseOper)
         NT_FP_ADD,NT_FP_SUB,NT_FP_MUL,NT_FP_DIV,NT_FP_ABS,NT_FP_NEG,NT_FP_REM,NT_FP_FMA,NT_FP_SQRT,NT_FP_ROUND_TO_INTEGRAL,NT_FP_MIN,NT_FP_MAX,
         NT_FP_LE,NT_FP_LT,NT_FP_GE,NT_FP_GT,NT_FP_EQ,
-        NT_FP_TO_UBV,NT_FP_TO_SBV,NT_FP_TO_REAL,NT_FP_TO_FP,NT_FP_TO_FP_UNSIGNED,
+        NT_FP_TO_UBV,NT_FP_TO_SBV,NT_FP_TO_REAL,NT_FP_TO_FP,NT_FP_TO_FP_UNSIGNED,NT_FP_TO_IEEE_BV,
         NT_FP_IS_NORMAL,NT_FP_IS_SUBNORMAL,NT_FP_IS_ZERO,NT_FP_IS_INF,NT_FP_IS_NAN,NT_FP_IS_NEG,NT_FP_IS_POS,
 
         
@@ -343,6 +343,7 @@ namespace SOMTParser{
         {"fp.to_real", NODE_KIND::NT_FP_TO_REAL},
         {"to_fp", NODE_KIND::NT_FP_TO_FP},
         {"to_fp_unsigned", NODE_KIND::NT_FP_TO_FP_UNSIGNED},
+        {"fp.to_ieee_bv", NODE_KIND::NT_FP_TO_IEEE_BV},
         {"fp.isNormal", NODE_KIND::NT_FP_IS_NORMAL},
         {"fp.isSubnormal", NODE_KIND::NT_FP_IS_SUBNORMAL},
         {"fp.isZero", NODE_KIND::NT_FP_IS_ZERO},

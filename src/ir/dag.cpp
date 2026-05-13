@@ -130,6 +130,7 @@ namespace SOMTParser{
             kind_cache[NODE_KIND::NT_FP_GE] = "fp.geq";
             kind_cache[NODE_KIND::NT_FP_GT] = "fp.gt";
             kind_cache[NODE_KIND::NT_FP_EQ] = "fp.eq";
+            kind_cache[NODE_KIND::NT_FP_TO_IEEE_BV] = "fp.to_ieee_bv";
             cache_initialized = true;
         }
 
@@ -804,6 +805,15 @@ namespace SOMTParser{
                 work_stack.emplace_back(sb, 0);       // sb
                 work_stack.emplace_back(nullptr, 1);  // space
                 work_stack.emplace_back(eb, 0);       // eb
+                break;
+            }
+
+            case NODE_KIND::NT_FP_TO_IEEE_BV: {
+                auto param = node->getChild(0).get();
+                size_t nbits = node->getSort()->getBitWidth();
+                out << "((_ fp.to_ieee_bv " << nbits << ") ";
+                work_stack.emplace_back(nullptr, 2);  // )
+                work_stack.emplace_back(param, 0);    // param
                 break;
             }
 

@@ -2673,6 +2673,14 @@ namespace SOMTParser{
         std::shared_ptr<DAGNode> mkFpToReal(std::shared_ptr<DAGNode> param); // to_real(param)
         
         /**
+         * @brief Create a floating-point to IEEE bit-vector conversion node
+         * 
+         * @param param Floating-point value
+         * @return Bit-vector of width ebits+sbits representing the IEEE-754 encoding
+         */
+        std::shared_ptr<DAGNode> mkFpToIeeeBv(std::shared_ptr<DAGNode> param); // ((_ fp.to_ieee_bv nbits) param)
+        
+        /**
          * @brief Create a value to floating-point conversion node
          * 
          * @param eb Exponent bit width

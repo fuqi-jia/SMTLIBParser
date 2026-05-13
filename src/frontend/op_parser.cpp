@@ -3354,6 +3354,23 @@ namespace SOMTParser{
         return mkOper(SortManager::REAL_SORT, NODE_KIND::NT_FP_TO_REAL, param);
     }
     /*
+    ((_ fp.to_ieee_bv nbits) Fp), return (_ BitVec nbits) where nbits = ebits + sbits
+    */
+    std::shared_ptr<DAGNode> Parser::mkFpToIeeeBv(std::shared_ptr<DAGNode> param){
+        
+        if(!isFpParam(param)) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in fp_to_ieee_bv", line_number);
+            return mkUnknown();
+        }
+
+        size_t ebits = param->getSort()->getExponentWidth();
+        size_t sbits = param->getSort()->getSignificandWidth();
+        size_t nbits = ebits + sbits;
+        std::shared_ptr<Sort> bv_sort = getSortManager()->createBVSort(nbits);
+
+        return mkOper(bv_sort, NODE_KIND::NT_FP_TO_IEEE_BV, param);
+    }
+    /*
     (to_fp eb sb param), return Fp
     Supports:
     1. ((_ to_fp eb sb) RoundingMode Real) -> params: [eb, sb], args: [RoundingMode, Real]
