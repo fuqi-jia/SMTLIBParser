@@ -252,17 +252,17 @@ namespace SOMTParser{
         if(isPoint() && lower.isInteger()) return 1;
         
         if(leftClosed && rightClosed) {
-            return static_cast<size_t>((upper.floor() - lower.ceil() + Number(1)).toInteger().toULong());
+            return static_cast<size_t>((upper.floor() - lower.ceil() + Number(1)).floorToInteger().toULong());
         }
         else if(leftClosed && !rightClosed) {
-            return static_cast<size_t>((upper.floor() - lower.ceil()).toInteger().toULong());
+            return static_cast<size_t>((upper.floor() - lower.ceil()).floorToInteger().toULong());
         }
         else if(!leftClosed && rightClosed) {
-            return static_cast<size_t>((upper.floor() - lower.ceil()).toInteger().toULong());
+            return static_cast<size_t>((upper.floor() - lower.ceil()).floorToInteger().toULong());
         }
         else {
             // open interval
-            return static_cast<size_t>((upper.floor() - lower.ceil() - Number(1)).toInteger().toULong());
+            return static_cast<size_t>((upper.floor() - lower.ceil() - Number(1)).floorToInteger().toULong());
         }
     }
 
@@ -1809,7 +1809,7 @@ namespace SOMTParser{
         }
         else{
             if(lower.isInteger()){
-                newLower = Number(2).pow(lower.toInteger());
+                newLower = Number(2).pow(lower.floorToInteger());
             }
             else{
                 newLower = Number(2).pow(lower);
@@ -1828,7 +1828,7 @@ namespace SOMTParser{
         }
         else{
             if(upper.isInteger()){
-                newUpper = Number(2).pow(upper.toInteger());
+                newUpper = Number(2).pow(upper.floorToInteger());
             }
             else{
                 newUpper = Number(2).pow(upper);
@@ -1881,7 +1881,7 @@ namespace SOMTParser{
         
         // If exp is an integer
         if(exp.isInteger()) {
-            int n = exp.toInteger().toInt();
+            int n = exp.floorToInteger().toInt();
             
             if(n == 0) {
                 // x^0 = 1 (assuming x != 0)
@@ -2000,7 +2000,7 @@ namespace SOMTParser{
                 }
                 else{
                     if(exp.getLower().isInteger() && val.isInteger()){
-                        newLower = val.pow(exp.getLower().toInteger());
+                        newLower = val.pow(exp.getLower().floorToInteger());
                     }
                     else{
                         newLower = val.pow(exp.getLower());
@@ -2019,7 +2019,7 @@ namespace SOMTParser{
                 }
                 else{
                     if(exp.getUpper().isInteger() && val.isInteger()){
-                        newUpper = val.pow(exp.getUpper().toInteger());
+                        newUpper = val.pow(exp.getUpper().floorToInteger());
                     }
                     else{
                         newUpper = val.pow(exp.getUpper());

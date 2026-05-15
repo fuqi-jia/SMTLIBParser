@@ -802,6 +802,15 @@ HighPrecisionInteger HighPrecisionInteger::operator%(const HighPrecisionInteger&
     return result;
 }
 
+HighPrecisionInteger HighPrecisionInteger::floorDiv(const HighPrecisionInteger& other) const {
+    if (other.value == 0) {
+        throw std::domain_error("Division by zero");
+    }
+    mpz_class q;
+    mpz_fdiv_q(q.get_mpz_t(), value.get_mpz_t(), other.value.get_mpz_t());
+    return HighPrecisionInteger(q.get_str());
+}
+
 HighPrecisionInteger& HighPrecisionInteger::operator+=(const HighPrecisionInteger& other) {
     value += other.value;
     return *this;
@@ -1042,12 +1051,152 @@ HighPrecisionInteger HighPrecisionInteger::nextAbove() const {
     return result;
 }
 
+// -------------HighPrecisionRational-------------
+HighPrecisionRational::HighPrecisionRational(const std::string& s) {
+    size_t slashPos = s.find('/');
+    if (slashPos != std::string::npos) {
+        // a/b format
+        std::string numStr = s.substr(0, slashPos);
+        std::string denStr = s.substr(slashPos + 1);
+        mpz_class num(numStr);
+        mpz_class den(denStr);
+        value = mpq_class(num, den);
+        value.canonicalize();
+        return;
+    }
+
+    size_t dotPos = s.find('.');
+    if (dotPos == std::string::npos) {
+        // pure integer
+        value = mpq_class(s);
+        return;
+    }
+
+    std::string intPart = s.substr(0, dotPos);
+    std::string fracPart = s.substr(dotPos + 1);
+
+    // strip trailing zeros
+    while (!fracPart.empty() && fracPart.back() == '0') {
+        fracPart.pop_back();
+    }
+
+    if (fracPart.empty()) {
+        value = mpq_class(intPart);
+        return;
+    }
+
+    // e.g. "59.01938237" -> 5901938237 / 1000000000
+    // Use base=10 explicitly to prevent octal interpretation of leading zeros
+    mpz_class num(intPart + fracPart, 10);
+    mpz_class den(1);
+    for (size_t i = 0; i < fracPart.length(); ++i) {
+        den *= 10;
+    }
+
+    value = mpq_class(num, den);
+    value.canonicalize();
+}
+
+HighPrecisionRational::HighPrecisionRational(const char* s)
+    : HighPrecisionRational(std::string(s)) {}
+
+HighPrecisionRational& HighPrecisionRational::operator=(const HighPrecisionRational& other) {
+    if (this != &other) {
+        value = other.value;
+    }
+    return *this;
+}
+
+HighPrecisionRational HighPrecisionRational::operator+(const HighPrecisionRational& other) const {
+    return HighPrecisionRational(value + other.value);
+}
+
+HighPrecisionRational HighPrecisionRational::operator-(const HighPrecisionRational& other) const {
+    return HighPrecisionRational(value - other.value);
+}
+
+HighPrecisionRational HighPrecisionRational::operator-() const {
+    return HighPrecisionRational(-value);
+}
+
+HighPrecisionRational HighPrecisionRational::operator*(const HighPrecisionRational& other) const {
+    return HighPrecisionRational(value * other.value);
+}
+
+HighPrecisionRational HighPrecisionRational::operator/(const HighPrecisionRational& other) const {
+    return HighPrecisionRational(value / other.value);
+}
+
+bool HighPrecisionRational::operator==(const HighPrecisionRational& other) const {
+    return value == other.value;
+}
+
+bool HighPrecisionRational::operator!=(const HighPrecisionRational& other) const {
+    return value != other.value;
+}
+
+bool HighPrecisionRational::operator<(const HighPrecisionRational& other) const {
+    return value < other.value;
+}
+
+bool HighPrecisionRational::operator<=(const HighPrecisionRational& other) const {
+    return value <= other.value;
+}
+
+bool HighPrecisionRational::operator>(const HighPrecisionRational& other) const {
+    return value > other.value;
+}
+
+bool HighPrecisionRational::operator>=(const HighPrecisionRational& other) const {
+    return value >= other.value;
+}
+
+std::string HighPrecisionRational::toString() const {
+    if (value.get_den() == 1) {
+        return value.get_num().get_str();
+    }
+    return value.get_num().get_str() + "/" + value.get_den().get_str();
+}
+
+double HighPrecisionRational::toDouble() const {
+    return value.get_d();
+}
+
+bool HighPrecisionRational::isInteger() const {
+    return value.get_den() == 1;
+}
+
+const mpq_class& HighPrecisionRational::getMPQ() const {
+    return value;
+}
+
+mpq_class& HighPrecisionRational::getMPQ() {
+    return value;
+}
+
+// HighPrecisionReal constructor from mpq_class
+HighPrecisionReal::HighPrecisionReal(const mpq_class& q, mpfr_prec_t precision) {
+    mpfr_init2(value, precision);
+    mpfr_set_q(value, q.get_mpq_t(), MPFR_RNDN);
+}
+
 // -------------Number-------------
 // Constructor
 Number::Number() : type(INT_TYPE), intValue(0) {}
 
 Number::Number(const HighPrecisionInteger& i) 
     : type(INT_TYPE), intValue(i) {}
+
+Number::Number(const HighPrecisionRational& r) {
+    const mpq_class& q = r.getMPQ();
+    if (q.get_den() == 1) {
+        type = INT_TYPE;
+        intValue = HighPrecisionInteger(q.get_num().get_str());
+    } else {
+        type = RATIONAL_TYPE;
+        ratValue = r;
+    }
+}
 
 Number::Number(const HighPrecisionReal& r) 
     : type(REAL_TYPE), realValue(r) {}
@@ -1066,18 +1215,26 @@ Number::Number(double d, bool asInteger) {
 }
 
 Number::Number(const std::string& s, bool asInteger) {
-    if (asInteger) {
+    // Simple integer check: optional leading +/-, then all digits
+    bool isIntString = !s.empty();
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (i == 0 && (s[i] == '-' || s[i] == '+')) continue;
+        if (!isdigit(static_cast<unsigned char>(s[i]))) { isIntString = false; break; }
+    }
+    if (asInteger || isIntString) {
         type = INT_TYPE;
         intValue = HighPrecisionInteger(s);
     } else {
-        type = REAL_TYPE;
-        realValue = HighPrecisionReal(s);
+        type = RATIONAL_TYPE;
+        ratValue = HighPrecisionRational(s);
     }
 }
 
 Number::Number(const Number& other) : type(other.type) {
     if (type == INT_TYPE) {
         intValue = other.intValue;
+    } else if (type == RATIONAL_TYPE) {
+        ratValue = other.ratValue;
     } else {
         realValue = other.realValue;
     }
@@ -1089,6 +1246,8 @@ Number& Number::operator=(const Number& other) {
         type = other.type;
         if (type == INT_TYPE) {
             intValue = other.intValue;
+        } else if (type == RATIONAL_TYPE) {
+            ratValue = other.ratValue;
         } else {
             realValue = other.realValue;
         }
@@ -1109,6 +1268,13 @@ const HighPrecisionInteger& Number::getInteger() const {
     return intValue;
 }
 
+const HighPrecisionRational& Number::getRational() const {
+    if (type != RATIONAL_TYPE) {
+        throw std::runtime_error("Number is not a rational");
+    }
+    return ratValue;
+}
+
 const HighPrecisionReal& Number::getReal() const {
     if (type != REAL_TYPE) {
         throw std::runtime_error("Number is not a real");
@@ -1117,27 +1283,76 @@ const HighPrecisionReal& Number::getReal() const {
 }
 
 // Type conversion
-HighPrecisionInteger Number::toInteger() const {
+std::optional<HighPrecisionInteger> Number::asIntegerExact() const {
     if (type == INT_TYPE) {
         return intValue;
+    } else if (type == RATIONAL_TYPE) {
+        if (ratValue.getMPQ().get_den() == 1) {
+            return HighPrecisionInteger(ratValue.getMPQ().get_num().get_str());
+        }
+        return std::nullopt;
+    } else {
+        // REAL_TYPE is approximate; cannot provide exact integer
+        return std::nullopt;
+    }
+}
+
+HighPrecisionInteger Number::floorToInteger() const {
+    if (type == INT_TYPE) {
+        return intValue;
+    } else if (type == RATIONAL_TYPE) {
+        mpz_class q;
+        mpz_fdiv_q(q.get_mpz_t(), ratValue.getMPQ().get_num().get_mpz_t(), ratValue.getMPQ().get_den().get_mpz_t());
+        return HighPrecisionInteger(q.get_str());
     } else {
         return realValue.toInteger();
+    }
+}
+
+HighPrecisionRational Number::toRationalExact() const {
+    if (type == INT_TYPE) {
+        return HighPrecisionRational(intValue.getMPZ());
+    } else if (type == RATIONAL_TYPE) {
+        return ratValue;
+    } else {
+        throw std::runtime_error("Cannot convert approximate REAL_TYPE to exact rational");
+    }
+}
+
+HighPrecisionRational Number::approximateToRational() const {
+    if (type == INT_TYPE) {
+        return HighPrecisionRational(intValue.getMPZ());
+    } else if (type == RATIONAL_TYPE) {
+        return ratValue;
+    } else {
+        // REAL_TYPE fallback: parse string representation as rational
+        return HighPrecisionRational(realValue.toString());
     }
 }
 
 HighPrecisionReal Number::toReal(mpfr_prec_t precision) const {
     if (type == REAL_TYPE) {
         return realValue;
+    } else if (type == RATIONAL_TYPE) {
+        return HighPrecisionReal(ratValue.getMPQ(), precision);
     } else {
         return HighPrecisionReal(intValue, precision);
     }
 }
 
 Number Number::zero() {
-    return Number(0, false);
+    return Number(0);
 }
 Number Number::one() {
-    return Number(1, false);
+    return Number(1);
+}
+
+Number Number::fromApproxDouble(double v) {
+    return Number(HighPrecisionReal(v));
+}
+
+Number Number::fromExactDecimalString(const std::string& s) {
+    return Number(s, false); // Always RATIONAL_TYPE (exact)
 }
 Number Number::infinity() {
     // 无穷必须用 REAL_TYPE 表示，因为整数无法表示无穷
@@ -1159,30 +1374,34 @@ Number Number::positiveInfinity() {
 bool Number::isZero() const {
     if(type == INT_TYPE) {
         return intValue == 0;
+    } else if(type == RATIONAL_TYPE) {
+        return ratValue.getMPQ().get_num() == 0;
     }
     return realValue == 0;
 }
 bool Number::isOne() const {
     if(type == INT_TYPE) {
         return intValue == 1;
+    } else if(type == RATIONAL_TYPE) {
+        return ratValue.getMPQ().get_num() == 1 && ratValue.getMPQ().get_den() == 1;
     }
     return realValue == 1;
 }
 bool Number::isInfinity() const {
-    if(type == INT_TYPE) {
+    if(type == INT_TYPE || type == RATIONAL_TYPE) {
         return false;
     }
     return realValue.isInfinity();
 }
 
 bool Number::isNegativeInfinity() const {
-    if(type == INT_TYPE) {
+    if(type == INT_TYPE || type == RATIONAL_TYPE) {
         return false;
     }
     return realValue.isNegativeInfinity();
 }
 bool Number::isPositiveInfinity() const {
-    if(type == INT_TYPE) {
+    if(type == INT_TYPE || type == RATIONAL_TYPE) {
         return false;
     }
     return realValue.isPositiveInfinity();
@@ -1214,11 +1433,14 @@ Number Number::epsilon(size_t precision) {
 
 // Basic operations
 Number Number::operator+(const Number& other) const {
-    // If both are integers, the result is an integer
     if (type == INT_TYPE && other.type == INT_TYPE) {
         return Number(intValue + other.intValue);
     }
-    // Otherwise, the result is a real number
+    // If any side is RATIONAL and neither is REAL, stay exact
+    if ((type == RATIONAL_TYPE || other.type == RATIONAL_TYPE) &&
+        type != REAL_TYPE && other.type != REAL_TYPE) {
+        return Number(toRationalExact() + other.toRationalExact());
+    }
     return Number(toReal() + other.toReal());
 }
 
@@ -1226,12 +1448,18 @@ Number Number::operator-(const Number& other) const {
     if (type == INT_TYPE && other.type == INT_TYPE) {
         return Number(intValue - other.intValue);
     }
+    if ((type == RATIONAL_TYPE || other.type == RATIONAL_TYPE) &&
+        type != REAL_TYPE && other.type != REAL_TYPE) {
+        return Number(toRationalExact() - other.toRationalExact());
+    }
     return Number(toReal() - other.toReal());
 }
 
 Number Number::operator-() const {
     if (type == INT_TYPE) {
         return Number(-intValue);
+    } else if (type == RATIONAL_TYPE) {
+        return Number(-ratValue);
     }
     return Number(-realValue);
 }
@@ -1240,17 +1468,24 @@ Number Number::operator*(const Number& other) const {
     if (type == INT_TYPE && other.type == INT_TYPE) {
         return Number(intValue * other.intValue);
     }
+    if ((type == RATIONAL_TYPE || other.type == RATIONAL_TYPE) &&
+        type != REAL_TYPE && other.type != REAL_TYPE) {
+        return Number(toRationalExact() * other.toRationalExact());
+    }
     return Number(toReal() * other.toReal());
 }
 
 Number Number::operator/(const Number& other) const {
-    // Even if both operands are integers, the result may be a real number
-    // You can choose to always return a real number, or return an integer when divisible
     if (type == INT_TYPE && other.type == INT_TYPE) {
         if (intValue % other.intValue == HighPrecisionInteger(0)) {
-            // Divisible
             return Number(intValue / other.intValue);
         }
+        // Non-divisible integer division -> exact rational
+        return Number(HighPrecisionRational(intValue.getMPZ()) / HighPrecisionRational(other.intValue.getMPZ()));
+    }
+    if ((type == RATIONAL_TYPE || other.type == RATIONAL_TYPE) &&
+        type != REAL_TYPE && other.type != REAL_TYPE) {
+        return Number(toRationalExact() / other.toRationalExact());
     }
     return Number(toReal() / other.toReal());
 }
@@ -1263,6 +1498,13 @@ Number Number::operator%(const Number& other) const {
 Number& Number::operator+=(const Number& other) {
     if (type == INT_TYPE && other.type == INT_TYPE) {
         intValue += other.intValue;
+    } else if (type == RATIONAL_TYPE && other.type == RATIONAL_TYPE) {
+        ratValue = ratValue + other.ratValue;
+    } else if (type == RATIONAL_TYPE && other.type == INT_TYPE) {
+        ratValue = ratValue + HighPrecisionRational(other.intValue.getMPZ());
+    } else if (type == INT_TYPE && other.type == RATIONAL_TYPE) {
+        type = RATIONAL_TYPE;
+        ratValue = HighPrecisionRational(intValue.getMPZ()) + other.ratValue;
     } else {
         realValue += other.toReal();
     }
@@ -1272,6 +1514,13 @@ Number& Number::operator+=(const Number& other) {
 Number& Number::operator-=(const Number& other) {
     if (type == INT_TYPE && other.type == INT_TYPE) {
         intValue -= other.intValue;
+    } else if (type == RATIONAL_TYPE && other.type == RATIONAL_TYPE) {
+        ratValue = ratValue - other.ratValue;
+    } else if (type == RATIONAL_TYPE && other.type == INT_TYPE) {
+        ratValue = ratValue - HighPrecisionRational(other.intValue.getMPZ());
+    } else if (type == INT_TYPE && other.type == RATIONAL_TYPE) {
+        type = RATIONAL_TYPE;
+        ratValue = HighPrecisionRational(intValue.getMPZ()) - other.ratValue;
     } else {
         realValue -= other.toReal();
     }
@@ -1281,6 +1530,13 @@ Number& Number::operator-=(const Number& other) {
 Number& Number::operator*=(const Number& other) {
     if (type == INT_TYPE && other.type == INT_TYPE) {
         intValue *= other.intValue;
+    } else if (type == RATIONAL_TYPE && other.type == RATIONAL_TYPE) {
+        ratValue = ratValue * other.ratValue;
+    } else if (type == RATIONAL_TYPE && other.type == INT_TYPE) {
+        ratValue = ratValue * HighPrecisionRational(other.intValue.getMPZ());
+    } else if (type == INT_TYPE && other.type == RATIONAL_TYPE) {
+        type = RATIONAL_TYPE;
+        ratValue = HighPrecisionRational(intValue.getMPZ()) * other.ratValue;
     } else {
         realValue *= other.toReal();
     }
@@ -1290,6 +1546,13 @@ Number& Number::operator*=(const Number& other) {
 Number& Number::operator/=(const Number& other) {
     if (type == INT_TYPE && other.type == INT_TYPE) {
         intValue /= other.intValue;
+    } else if (type == RATIONAL_TYPE && other.type == RATIONAL_TYPE) {
+        ratValue = ratValue / other.ratValue;
+    } else if (type == RATIONAL_TYPE && other.type == INT_TYPE) {
+        ratValue = ratValue / HighPrecisionRational(other.intValue.getMPZ());
+    } else if (type == INT_TYPE && other.type == RATIONAL_TYPE) {
+        type = RATIONAL_TYPE;
+        ratValue = HighPrecisionRational(intValue.getMPZ()) / other.ratValue;
     } else {
         realValue /= other.toReal();
     }
@@ -1306,6 +1569,8 @@ Number& Number::operator%=(const Number& other) {
 Number& Number::operator++() {
     if (type == INT_TYPE) {
         intValue++;
+    } else if (type == RATIONAL_TYPE) {
+        ratValue = ratValue + HighPrecisionRational(1);
     } else {
         realValue = realValue + 1;
     }
@@ -1319,6 +1584,8 @@ Number Number::operator++(int) {
 Number& Number::operator--() {
     if (type == INT_TYPE) {
         intValue--;
+    } else if (type == RATIONAL_TYPE) {
+        ratValue = ratValue - HighPrecisionRational(1);
     } else {
         realValue = realValue - 1;
     }
@@ -1366,12 +1633,18 @@ bool Number::operator==(const Number& other) const {
     if (type == other.type) {
         if (type == INT_TYPE) {
             return intValue == other.intValue;
+        } else if (type == RATIONAL_TYPE) {
+            return ratValue == other.ratValue;
         } else {
             return realValue == other.realValue;
         }
     }
-    // When types are different, convert to real for comparison
-    return toReal() == other.toReal();
+    // When types are different
+    if (type == REAL_TYPE || other.type == REAL_TYPE) {
+        return toReal() == other.toReal();
+    }
+    // INT vs RATIONAL: compare via rational
+    return toRationalExact() == other.toRationalExact();
 }
 
 bool Number::operator!=(const Number& other) const {
@@ -1382,22 +1655,32 @@ bool Number::operator<(const Number& other) const {
     if (type == other.type) {
         if (type == INT_TYPE) {
             return intValue < other.intValue;
+        } else if (type == RATIONAL_TYPE) {
+            return ratValue < other.ratValue;
         } else {
             return realValue < other.realValue;
         }
     }
-    return toReal() < other.toReal();
+    if (type == REAL_TYPE || other.type == REAL_TYPE) {
+        return toReal() < other.toReal();
+    }
+    return toRationalExact() < other.toRationalExact();
 }
 
 bool Number::operator<=(const Number& other) const {
     if (type == other.type) {
         if (type == INT_TYPE) {
             return intValue <= other.intValue;
+        } else if (type == RATIONAL_TYPE) {
+            return ratValue <= other.ratValue;
         } else {
             return realValue <= other.realValue;
         }
     }
-    return toReal() <= other.toReal();
+    if (type == REAL_TYPE || other.type == REAL_TYPE) {
+        return toReal() <= other.toReal();
+    }
+    return toRationalExact() <= other.toRationalExact();
 }
 
 bool Number::operator>(const Number& other) const {
@@ -1412,6 +1695,8 @@ bool Number::operator>=(const Number& other) const {
 std::string Number::toString() const {
     if (type == INT_TYPE) {
         return intValue.toString();
+    } else if (type == RATIONAL_TYPE) {
+        return ratValue.toString();
     } else {
         return realValue.toString();
     }
@@ -1421,18 +1706,20 @@ std::string Number::toString() const {
 Number Number::abs() const {
     if (type == INT_TYPE) {
         return Number(intValue.abs());
+    } else if (type == RATIONAL_TYPE) {
+        mpq_class absVal = ratValue.getMPQ();
+        mpz_abs(absVal.get_num_mpz_t(), absVal.get_num_mpz_t());
+        return Number(HighPrecisionRational(absVal));
     } else {
         return Number(realValue.abs());
     }
 }
 
 Number Number::sqrt() const {
-    // For perfect square integers, you can return an integer result
     if (type == INT_TYPE) {
         HighPrecisionInteger root = intValue.sqrt();
         return Number(root);
     }
-    // Otherwise, return a real number
     return Number(toReal().sqrt());
 }
 
@@ -1445,19 +1732,16 @@ Number Number::safeSqrt() const {
 }
 
 Number Number::pow(const Number& exp) const {
-    // If the exponent is an integer and the base is also an integer
     if (type == INT_TYPE && exp.type == INT_TYPE) {
-        // If the exponent is a non-negative integer, you can use integer power
         if (exp.intValue >= HighPrecisionInteger(0)) {
             try {
                 unsigned long expVal = exp.intValue.toULong();
                 return Number(intValue.pow(expVal));
             } catch (const std::overflow_error&) {
-                // The exponent is too large, use real calculation
+                // fall through
             }
         }
     }
-    // Otherwise, use real calculation
     return Number(toReal().pow(exp.toReal()));
 }
 
@@ -1465,6 +1749,10 @@ Number Number::pow(const Number& exp) const {
 Number Number::ceil() const {
     if (type == INT_TYPE) {
         return Number(intValue);
+    } else if (type == RATIONAL_TYPE) {
+        mpz_class q;
+        mpz_cdiv_q(q.get_mpz_t(), ratValue.getMPQ().get_num().get_mpz_t(), ratValue.getMPQ().get_den().get_mpz_t());
+        return Number(HighPrecisionInteger(q.get_str()));
     } else {
         return Number(realValue.ceil());
     }
@@ -1473,6 +1761,10 @@ Number Number::ceil() const {
 Number Number::floor() const {
     if (type == INT_TYPE) {
         return Number(intValue);
+    } else if (type == RATIONAL_TYPE) {
+        mpz_class q;
+        mpz_fdiv_q(q.get_mpz_t(), ratValue.getMPQ().get_num().get_mpz_t(), ratValue.getMPQ().get_den().get_mpz_t());
+        return Number(HighPrecisionInteger(q.get_str()));
     } else {
         return Number(realValue.floor());
     }
@@ -1481,6 +1773,22 @@ Number Number::floor() const {
 Number Number::round() const {
     if (type == INT_TYPE) {
         return Number(intValue);
+    } else if (type == RATIONAL_TYPE) {
+        mpz_class q;
+        mpz_t r;
+        mpz_init(r);
+        mpz_fdiv_qr(q.get_mpz_t(), r, ratValue.getMPQ().get_num().get_mpz_t(), ratValue.getMPQ().get_den().get_mpz_t());
+        mpz_class den2 = ratValue.getMPQ().get_den();
+        mpz_mul_ui(den2.get_mpz_t(), den2.get_mpz_t(), 2);
+        if (mpz_cmpabs(r, den2.get_mpz_t()) >= 0) {
+            // remainder >= den/2, round away from zero
+            if (mpz_sgn(ratValue.getMPQ().get_num().get_mpz_t()) >= 0)
+                mpz_add_ui(q.get_mpz_t(), q.get_mpz_t(), 1);
+            else
+                mpz_sub_ui(q.get_mpz_t(), q.get_mpz_t(), 1);
+        }
+        mpz_clear(r);
+        return Number(HighPrecisionInteger(q.get_str()));
     } else {
         return Number(realValue.round());
     }
@@ -1488,125 +1796,57 @@ Number Number::round() const {
 
 // Exponential and logarithmic functions
 Number Number::exp() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.exp());
+    return Number(toReal().exp());
 }
 Number Number::ln() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.ln());
+    return Number(toReal().ln());
 }
 Number Number::lg() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.lg());
+    return Number(toReal().lg());
 }
 Number Number::lb() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.lb());
+    return Number(toReal().lb());
 }
 Number Number::log(const Number& base) const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.log(base.toReal()));
+    return Number(toReal().log(base.toReal()));
 }
 
 // Trigonometric functions
 Number Number::sin() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.sin());
+    return Number(toReal().sin());
 }
 Number Number::cos() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.cos());
+    return Number(toReal().cos());
 }
 Number Number::tan() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.tan());
+    return Number(toReal().tan());
 }
 Number Number::cot() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.cot());
+    return Number(toReal().cot());
 }
 Number Number::sec() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.sec());
+    return Number(toReal().sec());
 }
 Number Number::csc() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.csc());
+    return Number(toReal().csc());
 }
 Number Number::asin() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.asin());
+    return Number(toReal().asin());
 }
 Number Number::acos() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.acos());
+    return Number(toReal().acos());
 }
 Number Number::atan() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.atan());
+    return Number(toReal().atan());
 }
 Number Number::acot() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.acot());
+    return Number(toReal().acot());
 }
 Number Number::asec() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.asec());
+    return Number(toReal().asec());
 }
 Number Number::acsc() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.acsc());
+    return Number(toReal().acsc());
 }
 Number Number::atan2(const Number& y, const Number& x){
     return Number(HighPrecisionReal::atan2(y.toReal(), x.toReal()));
@@ -1614,92 +1854,46 @@ Number Number::atan2(const Number& y, const Number& x){
 
 // Hyperbolic functions
 Number Number::sinh() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.sinh());
+    return Number(toReal().sinh());
 }
 Number Number::cosh() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.cosh());
+    return Number(toReal().cosh());
 }
 Number Number::tanh() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.tanh());
+    return Number(toReal().tanh());
 }
 Number Number::coth() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.coth());
+    return Number(toReal().coth());
 }
 Number Number::sech() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.sech());
+    return Number(toReal().sech());
 }
 Number Number::csch() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.csch());
+    return Number(toReal().csch());
 }
 Number Number::asinh() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.asinh());
+    return Number(toReal().asinh());
 }
 Number Number::acosh() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.acosh());
+    return Number(toReal().acosh());
 }
 Number Number::atanh() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.atanh());
+    return Number(toReal().atanh());
 }
 Number Number::asech() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.tanh());
+    return Number(toReal().asech());
 }
 Number Number::acsch() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.acsch());
+    return Number(toReal().acsch());
 }
 Number Number::acoth() const{
-    HighPrecisionReal val = realValue;
-    if (type == INT_TYPE) {
-        val = HighPrecisionReal(intValue);
-    }
-    return Number(val.acoth());
+    return Number(toReal().acoth());
 }
 Number Number::nextBelow() const {
     if (type == INT_TYPE) {
         return Number(intValue.nextBelow());
+    } else if (type == RATIONAL_TYPE) {
+        return Number(toReal().nextBelow());
     } else {
         return Number(realValue.nextBelow());
     }
@@ -1708,13 +1902,15 @@ Number Number::nextBelow() const {
 Number Number::nextAbove() const {
     if (type == INT_TYPE) {
         return Number(intValue.nextAbove());
+    } else if (type == RATIONAL_TYPE) {
+        return Number(toReal().nextAbove());
     } else {
         return Number(realValue.nextAbove());
     }
 }
 
 bool Number::isNaN() const {
-    if (type == INT_TYPE) {
+    if (type == INT_TYPE || type == RATIONAL_TYPE) {
         return false;
     }
     return realValue.isNaN();

@@ -55,16 +55,32 @@ namespace SOMTParser{
         kind = is_rec ? NODE_KIND::NT_FUNC_REC_APPLY : NODE_KIND::NT_FUNC_APPLY;
     }
 
-    std::string dumpConst(const std::string& name, const std::shared_ptr<Sort>& sort){
-        if(sort->isReal()){
-            if(name[0] == '-'){
-                return "(- " + name.substr(1) + ")";
-            }
-            else{
-                return name;
-            }
+    // Helper: check if a string is in canonical rational a/b form
+    static bool isRationalFormat(const std::string& name) {
+        size_t slashPos = name.find('/');
+        return slashPos != std::string::npos && slashPos > 0 && slashPos + 1 < name.size();
+    }
+
+    // Helper: emit SMT-LIB2 division syntax for a/b form
+    static std::string formatRationalDivision(const std::string& name) {
+        bool neg = (name[0] == '-');
+        std::string absName = neg ? name.substr(1) : name;
+        size_t sp = absName.find('/');
+        std::string num = absName.substr(0, sp);
+        std::string den = absName.substr(sp + 1);
+        std::string result = "(/ " + num + " " + den + ")";
+        if (neg) {
+            return "(- " + result + ")";
         }
-        else if(sort->isInt() || sort->isIntOrReal()){
+        return result;
+    }
+
+    std::string dumpConst(const std::string& name, const std::shared_ptr<Sort>& sort){
+        // Always handle rational a/b form first, regardless of sort
+        if (isRationalFormat(name)) {
+            return formatRationalDivision(name);
+        }
+        if(sort->isReal() || sort->isIntOrReal()){
             if(name[0] == '-'){
                 return "(- " + name.substr(1) + ")";
             }

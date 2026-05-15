@@ -26,7 +26,6 @@ int main() {
     parser->getOptions()->setLogic("QF_LIA");
     parser->getOptions()->setEvaluatePrecision(256);
     parser->getOptions()->setKeepLet(false);
-    parser->getOptions()->setKeepDivision(false);
     parser->getOptions()->setEvaluateUseFloating(false);
     parser->getOptions()->setExpandRecursiveFunctions(true);
     std::string modOpts = parser->optionToString();
@@ -38,7 +37,6 @@ int main() {
     parser2->getOptions()->setOption("keep_let", "false");
     parser2->getOptions()->setOption("precision", "512");
     parser2->getOptions()->setOption("float_evaluate", "false");
-    parser2->getOptions()->setOption("keep_division", "false");
     parser2->getOptions()->setOption("expand_recursive_functions", "true");
     parser2->getOptions()->setLogic("QF_BV");
     std::string opts2 = parser2->optionToString();

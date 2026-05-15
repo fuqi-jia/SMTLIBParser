@@ -264,13 +264,32 @@ namespace SOMTParser{
     bool TypeChecker::isReal(const std::string& str){
         if (str.empty()) return false;
         bool has_dot = false;
+        bool has_slash = false;
         for (size_t i = 0; i < str.size(); i++){
             if (i == 0 && (str[i] == '-' || str[i] == '+')) continue;
-            if (str[i] == '.' && !has_dot){
+            if (str[i] == '.' && !has_dot && !has_slash){
                 has_dot = true;
                 continue;
             }
+            if (str[i] == '/' && !has_dot && !has_slash){
+                has_slash = true;
+                continue;
+            }
             if (!isdigit(str[i])) return false;
+        }
+        if (has_slash) {
+            size_t sl = str.find('/');
+            if (sl == std::string::npos || sl == 0 || sl == str.size() - 1) return false;
+            std::string num = str.substr(0, sl);
+            std::string den = str.substr(sl + 1);
+            if (!isInt(num) || !isInt(den)) return false;
+            // reject denominator zero
+            try {
+                mpz_class den_z(den);
+                if (den_z == 0) return false;
+            } catch (...) {
+                return false;
+            }
         }
         return true;
     }
@@ -344,67 +363,76 @@ namespace SOMTParser{
     }
 
     std::string ConversionUtils::parseScientificNotation(const std::string& str){
-        // find 'E' or 'e' character
         size_t e_pos = str.find_first_of("Ee");
-        if (e_pos == std::string::npos) 
+        if (e_pos == std::string::npos)
             return str;
-            
+
         try {
-            // extract the mantissa part
             std::string mantissa = str.substr(0, e_pos);
-            
-            // check if the mantissa part is a valid real number
             if (!TypeChecker::isReal(mantissa))
                 return str;
-            
-            // extract the exponent part
+
             std::string exponent = str.substr(e_pos + 1);
-            
-            // if the exponent part is empty, return the original string
             if (exponent.empty())
                 return str;
-            
-            // create a copy without spaces for processing
+
             std::string exponent_no_spaces = exponent;
-            exponent_no_spaces.erase(std::remove_if(exponent_no_spaces.begin(), exponent_no_spaces.end(), 
-                                         isSpaceChar), 
+            exponent_no_spaces.erase(std::remove_if(exponent_no_spaces.begin(), exponent_no_spaces.end(),
+                                         isSpaceChar),
                           exponent_no_spaces.end());
-            
-            // if the exponent part is empty after removing spaces, return the original string
+
             if (exponent_no_spaces.empty())
                 return str;
-            
-            // handle possible parentheses
+
             if (exponent_no_spaces[0] == '(') {
-                // find right parenthesis
                 size_t close_pos = exponent_no_spaces.find(')');
                 if (close_pos != std::string::npos) {
-                    // extract the content inside parentheses
                     exponent_no_spaces = exponent_no_spaces.substr(1, close_pos - 1);
                 } else {
-                    // no right parenthesis found, possibly incomplete expression
                     exponent_no_spaces = exponent_no_spaces.substr(1);
                 }
             }
-            
-            // if the exponent part is empty after handling parentheses, return the original string
+
             if (exponent_no_spaces.empty())
                 return str;
-            
-            // convert scientific notation to normal real number
-            // TODO!!
-            Real mantissa_val = Real(mantissa);
-            Real exponent_val = Real(exponent_no_spaces);
-            
-            // calculate the result
-            Real result = mantissa_val * SOMTParser::MathUtils::pow(Real(10.0), exponent_val);
-            
-            // convert to string
-            std::ostringstream oss;
-            oss << std::setprecision(16) << toString(result);
-            return oss.str();
+
+            int exp_val = std::stoi(exponent_no_spaces);
+
+            // Parse mantissa into sign + integer part + fractional part
+            bool neg = false;
+            std::string m = mantissa;
+            if (!m.empty() && m[0] == '-') { neg = true; m = m.substr(1); }
+            else if (!m.empty() && m[0] == '+') { m = m.substr(1); }
+
+            size_t dot_pos = m.find('.');
+            std::string intPart = (dot_pos == std::string::npos) ? m : m.substr(0, dot_pos);
+            std::string fracPart = (dot_pos == std::string::npos) ? "" : m.substr(dot_pos + 1);
+
+            // Remove leading zeros from intPart (keep at least "0")
+            size_t first_nonzero = intPart.find_first_not_of('0');
+            if (first_nonzero == std::string::npos) intPart = "0";
+            else if (first_nonzero > 0) intPart = intPart.substr(first_nonzero);
+
+            std::string digits = intPart + fracPart;
+            int frac_len = static_cast<int>(fracPart.length());
+            int effective_exp = exp_val - frac_len;
+
+            std::string result;
+            if (effective_exp >= 0) {
+                result = digits + std::string(effective_exp, '0');
+            } else {
+                int shift = -effective_exp;
+                if (shift < static_cast<int>(digits.length())) {
+                    result = digits.substr(0, digits.length() - shift) + "." +
+                             digits.substr(digits.length() - shift);
+                } else {
+                    int leading_zeros = shift - static_cast<int>(digits.length());
+                    result = "0." + std::string(leading_zeros, '0') + digits;
+                }
+            }
+            if (neg && result != "0") result = "-" + result;
+            return result;
         } catch (const std::exception& e) {
-            // conversion failed, return the original string
             return str;
         }
     }

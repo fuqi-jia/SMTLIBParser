@@ -220,11 +220,11 @@ namespace SOMTParser {
     }
     
     std::shared_ptr<Value> newValue(const double& double_value) {
-        return std::make_shared<Value>(Number(double_value));
+        return std::make_shared<Value>(Number::fromApproxDouble(double_value));
     }
     
     std::shared_ptr<Value> newValue(const float& float_value) {
-        return std::make_shared<Value>(Number(static_cast<double>(float_value)));
+        return std::make_shared<Value>(Number::fromApproxDouble(static_cast<double>(float_value)));
     }
     
     std::shared_ptr<Value> newValue(const long& long_value) {
@@ -533,7 +533,7 @@ namespace SOMTParser {
     
     Value Value::operator<<(const Value& other) const {
         if ((value_type == NUMBER || value_type == BV) && (other.value_type == NUMBER || other.value_type == BV)) {
-            unsigned long shift = other.number_value.toInteger().toULong();
+            unsigned long shift = other.number_value.floorToInteger().toULong();
             Number result = number_value << shift;
             Value v(result);
             v.value_type = value_type;
@@ -545,7 +545,7 @@ namespace SOMTParser {
     
     Value Value::operator>>(const Value& other) const {
         if ((value_type == NUMBER || value_type == BV) && (other.value_type == NUMBER || other.value_type == BV)) {
-            unsigned long shift = other.number_value.toInteger().toULong();
+            unsigned long shift = other.number_value.floorToInteger().toULong();
             Number result = number_value >> shift;
             Value v(result);
             v.value_type = value_type;
@@ -950,7 +950,7 @@ namespace SOMTParser {
     Value Value::repeatStr(const Value& other) const {
         if (value_type == STRING && other.value_type == NUMBER) {
             std::string result;
-            int count = other.number_value.toInteger().toInt();
+            int count = other.number_value.floorToInteger().toInt();
             for (int i = 0; i < count; i++) {
                 result += string_value;
             }
@@ -973,8 +973,8 @@ namespace SOMTParser {
     // String operations (continued)
     Value Value::substr(const Value& start, const Value& end) const {
         if (value_type == STRING && start.value_type == NUMBER && end.value_type == NUMBER) {
-            int startPos = start.number_value.toInteger().toInt();
-            int length = end.number_value.toInteger().toInt();
+            int startPos = start.number_value.floorToInteger().toInt();
+            int length = end.number_value.floorToInteger().toInt();
             
             if (startPos < 0 || startPos >= static_cast<int>(string_value.length())) {
                 throw std::out_of_range("String substring start position out of range");
@@ -1306,7 +1306,7 @@ namespace SOMTParser {
         }
         uint32_t w = bv_width_;
         if (w == 0) throw std::runtime_error("rotate_left: BV width is 0");
-        unsigned long amount = other.number_value.toInteger().toULong() % w;
+        unsigned long amount = other.number_value.floorToInteger().toULong() % w;
         if (amount == 0) return *this;
         // rotate left: (x << amount) | (x >> (w - amount)), masked to w bits
         Number mask = (Number(Integer(1)) << w) - Number(1);
@@ -1324,7 +1324,7 @@ namespace SOMTParser {
         }
         uint32_t w = bv_width_;
         if (w == 0) throw std::runtime_error("rotate_right: BV width is 0");
-        unsigned long amount = other.number_value.toInteger().toULong() % w;
+        unsigned long amount = other.number_value.floorToInteger().toULong() % w;
         if (amount == 0) return *this;
         Number mask = (Number(Integer(1)) << w) - Number(1);
         Number result = ((number_value >> amount) | (number_value << (w - amount))) & mask;
@@ -1358,7 +1358,7 @@ namespace SOMTParser {
             b = std::stod(other.fp_smtlib_);
         } catch(...) { b = 0.0; }
         double r = a + b;
-        Value result{Number(r)};
+        Value result{Number::fromApproxDouble(r)};
         return result.toFP();
     }
 
@@ -1370,7 +1370,7 @@ namespace SOMTParser {
         try { a = std::stod(fp_smtlib_); } catch(...) { a = 0.0; }
         try { b = std::stod(other.fp_smtlib_); } catch(...) { b = 0.0; }
         double r = a - b;
-        Value result{Number(r)};
+        Value result{Number::fromApproxDouble(r)};
         return result.toFP();
     }
 
@@ -1382,7 +1382,7 @@ namespace SOMTParser {
         try { a = std::stod(fp_smtlib_); } catch(...) { a = 0.0; }
         try { b = std::stod(other.fp_smtlib_); } catch(...) { b = 0.0; }
         double r = a * b;
-        Value result{Number(r)};
+        Value result{Number::fromApproxDouble(r)};
         return result.toFP();
     }
 
@@ -1394,7 +1394,7 @@ namespace SOMTParser {
         try { a = std::stod(fp_smtlib_); } catch(...) { a = 0.0; }
         try { b = std::stod(other.fp_smtlib_); } catch(...) { b = 0.0; }
         double r = a / b;
-        Value result{Number(r)};
+        Value result{Number::fromApproxDouble(r)};
         return result.toFP();
     }
 
@@ -1406,7 +1406,7 @@ namespace SOMTParser {
         try { a = std::stod(fp_smtlib_); } catch(...) { a = 0.0; }
         try { b = std::stod(other.fp_smtlib_); } catch(...) { b = 0.0; }
         double r = std::fmod(a, b);
-        Value result{Number(r)};
+        Value result{Number::fromApproxDouble(r)};
         return result.toFP();
     }
 

@@ -33,6 +33,7 @@
 #include <gmpxx.h>
 #include <mpfr.h>
 #include <string>
+#include <optional>
 
 namespace SOMTParser {
     class HighPrecisionInteger {
@@ -67,6 +68,7 @@ namespace SOMTParser {
             HighPrecisionInteger operator*(const HighPrecisionInteger& other) const;
             HighPrecisionInteger operator/(const HighPrecisionInteger& other) const;
             HighPrecisionInteger operator%(const HighPrecisionInteger& other) const;
+            HighPrecisionInteger floorDiv(const HighPrecisionInteger& other) const; // SMT-LIB div semantics (floor towards -inf)
             HighPrecisionInteger& operator+=(const HighPrecisionInteger& other);
             HighPrecisionInteger& operator-=(const HighPrecisionInteger& other);
             HighPrecisionInteger& operator*=(const HighPrecisionInteger& other);
@@ -126,6 +128,49 @@ namespace SOMTParser {
     };
 
     typedef HighPrecisionInteger Integer;
+
+    class HighPrecisionRational {
+        public:
+            HighPrecisionRational() : value(0) {}
+            explicit HighPrecisionRational(const mpq_class& q) : value(q) {}
+            explicit HighPrecisionRational(const mpz_class& z) : value(z) {}
+            explicit HighPrecisionRational(int i) : value(i) {}
+            HighPrecisionRational(const HighPrecisionRational& other) : value(other.value) {}
+            explicit HighPrecisionRational(const std::string& s);
+            explicit HighPrecisionRational(const char* s);
+
+            // Assignment operator
+            HighPrecisionRational& operator=(const HighPrecisionRational& other);
+
+            // Basic arithmetic operators
+            HighPrecisionRational operator+(const HighPrecisionRational& other) const;
+            HighPrecisionRational operator-(const HighPrecisionRational& other) const;
+            HighPrecisionRational operator-() const;
+            HighPrecisionRational operator*(const HighPrecisionRational& other) const;
+            HighPrecisionRational operator/(const HighPrecisionRational& other) const;
+
+            // Comparison operators
+            bool operator==(const HighPrecisionRational& other) const;
+            bool operator!=(const HighPrecisionRational& other) const;
+            bool operator<(const HighPrecisionRational& other) const;
+            bool operator<=(const HighPrecisionRational& other) const;
+            bool operator>(const HighPrecisionRational& other) const;
+            bool operator>=(const HighPrecisionRational& other) const;
+
+            // Conversion functions
+            std::string toString() const;
+            double toDouble() const;
+            bool isInteger() const;
+
+            // Access internal GMP value
+            const mpq_class& getMPQ() const;
+            mpq_class& getMPQ();
+
+        private:
+            mpq_class value;
+    };
+
+    typedef HighPrecisionRational Rational;
     
     class HighPrecisionReal {
         public:
@@ -150,6 +195,7 @@ namespace SOMTParser {
             HighPrecisionReal(const std::string& s, mpfr_prec_t precision = 128);
             HighPrecisionReal(const char* s, mpfr_prec_t precision = 128);
             HighPrecisionReal(const mpfr_t& t, mpfr_prec_t precision = 128);
+            explicit HighPrecisionReal(const mpq_class& q, mpfr_prec_t precision = 128);
             HighPrecisionReal(const HighPrecisionReal& other);
             
             // Assignment operator
@@ -261,9 +307,10 @@ namespace SOMTParser {
         public:
             // enum type
             enum Type {
-                INT_TYPE,   // Integer
-                REAL_TYPE,  // Real
-                UNKNOWN_TYPE // Unknown
+                INT_TYPE,      // Integer
+                RATIONAL_TYPE, // Rational (exact)
+                REAL_TYPE,     // Real (MPFR, approximate)
+                UNKNOWN_TYPE   // Unknown
             };
 
             // Constant
@@ -279,11 +326,17 @@ namespace SOMTParser {
             static Number log10_e(size_t precision = 128);
             static Number epsilon(size_t precision = 128);
 
+            // Factory methods
+            static Number fromApproxDouble(double v);              // Always REAL_TYPE (MPFR approximate)
+            static Number fromExactDecimalString(const std::string& s); // Always RATIONAL_TYPE (exact)
+
             // Constructor
             Number();                                  // Default constructor, create integer 0
             Number(const HighPrecisionInteger& i);     // Construct from integer
+            Number(const HighPrecisionRational& r);    // Construct from rational
             Number(const HighPrecisionReal& r);        // Construct from real number
             Number(int i);                             // Construct integer from int
+            [[deprecated("Use fromApproxDouble() for approximate contexts only")]]
             Number(double d, bool asInteger = false);  // Construct Real from double
             Number(const std::string& s, bool asInteger = false); // Construct from string (default is real)
             Number(const Number& other);               // Copy constructor
@@ -296,20 +349,27 @@ namespace SOMTParser {
             ~Number();
 
             // Type checking
-            bool isInteger() const { return type == INT_TYPE || (isReal() && getReal().isInteger()); }
-            bool isReal() const { return type == REAL_TYPE; }
+            bool isInteger() const { return type == INT_TYPE || (isRational() && getRational().isInteger()) || (type == REAL_TYPE && getReal().isInteger()); }
+            bool isRational() const { return type == RATIONAL_TYPE; }
+            bool isReal() const { return type == REAL_TYPE || type == RATIONAL_TYPE; }
             bool isUnknown() const { return type == UNKNOWN_TYPE; }
             Type getType() const { return type; }
 
             // Get value
             const HighPrecisionInteger& getInteger() const;
+            const HighPrecisionRational& getRational() const;
             const HighPrecisionReal& getReal() const;
 
             // Type conversion
-            HighPrecisionInteger toInteger() const;
+            // Exact integer conversion: only succeeds for INT_TYPE or RATIONAL_TYPE with den==1
+            std::optional<HighPrecisionInteger> asIntegerExact() const;
+            // Floor integer conversion: SMT to_int semantics (floor towards -inf)
+            HighPrecisionInteger floorToInteger() const;
+            // Exact rational conversion: throws on REAL_TYPE
+            HighPrecisionRational toRationalExact() const;
+            // Approximate rational conversion: allows REAL_TYPE via string fallback
+            HighPrecisionRational approximateToRational() const;
             HighPrecisionReal toReal(mpfr_prec_t precision = 128) const;
-            /** Exact rational / real value (same representation as toReal; for API parity with client code expecting toRational). */
-            HighPrecisionReal toRational(mpfr_prec_t precision = 128) const { return toReal(precision); }
 
             // Constants
             static Number zero();
@@ -417,9 +477,10 @@ namespace SOMTParser {
             bool isNaN() const;
 
         private:
-            Type type;                      // Identify type
-            HighPrecisionInteger intValue;  // Integer value
-            HighPrecisionReal realValue;    // Real value
+            Type type;                         // Identify type
+            HighPrecisionInteger intValue;     // Integer value
+            HighPrecisionRational ratValue;    // Rational value
+            HighPrecisionReal realValue;       // Real value
     };
 }
 

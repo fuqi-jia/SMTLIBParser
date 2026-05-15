@@ -1575,7 +1575,7 @@ namespace SOMTParser{
             if(v){
                 auto d = FloatingPointUtils::fpToDouble(*v);
                 if(d){
-                    result = mkConstReal(Number(*d));
+                    result = mkConstReal(Number::fromApproxDouble(*d));
                     return true;
                 }
             }

@@ -605,12 +605,19 @@ namespace SOMTParser{
         return mkConstInt(Integer(v));
     }
     std::shared_ptr<DAGNode> Parser::mkConstInt(const Number& v){
-        return mkConstInt(v.toInteger());
+        auto opt = v.asIntegerExact();
+        condAssert(opt.has_value(), "Cannot construct integer constant from non-integer value");
+        return mkConstInt(opt.value());
     }
     std::shared_ptr<DAGNode> Parser::mkConstReal(const std::string &v){
         condAssert(TypeChecker::isReal(v) || v == "e" || v == "pi", "mkConstReal: invalid real constant");
         if(v == "e") return NodeManager::E_NODE;
         if(v == "pi") return NodeManager::PI_NODE;
+        // Canonicalize decimal strings to rational form so that 0.5 and 1/2 share the same node
+        if(TypeChecker::isReal(v) && v.find('.') != std::string::npos) {
+            Number n(v, false);
+            return getNodeManager()->createNode(SortManager::REAL_SORT, NODE_KIND::NT_CONST, n.toString());
+        }
         return getNodeManager()->createNode(SortManager::REAL_SORT, NODE_KIND::NT_CONST, v);
     }
     std::shared_ptr<DAGNode> Parser::mkConstReal(const Real &v){
@@ -626,6 +633,12 @@ namespace SOMTParser{
         return getNodeManager()->createNode(SortManager::REAL_SORT, NODE_KIND::NT_CONST, v_str);
     }
     std::shared_ptr<DAGNode> Parser::mkConstReal(const Number& v){
+        if (v.isRational() || v.isInteger()) {
+            return mkConstReal(v.toString());
+        }
+        if (v.isReal()) {
+            throw std::runtime_error("Approximate REAL_TYPE cannot be used as exact SMT Real constant");
+        }
         return mkConstReal(v.toReal());
     }
     std::shared_ptr<DAGNode> Parser::mkConstStr(const std::string &v){

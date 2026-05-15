@@ -61,9 +61,6 @@ namespace SOMTParser{
         bool evaluate_use_floating = true;
         mpfr_prec_t evaluate_precision = 128;
 
-        // keep original representation of the division if is not divisible
-        bool keep_division_if_not_divisible = true;
-
         // whether perserve let-binding
         bool parsing_preserve_let = true;
 
@@ -154,9 +151,6 @@ namespace SOMTParser{
             if(key == "keep_let") {
                 setKeepLet(value == "true");
             }
-            else if(key == "keep_division"){
-                setKeepDivision(value == "true");
-            }
             else if(key == "precision"){
                 setEvaluatePrecision((size_t)(std::stoi(value)));
             }
@@ -222,9 +216,7 @@ namespace SOMTParser{
             return evaluate_use_floating;
         }
 
-        void setKeepDivision(bool keep){ keep_division_if_not_divisible = keep; }
         void setKeepLet(bool keep){ parsing_preserve_let = keep; }
-        bool getKeepDivision() const { return keep_division_if_not_divisible; }
         bool getKeepLet() const { return parsing_preserve_let; }
         
         void setExpandFunctions(bool expand){ expand_functions = expand; }
@@ -275,16 +267,8 @@ namespace SOMTParser{
             result += "   Description: When enabled, uses floating-point arithmetic for evaluation.\n";
             result += "                When disabled, uses exact rational arithmetic where possible.\n\n";
             
-            // Keep division
-            result += "4. Keep Division If Not Divisible\n";
-            result += "   Option: keep_division (set via setOption or setKeepDivision)\n";
-            result += "   Default: true\n";
-            result += "   Current: " + std::string(keep_division_if_not_divisible ? "true" : "false") + "\n";
-            result += "   Description: When enabled, preserves division operations in their original form\n";
-            result += "                if the division is not exact. When disabled, always computes the result.\n\n";
-            
             // Preserve let bindings
-            result += "5. Preserve Let Bindings\n";
+            result += "4. Preserve Let Bindings\n";
             result += "   Option: keep_let (set via setOption or setKeepLet)\n";
             result += "   Default: true\n";
             result += "   Current: " + std::string(parsing_preserve_let ? "true" : "false") + "\n";
@@ -292,7 +276,7 @@ namespace SOMTParser{
             result += "                When disabled, automatically expands let-bindings inline.\n\n";
             
             // Expand functions
-            result += "6. Expand Function Applications\n";
+            result += "5. Expand Function Applications\n";
             result += "   Option: expand_functions (set via setOption or setExpandFunctions)\n";
             result += "   Default: true\n";
             result += "   Current: " + std::string(expand_functions ? "true" : "false") + "\n";
@@ -301,7 +285,7 @@ namespace SOMTParser{
             result += "                as-is, keeping the function call structure in the AST.\n\n";
             
             // Expand recursive functions
-            result += "7. Expand Recursive Functions\n";
+            result += "6. Expand Recursive Functions\n";
             result += "   Option: expand_recursive_functions (set via setOption or setExpandRecursiveFunctions)\n";
             result += "   Default: false\n";
             result += "   Current: " + std::string(expand_recursive_functions ? "true" : "false") + "\n";
@@ -311,7 +295,7 @@ namespace SOMTParser{
             result += "                implementation using a 'this' placeholder mechanism to handle recursive\n";
             result += "                self-references during function body parsing and expansion.\n\n";
 
-            result += "8. Strict SMT-LIB FloatingPoint surface syntax\n";
+            result += "7. Strict SMT-LIB FloatingPoint surface syntax\n";
             result += "   Option: strict_smtlib_fp (set-option / GlobalOptions::setStrictSmtlib / Parser::setStrictSmtlib)\n";
             result += "   Default: false\n";
             result += "   Current: " + std::string(strict_smtlib_fp ? "true" : "false") + "\n";
@@ -321,7 +305,7 @@ namespace SOMTParser{
             result += "                and unary fp.sqrt is canonicalized to (fp.sqrt RNE x) in the IR.\n\n";
             
             // Command flags
-            result += "9. Command Flags\n";
+            result += "8. Command Flags\n";
             result += "   check_sat: " + std::string(check_sat ? "true" : "false") + "\n";
             result += "   get_assertions: " + std::string(get_assertions ? "true" : "false") + "\n";
             result += "   get_assignment: " + std::string(get_assignment ? "true" : "false") + "\n";

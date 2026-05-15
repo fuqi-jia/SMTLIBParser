@@ -433,7 +433,9 @@ namespace SOMTParser{
 			// This can happen if the expression cannot be converted to a number
 			return Integer(0);
 		}
-		return value->getNumberValue().toInteger();
+		auto opt = value->getNumberValue().asIntegerExact();
+			condAssert(opt.has_value(), "Real constant cannot be coerced to integer");
+			return opt.value();
 	}
 	bool Parser::isZero(std::shared_ptr<DAGNode> expr){
 		// cannot check zero for root-obj and root-of-with-interval
@@ -461,12 +463,9 @@ namespace SOMTParser{
 				expr->setValue(i);
 			}
 			else if(TypeChecker::isReal(s)){
-				// dynamic precision
-				size_t digits = 0;
-				for(char c: s){ if(std::isdigit(c)) digits++; }
-				mpfr_prec_t prec = digits*4 + 16;
-				Real r(s, prec);
-				expr->setValue(r);
+				// Store as exact rational instead of approximate MPFR
+				Number n(s, false);
+				expr->setValue(n);
 			}
 		}catch(...){
 			// raise error

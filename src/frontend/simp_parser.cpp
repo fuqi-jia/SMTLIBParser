@@ -967,7 +967,8 @@ namespace SOMTParser{
                     return mkUnknown();
                 }
                 if(l->isCInt() && r->isCInt()){
-                    return mkConstInt(toInt(l) / toInt(r));
+                    // SMT-LIB div uses floor semantics (towards -inf), not C++ truncation
+                    return mkConstInt(toInt(l).floorDiv(toInt(r)));
                 }
                 else if((l->isCReal() && r->isCReal()) || (l->isCInt() && r->isCReal()) || (l->isCReal() && r->isCInt()) || (l->isCInt() && r->isCInt())){
                     if(getEvaluateUseFloating()){
@@ -981,17 +982,22 @@ namespace SOMTParser{
                 if(!canPerformArithmeticOp(l) || !canPerformArithmeticOp(r)){
                     return mkUnknown();
                 }
-                if((l->isCReal() && r->isCReal()) || (l->isCInt() && r->isCReal()) || (l->isCReal() && r->isCInt()) || (l->isCInt() && r->isCInt())){
-                    if(getOptions()->keep_division_if_not_divisible){
-                        if((toReal(l) / toReal(r)).isInteger()){
-                            return mkConstInt((toReal(l) / toReal(r)).floor().toInt());
-                        }
-                        else{
-                            // keep original representation
-                        }
+                if(l->isCInt() && r->isCInt()){
+                    ensureNumberValue(l);
+                    ensureNumberValue(r);
+                    Number a = l->getValue()->getNumberValue();
+                    Number b = r->getValue()->getNumberValue();
+                    if(!b.isZero()){
+                        return mkConstReal(a / b);
                     }
-                    else if(getEvaluateUseFloating()){
-                        return mkConstReal(toReal(l) / toReal(r));
+                }
+                else if((l->isCReal() && r->isCReal()) || (l->isCInt() && r->isCReal()) || (l->isCReal() && r->isCInt())){
+                    ensureNumberValue(l);
+                    ensureNumberValue(r);
+                    Number a = l->getValue()->getNumberValue();
+                    Number b = r->getValue()->getNumberValue();
+                    if(!b.isZero()){
+                        return mkConstReal(a / b);
                     }
                 }
                 return mkUnknown();
@@ -1513,11 +1519,17 @@ namespace SOMTParser{
                     return mkConstInt(toInt(l) + toInt(r));
                 }
                 else if(l->isCReal() && r->isCReal()){
-                    return mkConstReal(toReal(l) + toReal(r));
+                    ensureNumberValue(l);
+                    ensureNumberValue(r);
+                    Number a = l->getValue()->getNumberValue();
+                    Number b = r->getValue()->getNumberValue();
+                    return mkConstReal(a + b);
                 }
                 else if((l->isCInt() || l->isCReal()) && (r->isCInt() || r->isCReal())){
-                    Real lv = l->isCReal() ? toReal(l) : Real(toInt(l).toString());
-                    Real rv = r->isCReal() ? toReal(r) : Real(toInt(r).toString());
+                    ensureNumberValue(l);
+                    ensureNumberValue(r);
+                    Number lv = l->getValue()->getNumberValue();
+                    Number rv = r->getValue()->getNumberValue();
                     return mkConstReal(lv + rv);
                 }
                 return mkUnknown();
@@ -1531,11 +1543,17 @@ namespace SOMTParser{
                     return mkConstInt(toInt(l) * toInt(r));
                 }
                 else if(l->isCReal() && r->isCReal()){
-                    return mkConstReal(toReal(l) * toReal(r));
+                    ensureNumberValue(l);
+                    ensureNumberValue(r);
+                    Number a = l->getValue()->getNumberValue();
+                    Number b = r->getValue()->getNumberValue();
+                    return mkConstReal(a * b);
                 }
                 else if((l->isCInt() || l->isCReal()) && (r->isCInt() || r->isCReal())){
-                    Real lv = l->isCReal() ? toReal(l) : Real(toInt(l).toString());
-                    Real rv = r->isCReal() ? toReal(r) : Real(toInt(r).toString());
+                    ensureNumberValue(l);
+                    ensureNumberValue(r);
+                    Number lv = l->getValue()->getNumberValue();
+                    Number rv = r->getValue()->getNumberValue();
                     return mkConstReal(lv * rv);
                 }
                 return mkUnknown();
@@ -1555,11 +1573,17 @@ namespace SOMTParser{
                     return mkConstInt(toInt(l) - toInt(r));
                 }
                 else if(l->isCReal() && r->isCReal()){
-                    return mkConstReal(toReal(l) - toReal(r));
+                    ensureNumberValue(l);
+                    ensureNumberValue(r);
+                    Number a = l->getValue()->getNumberValue();
+                    Number b = r->getValue()->getNumberValue();
+                    return mkConstReal(a - b);
                 }
                 else if((l->isCInt() || l->isCReal()) && (r->isCInt() || r->isCReal())){
-                    Real lv = l->isCReal() ? toReal(l) : Real(toInt(l).toString());
-                    Real rv = r->isCReal() ? toReal(r) : Real(toInt(r).toString());
+                    ensureNumberValue(l);
+                    ensureNumberValue(r);
+                    Number lv = l->getValue()->getNumberValue();
+                    Number rv = r->getValue()->getNumberValue();
                     return mkConstReal(lv - rv);
                 }
                 else if(isZero(l)){
