@@ -1897,14 +1897,13 @@ namespace SOMTParser{
 		// Enter the initial "("
 		parseLpar();
 		
+		std::string preserving_let_bind_var_suffix = PRESERVING_LET_BIND_VAR_SUFFIX + std::to_string(preserving_let_counter);
+		
 		// Main loop to handle all nested let expressions
 		while (!stateStack.empty()) {
 			auto &currentState = stateStack.back();
 			auto &params = currentState.params;
 			auto &key_list = currentState.key_list;
-			
-			// Each let level gets a unique suffix for shadowing support
-			std::string preserving_let_bind_var_suffix = PRESERVING_LET_BIND_VAR_SUFFIX + std::to_string(preserving_let_counter + currentState.nesting_level);
 			
 			if(!currentState.is_complete){
 				// Parse the current let bindings
@@ -1916,8 +1915,8 @@ namespace SOMTParser{
 					std::string name = getSymbol();
 					std::string prefixed_name = name + preserving_let_bind_var_suffix;
 					
-					// Check for duplicate key bindings within the current level only
-					if (std::find(key_list.begin(), key_list.end(), prefixed_name) != key_list.end()) {
+					// Check for duplicate key bindings
+					if (getSymbolManager()->hasPreservingLet(prefixed_name)) {
 						// Clean up all variable bindings in the state stack
 						for (auto &state : stateStack) {
 							getSymbolManager()->erasePreservingLetKeys(state.key_list);
@@ -1963,7 +1962,6 @@ namespace SOMTParser{
 				condAssert(let_key == "let", "Invalid keyword for let");
 				parseLpar();  // Consume the second let expression's starting '('
 				
-				preserving_let_counter += 1;
 				stateStack.emplace_back(LetContext(currentState.nesting_level + 1));
 			}
 			else{
