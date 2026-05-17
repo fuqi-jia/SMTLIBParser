@@ -645,8 +645,7 @@ namespace SOMTParser{
 			std::shared_ptr<DAGNode> var = getSymbolManager()->resolveTerm(s, scope);
 			if (var) return var;
 			// 0-arity defined/declared functions (e.g. define-fun ref!3 () ...) are stored in fun_key_map;
-			// resolveTerm does not look there. Build application node without expanding to avoid
-			// applyFunPostOrder and potential performance issues on large files.
+			// resolveTerm does not look there.
 			std::shared_ptr<DAGNode> func = getSymbolManager()->resolveFun(s);
 			if (func && func->getFuncParamsSize() == 0) {
 				// Check if this is a nullary DT constructor
@@ -654,7 +653,10 @@ namespace SOMTParser{
 				if(ret_sort && ret_sort->isDatatype() && ret_sort->hasDtConstructor(s)) {
 					return getNodeManager()->createNode(ret_sort, NODE_KIND::NT_DT_CONSTRUCTOR, s, {});
 				}
-				return mkApplyFunc(func, std::vector<std::shared_ptr<DAGNode>>{});
+				// Nullary functions go through applyFun uniformly so that
+				// expand_functions / expand_recursive_functions are handled
+				// in a single place (applyFun), not duplicated here.
+				return applyFun(func, std::vector<std::shared_ptr<DAGNode>>{});
 			}
 		}
 		// otherwise, it is a constant
