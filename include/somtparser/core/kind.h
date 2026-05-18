@@ -164,8 +164,6 @@ namespace SOMTParser{
         NODE_KIND::NT_POS_INFINITY,
         NODE_KIND::NT_NEG_INFINITY
     };
-    // only used in preserving let mode
-    const std::string PRESERVING_LET_BIND_VAR_SUFFIX = "_SOMTParser_Preserving_Let_Bind_Var_Suffix_"; // +k
     const std::unordered_map<std::string, NODE_KIND> kind_key_map = {
         {"true", NODE_KIND::NT_CONST_TRUE},
         {"false", NODE_KIND::NT_CONST_FALSE},

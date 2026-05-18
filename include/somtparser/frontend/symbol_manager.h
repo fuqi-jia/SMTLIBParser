@@ -23,8 +23,6 @@ namespace SOMTParser {
 
 /** Scope flags for resolve (Parser decides from let/quant state). */
 struct ResolveScope {
-    std::string preserving_let_name;  /**< e.g. s + suffix + counter; empty if not in preserving-let */
-    bool check_preserving_let = false;
     bool check_let = false;
     bool in_quantifier_scope = false;
 };
@@ -49,17 +47,12 @@ public:
     std::shared_ptr<DAGNode> resolveFun(const std::string& name) const;
     std::shared_ptr<Sort> resolveSort(const std::string& name) const;
 
-    // --- Let scope ---
-    void registerLet(const std::string& name, const std::shared_ptr<DAGNode>& node);
+    // --- Let scope (unified: both normal and preserving let) ---
+    void pushLetScope();
+    void popLetScope();
     void popLetScope(const std::vector<std::string>& keys);
+    void registerLet(const std::string& name, const std::shared_ptr<DAGNode>& node);
     bool hasLet(const std::string& name) const;
-
-    // --- Preserving let ---
-    void registerPreservingLet(const std::string& name, const std::shared_ptr<DAGNode>& node);
-    std::shared_ptr<DAGNode> getPreservingLet(const std::string& name) const;
-    void erasePreservingLet(const std::string& key);
-    void erasePreservingLetKeys(const std::vector<std::string>& keys);
-    bool hasPreservingLet(const std::string& name) const;
 
     // --- Function / fun var ---
     void registerFun(const std::string& name, const std::shared_ptr<DAGNode>& node);
@@ -118,8 +111,14 @@ public:
     void removeFun(const std::string& name);
 
 private:
+    struct LetBackup {
+        std::string name;
+        std::shared_ptr<DAGNode> oldNode;
+        bool hadOld;
+    };
     std::unordered_map<std::string, std::shared_ptr<DAGNode>> let_key_map_;
-    std::unordered_map<std::string, std::shared_ptr<DAGNode>> preserving_let_key_map_;
+    std::vector<LetBackup> let_scope_backup_;
+    std::vector<size_t> let_scope_checkpoints_;
     std::unordered_map<std::string, std::shared_ptr<DAGNode>> fun_key_map_;
     std::unordered_map<std::string, std::shared_ptr<DAGNode>> fun_var_map_;
     std::unordered_map<std::string, std::shared_ptr<Sort>> sort_key_map_;

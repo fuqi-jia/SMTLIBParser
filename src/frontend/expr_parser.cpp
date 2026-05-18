@@ -372,7 +372,6 @@ namespace SOMTParser{
                     else if(head == "let"){
                         if(let_nesting_depth == 0){
                             current_let_mode = LET_MODE::LM_START_LET;
-                            preserving_let_counter += 1;
                         }else if(current_let_mode == LET_MODE::LM_START_LET){
                             current_let_mode = LET_MODE::LM_IN_LET;
                         }
@@ -638,9 +637,7 @@ namespace SOMTParser{
 		}
 		{
 			ResolveScope scope;
-			scope.preserving_let_name = s + PRESERVING_LET_BIND_VAR_SUFFIX + std::to_string(preserving_let_counter);
-			scope.check_preserving_let = (getOptions()->parsing_preserve_let && current_let_mode != LET_MODE::LM_NON_LET);
-			scope.check_let = (!getOptions()->parsing_preserve_let && current_let_mode != LET_MODE::LM_NON_LET);
+			scope.check_let = (current_let_mode != LET_MODE::LM_NON_LET);
 			scope.in_quantifier_scope = in_quantifier_scope;
 			std::shared_ptr<DAGNode> var = getSymbolManager()->resolveTerm(s, scope);
 			if (var) return var;

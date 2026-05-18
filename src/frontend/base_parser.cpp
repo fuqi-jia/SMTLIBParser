@@ -41,7 +41,6 @@ namespace SOMTParser{
 		buflen = 0;
 		line_number = 0;
 		scan_mode = SCAN_MODE::SM_COMMON;
-		preserving_let_counter = 0;
 		let_nesting_depth = 0;
 		parsing_file = false;
 		in_quantifier_scope = false;
@@ -72,7 +71,6 @@ namespace SOMTParser{
 		buflen = 0;
 		line_number = 0;
 		scan_mode = SCAN_MODE::SM_COMMON;
-		preserving_let_counter = 0;
 		let_nesting_depth = 0;
 		parsing_file = true;
 		in_quantifier_scope = false;
@@ -1863,11 +1861,12 @@ namespace SOMTParser{
 	// struct for let context
 	struct LetContext {
 		std::vector<std::shared_ptr<DAGNode>> params;  // let bind vars for current level
-		std::vector<std::string> key_list;
 		std::shared_ptr<DAGNode> result;  // Store the result directly
 		std::shared_ptr<DAGNode> bind_var_list;  // LET_BIND_VAR_LIST for current level
 		int nesting_level;
 		bool is_complete;
+		bool scope_pushed = false;
+		std::unordered_set<std::string> frame_names;
 		
 		LetContext(int level = 0) : result(nullptr), bind_var_list(nullptr), nesting_level(level), is_complete(false) {}
 	};
@@ -1882,116 +1881,90 @@ namespace SOMTParser{
 	// LET_BIND_VAR_LIST: [(<symbol> expr)]
 	// Body: expr
 	std::shared_ptr<DAGNode> Parser::parsePreservingLet(){
-		// This function uses an iterative approach instead of recursion to handle nested let expressions
-		// and constructs let-chain to avoid deep nesting issues
+		// Iterative let parser that preserves let-structure as NT_LET_CHAIN.
+		// Uses unified let scope with pushLetScope/popLetScope for shadowing support.
 		
-		// Create a stack to store parsing states and contexts
 		std::vector<LetContext> stateStack;
-		
-		// Collect all bind_var_lists for final let-chain construction
 		std::vector<std::shared_ptr<DAGNode>> all_bind_var_lists;
-		
-		// Push initial state onto the stack
 		stateStack.emplace_back(LetContext(0));
-		
-		// Enter the initial "("
 		parseLpar();
 		
-		std::string preserving_let_bind_var_suffix = PRESERVING_LET_BIND_VAR_SUFFIX + std::to_string(preserving_let_counter);
-		
-		// Main loop to handle all nested let expressions
 		while (!stateStack.empty()) {
 			auto &currentState = stateStack.back();
 			auto &params = currentState.params;
-			auto &key_list = currentState.key_list;
 			
 			if(!currentState.is_complete){
-				// Parse the current let bindings
+				getSymbolManager()->pushLetScope();
+				currentState.scope_pushed = true;
+				
 				while (*bufptr != ')') {
-					// Process binding expression (<symbol> expr)
 					parseLpar();
-					
 					size_t name_ln = line_number;
 					std::string name = getSymbol();
-					std::string prefixed_name = name + preserving_let_bind_var_suffix;
 					
-					// Check for duplicate key bindings
-					if (getSymbolManager()->hasPreservingLet(prefixed_name)) {
-						// Clean up all variable bindings in the state stack
+					if (currentState.frame_names.count(name)) {
 						for (auto &state : stateStack) {
-							getSymbolManager()->erasePreservingLetKeys(state.key_list);
+							if (state.scope_pushed) {
+								getSymbolManager()->popLetScope();
+								state.scope_pushed = false;
+							}
 						}
 						err_sym_mis("Duplicate variable binding: " + name, name_ln);
 					}
 					
-					// Parse the expression value (this won't trigger recursive let parsing)
 					std::shared_ptr<DAGNode> expr = parseExpr();
-					
 					if (expr->isErr()) {
-						// Clean up all variable bindings in the state stack
 						for (auto &state : stateStack) {
-							getSymbolManager()->erasePreservingLetKeys(state.key_list);
+							if (state.scope_pushed) {
+								getSymbolManager()->popLetScope();
+								state.scope_pushed = false;
+							}
 						}
 						err_all(expr, name, name_ln);
 					}
 					
-				// make let-binding variable
-				std::shared_ptr<DAGNode> let_var = mkLetBindVar(prefixed_name, expr);
-				// Add the binding inside the mkLetBindVar
-				// Add to params in the correct order - bindings first, body later
-				params.emplace_back(let_var);
-				key_list.emplace_back(prefixed_name);
+					std::shared_ptr<DAGNode> let_var = mkLetBindVar(name, expr);
+					getSymbolManager()->registerLet(name, let_var);
+					currentState.frame_names.insert(name);
+					params.emplace_back(let_var);
+					parseRpar();
+				}
 				
+				currentState.bind_var_list = mkLetBindVarList(params);
+				all_bind_var_lists.emplace_back(currentState.bind_var_list);
 				parseRpar();
 			}
 			
-			// Create LET_BIND_VAR_LIST for current level and add to collection
-			currentState.bind_var_list = mkLetBindVarList(params);
-			all_bind_var_lists.emplace_back(currentState.bind_var_list);
-			
-			// Finished parsing all bindings for the current let, handle the closing parenthesis
-			parseRpar();
-		}
-		
-		// Process the body of the let expression
 			if (*bufptr == '(' && peekSymbol() == "let") {
-				// If the body is another let expression, we don't recursively call parseLet
-				// Instead, push it as a new state onto the stack
-				parseLpar();  // Consume '('
-				std::string let_key = getSymbol();  // Consume "let"
+				parseLpar();
+				std::string let_key = getSymbol();
 				condAssert(let_key == "let", "Invalid keyword for let");
-				parseLpar();  // Consume the second let expression's starting '('
-				
+				parseLpar();
 				stateStack.emplace_back(LetContext(currentState.nesting_level + 1));
 			}
 			else{
 				if(*bufptr != ')'){
-					// Parse the let body and store as result
 					currentState.result = parseExpr();
 				}
 				
-				// State processing complete, pop from stack
 				auto completedState = currentState;
+				if (completedState.scope_pushed) {
+					getSymbolManager()->popLetScope();
+					completedState.scope_pushed = false;
+				}
 				stateStack.pop_back();
 				
-				// If stack is empty, construct final let-chain and return
 				if (stateStack.empty()) {
-					// Create let-chain with all collected bind_var_lists + final body
-					std::shared_ptr<DAGNode> result = mkLetChain(all_bind_var_lists, completedState.result);
-					return result;
+					return mkLetChain(all_bind_var_lists, completedState.result);
 				}
 				else{
-					// Consume the closing parenthesis if needed
 					parseRpar();
-					
-					// Pass the result to parent level (don't create let-chain yet)
 					stateStack.back().result = completedState.result;
 					stateStack.back().is_complete = true;
 				}
 			}
 		}
 		
-		// Should not reach here, but added for safety  
 		return mkErr(ERROR_TYPE::ERR_UNEXP_EOF);
 	}
 	/*
@@ -1999,72 +1972,64 @@ namespace SOMTParser{
 	(let (<keybinding>+) expr), return expr
 	*/
 	std::shared_ptr<DAGNode> Parser::parseLet() {
-		// This function uses an iterative approach instead of recursion to handle nested let expressions
+		// Iterative let parser that expands let-bindings inline.
+		// Uses unified let scope with pushLetScope/popLetScope for shadowing support.
 		
-		// Create a stack to store parsing states and contexts
 		std::vector<LetContext> stateStack;
-		
-		// Push initial state onto the stack
 		stateStack.emplace_back(LetContext(0));
-		
-		// Enter the initial "("
 		parseLpar();
 		
-		// Main loop to handle all nested let expressions
 		while (!stateStack.empty()) {
-
 			auto &currentState = stateStack.back();
 			auto &params = currentState.params;
-			auto &key_list = currentState.key_list;
 			
 			if(!currentState.is_complete){
-				// Parse the current let bindings
+				getSymbolManager()->pushLetScope();
+				currentState.scope_pushed = true;
+				
 				while (*bufptr != ')') {
-					// Process binding expression (<symbol> expr)
 					parseLpar();
-					
 					size_t name_ln = line_number;
 					std::string name = getSymbol();
 					
-					// Check for duplicate key bindings
-					if (getSymbolManager()->hasLet(name)) {
-						// Clean up all variable bindings in the state stack
+					if (currentState.frame_names.count(name)) {
 						for (auto &state : stateStack) {
-							getSymbolManager()->popLetScope(state.key_list);
+							if (state.scope_pushed) {
+								getSymbolManager()->popLetScope();
+								state.scope_pushed = false;
+							}
 						}
 						err_sym_mis("Duplicate variable binding: " + name, name_ln);
 					}
 					
-					// Parse the expression value (this won't trigger recursive let parsing)
 					std::shared_ptr<DAGNode> expr = parseExpr();
-					
 					if (expr->isErr()) {
-						// Clean up all variable bindings in the state stack
 						for (auto &state : stateStack) {
-							getSymbolManager()->popLetScope(state.key_list);
+							if (state.scope_pushed) {
+								getSymbolManager()->popLetScope();
+								state.scope_pushed = false;
+							}
 						}
 						err_all(expr, name, name_ln);
 					}
 					
-					// Add the binding
 					getSymbolManager()->registerLet(name, expr);
+					currentState.frame_names.insert(name);
 					params.emplace_back(expr);
-					key_list.emplace_back(name);
-					
 					parseRpar();
 				}
 				
-				// Finished parsing all bindings for the current let, handle the closing parenthesis
 				parseRpar();
 			}
 			
-			// Body was already parsed by a nested let; we're at ')' closing this let
 			if (currentState.is_complete && *bufptr == ')') {
-				getSymbolManager()->popLetScope(key_list);
+				if (currentState.scope_pushed) {
+					getSymbolManager()->popLetScope();
+					currentState.scope_pushed = false;
+				}
 				std::shared_ptr<DAGNode> result = currentState.result;
 				stateStack.pop_back();
 				if (stateStack.empty()) {
-					// Caller (expr_parser) will parseRpar() to consume this ')'
 					return result;
 				}
 				parseRpar();
@@ -2073,15 +2038,11 @@ namespace SOMTParser{
 				continue;
 			}
 
-			// Process the body of the let expression
 			if (*bufptr == '(' && peekSymbol() == "let") {
-				// If the body is another let expression, we don't recursively call parseLet
-				// Instead, push it as a new state onto the stack
-				parseLpar();  // Consume '('
-				std::string let_key = getSymbol();  // Consume "let"
+				parseLpar();
+				std::string let_key = getSymbol();
 				condAssert(let_key == "let", "Invalid keyword for let");
-				parseLpar();  // Consume the second let expression's starting '('
-				
+				parseLpar();
 				stateStack.emplace_back(LetContext(currentState.nesting_level + 1));
 			}
 			else{
@@ -2090,33 +2051,25 @@ namespace SOMTParser{
 					currentState.result = parseExpr();
 					completedResult = currentState.result;
 				} else {
-					// Empty let body is invalid
 					currentState.result = mkErr(ERROR_TYPE::ERR_UNEXP_EOF);
 					completedResult = currentState.result;
 				}
-				// Save result already in completedResult; pop_back invalidates currentState
-
-				// Remove all variable bindings for the current state
-				getSymbolManager()->popLetScope(key_list);
-
-				// State processing complete, pop from stack
+				if (currentState.scope_pushed) {
+					getSymbolManager()->popLetScope();
+					currentState.scope_pushed = false;
+				}
 				stateStack.pop_back();
-
-				// If stack is empty, return the result directly
 				if (stateStack.empty()) {
 					return completedResult;
 				}
 				else{
-					// Consume the closing parenthesis
 					parseRpar();
-					// Store the result in the parent context
 					stateStack.back().result = completedResult;
 					stateStack.back().is_complete = true;
 				}
 			}
 		}
 		
-		// Should not reach here, but added for safety
 		return mkErr(ERROR_TYPE::ERR_UNEXP_EOF);
 	}
 

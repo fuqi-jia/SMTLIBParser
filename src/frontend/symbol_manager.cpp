@@ -4,6 +4,7 @@
 
 #include "somtparser/frontend/symbol_manager.h"
 #include <algorithm>
+#include <cassert>
 
 namespace SOMTParser {
 
@@ -11,7 +12,8 @@ SymbolManager::SymbolManager() = default;
 
 void SymbolManager::reserve(size_t capacity) {
     let_key_map_.reserve(capacity);
-    preserving_let_key_map_.reserve(capacity);
+    let_scope_backup_.reserve(capacity);
+    let_scope_checkpoints_.reserve(capacity);
     fun_key_map_.reserve(capacity);
     fun_var_map_.reserve(capacity);
     sort_key_map_.reserve(capacity);
@@ -28,11 +30,6 @@ std::shared_ptr<DAGNode> SymbolManager::resolveSymbol(const std::string& name, c
     if (it_ph != placeholder_var_names_.end())
         return it_ph->second;
 
-    if (scope.check_preserving_let && !scope.preserving_let_name.empty()) {
-        auto it = preserving_let_key_map_.find(scope.preserving_let_name);
-        if (it != preserving_let_key_map_.end())
-            return it->second;
-    }
     if (scope.check_let) {
         auto it = let_key_map_.find(name);
         if (it != let_key_map_.end())
@@ -72,11 +69,6 @@ std::shared_ptr<DAGNode> SymbolManager::resolveTerm(const std::string& name, con
     if (it_ph != placeholder_var_names_.end())
         return it_ph->second;
 
-    if (scope.check_preserving_let && !scope.preserving_let_name.empty()) {
-        auto it = preserving_let_key_map_.find(scope.preserving_let_name);
-        if (it != preserving_let_key_map_.end())
-            return it->second;
-    }
     if (scope.check_let) {
         auto it = let_key_map_.find(name);
         if (it != let_key_map_.end())
@@ -125,37 +117,46 @@ std::shared_ptr<Sort> SymbolManager::resolveSort(const std::string& name) const 
     return it != sort_key_map_.end() ? it->second : nullptr;
 }
 
-void SymbolManager::registerLet(const std::string& name, const std::shared_ptr<DAGNode>& node) {
-    let_key_map_[name] = node;
+void SymbolManager::pushLetScope() {
+    let_scope_checkpoints_.push_back(let_scope_backup_.size());
+}
+
+void SymbolManager::popLetScope() {
+    assert(!let_scope_checkpoints_.empty() && "popLetScope: no checkpoint to pop");
+    size_t checkpoint = let_scope_checkpoints_.back();
+    let_scope_checkpoints_.pop_back();
+    // Restore from the end of backup list back to checkpoint
+    for (size_t i = let_scope_backup_.size(); i > checkpoint; --i) {
+        const LetBackup& backup = let_scope_backup_[i - 1];
+        if (backup.hadOld) {
+            let_key_map_[backup.name] = backup.oldNode;
+        } else {
+            let_key_map_.erase(backup.name);
+        }
+    }
+    let_scope_backup_.resize(checkpoint);
 }
 
 void SymbolManager::popLetScope(const std::vector<std::string>& keys) {
     for (const auto& k : keys) let_key_map_.erase(k);
 }
 
+void SymbolManager::registerLet(const std::string& name, const std::shared_ptr<DAGNode>& node) {
+    LetBackup backup;
+    backup.name = name;
+    auto it = let_key_map_.find(name);
+    if (it != let_key_map_.end()) {
+        backup.oldNode = it->second;
+        backup.hadOld = true;
+    } else {
+        backup.hadOld = false;
+    }
+    let_scope_backup_.push_back(std::move(backup));
+    let_key_map_[name] = node;
+}
+
 bool SymbolManager::hasLet(const std::string& name) const {
     return let_key_map_.find(name) != let_key_map_.end();
-}
-
-void SymbolManager::registerPreservingLet(const std::string& name, const std::shared_ptr<DAGNode>& node) {
-    preserving_let_key_map_[name] = node;
-}
-
-std::shared_ptr<DAGNode> SymbolManager::getPreservingLet(const std::string& name) const {
-    auto it = preserving_let_key_map_.find(name);
-    return it != preserving_let_key_map_.end() ? it->second : nullptr;
-}
-
-void SymbolManager::erasePreservingLet(const std::string& key) {
-    preserving_let_key_map_.erase(key);
-}
-
-void SymbolManager::erasePreservingLetKeys(const std::vector<std::string>& keys) {
-    for (const auto& k : keys) preserving_let_key_map_.erase(k);
-}
-
-bool SymbolManager::hasPreservingLet(const std::string& name) const {
-    return preserving_let_key_map_.find(name) != preserving_let_key_map_.end();
 }
 
 void SymbolManager::registerFun(const std::string& name, const std::shared_ptr<DAGNode>& node) {

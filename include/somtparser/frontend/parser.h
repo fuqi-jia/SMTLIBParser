@@ -133,8 +133,7 @@ namespace SOMTParser{
         char			                        *bufptr;
         size_t 	                                line_number;
         SCAN_MODE 		                        scan_mode;
-        size_t                                  preserving_let_counter; // only used in preserving let mode
-        LET_MODE 		                        current_let_mode; // only used in preserving let mode
+        LET_MODE 		                        current_let_mode; // tracks whether parser is inside a let expression
         size_t                                  let_nesting_depth; // track let nesting depth
         size_t                                  quant_nesting_depth; // track quantifier nesting depth
         bool                                    in_quantifier_scope;

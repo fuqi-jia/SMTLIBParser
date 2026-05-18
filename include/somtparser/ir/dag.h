@@ -743,9 +743,6 @@ namespace SOMTParser{
 
         // get pure variable name for let bind var
         std::string getPureName()   const {
-            if(isLetBindVar()){
-                return name.substr(0, name.find(PRESERVING_LET_BIND_VAR_SUFFIX));
-            }
             return name;
         }
 

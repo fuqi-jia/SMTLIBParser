@@ -561,13 +561,9 @@ namespace SOMTParser{
 
     // LET
     std::shared_ptr<DAGNode> Parser::mkLetBindVar(const std::string& name, const std::shared_ptr<DAGNode>& expr){
-        if(getSymbolManager()->hasPreservingLet(name)){
-            return getSymbolManager()->getPreservingLet(name);
-        }
         std::vector<std::shared_ptr<DAGNode>> children;
         children.emplace_back(expr);
         std::shared_ptr<DAGNode> new_var = getNodeManager()->createNode(expr->getSort(), NODE_KIND::NT_LET_BIND_VAR, name, children);
-        getSymbolManager()->registerPreservingLet(name, new_var);
         return new_var;
     }
 
