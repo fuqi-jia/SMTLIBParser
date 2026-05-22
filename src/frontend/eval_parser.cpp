@@ -2263,7 +2263,14 @@ namespace SOMTParser{
                         hasChangedMap[currentNode] = true;
                     } else if(hasChanged) {
                         // if some children have been replaced, reconstruct the node
-                        result = mkOper(currentNode->getSort(), currentNode->getKind(), processedChildren);
+                        // For UFApply, preserve the original function name (mkOper uses
+                        // kindToString() which overwrites "f1" with "UF_APPLY").
+                        // For other kinds, keep mkOper to retain simp_oper folding.
+                        if(currentNode->getKind() == NODE_KIND::NT_UF_APPLY || currentNode->getKind() == NODE_KIND::NT_FUNC_APPLY){
+                            result = getNodeManager()->createNode(currentNode->getSort(), currentNode->getKind(), currentNode->getName(), processedChildren);
+                        } else {
+                            result = mkOper(currentNode->getSort(), currentNode->getKind(), processedChildren);
+                        }
                         hasChangedMap[currentNode] = true;
                     } else {
                         // no change, keep the original node
