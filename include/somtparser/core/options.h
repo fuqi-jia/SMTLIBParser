@@ -88,12 +88,14 @@ namespace SOMTParser{
                 logic_name == "QF_ABVFP" ||
                 logic_name == "QF_ABVFPLRA" ||
                 logic_name == "QF_ALIA" ||
+                logic_name == "QF_ALRA" ||
                 logic_name == "QF_ANIA" ||
                 logic_name == "QF_AUFBV" ||
                 logic_name == "QF_AUFBVFP" ||
                 logic_name == "QF_AUFBVLIA" ||
                 logic_name == "QF_AUFBVNIA" ||
                 logic_name == "QF_AUFLIA" ||
+                logic_name == "QF_AUFLRA" ||
                 logic_name == "QF_AUFNIA" ||
                 logic_name == "QF_AX" ||
                 logic_name == "QF_BV" ||
