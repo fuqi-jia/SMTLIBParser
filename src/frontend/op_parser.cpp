@@ -1240,9 +1240,15 @@ namespace SOMTParser{
                     );
                 }
                 else if(new_params[0]->isCReal() && new_params[1]->isCReal()){
-                    return mkConstReal(
-                        toReal(new_params[0]) * toReal(new_params[1])
-                    );
+                    // Fold with EXACT rational arithmetic (Number), not MPFR Real:
+                    // toReal() rounds to a fixed precision, so two spellings of the
+                    // same exact value (e.g. a literal vs a Horner expansion) would
+                    // become unequal constants and produce a spurious UNSAT.
+                    ensureNumberValue(new_params[0]);
+                    ensureNumberValue(new_params[1]);
+                    Number a = new_params[0]->getValue()->getNumberValue();
+                    Number b = new_params[1]->getValue()->getNumberValue();
+                    return mkConstReal(a * b);
                 }
             }
             return mkOper(sort, NODE_KIND::NT_MUL, new_params);
@@ -1357,9 +1363,12 @@ namespace SOMTParser{
                 );
             }
             else if(sort->isReal() && new_params[0]->isCReal() && new_params[1]->isCReal()){
-                return mkConstReal(
-                    toReal(new_params[0]) - toReal(new_params[1])
-                );
+                // Fold with EXACT rational arithmetic (Number), not MPFR Real.
+                ensureNumberValue(new_params[0]);
+                ensureNumberValue(new_params[1]);
+                Number a = new_params[0]->getValue()->getNumberValue();
+                Number b = new_params[1]->getValue()->getNumberValue();
+                return mkConstReal(a - b);
             }
             else if(isZero(new_params[0])){
                 return mkNeg(new_params[1]);
