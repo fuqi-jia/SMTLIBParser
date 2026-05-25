@@ -2268,26 +2268,32 @@ namespace SOMTParser{
             return selectNode;
         }
 
-        // Scan store chain: most recent write takes priority
+        // Read-over-write 1 (RoW1): if the read index is DEFINITELY EQUAL to a
+        // store index, the result is that store's value. We may only skip a
+        // store if the indices are DEFINITELY DISTINCT — and for symbolic
+        // indices we cannot prove distinctness here. So we stop at the first
+        // store whose index is not definitely equal and leave the select in
+        // place; the array theory solver applies read-over-write (incl. RoW2)
+        // lazily and soundly.
+        //
+        // SOUNDNESS FIX: the previous code skipped EVERY non-matching store
+        // unconditionally (cur = cur->getStoreArray()) and reduced to
+        // select(base, index). For symbolic indices that silently dropped the
+        // intervening writes — e.g. select(store(b,i,v),j) became select(b,j),
+        // which is wrong unless i != j.
         std::shared_ptr<DAGNode> cur = array;
-        while (cur && cur->isStore()) {
+        if (cur && cur->isStore()) {
             std::shared_ptr<DAGNode> sIdx = cur->getStoreIndex();
             std::shared_ptr<DAGNode> sVal = cur->getStoreValue();
-
             if (areDefinitelyEqual(index, sIdx)) {
-                // Found matching index, return the value
                 array_select_cache[key] = sVal;
                 return sVal;
             }
-
-            cur = cur->getStoreArray();
         }
 
-        // No matching index found, reduce to select(base, index)
-        // Use mkOper directly to avoid recursive call to simplifyArray
-        std::shared_ptr<DAGNode> reduced = mkOper(cur->getSort()->getElemSort(), NODE_KIND::NT_SELECT, cur, index);
-        array_select_cache[key] = reduced;
-        return reduced;
+        // Cannot simplify soundly — keep the original select over the store.
+        array_select_cache[key] = selectNode;
+        return selectNode;
     }
 
     std::shared_ptr<DAGNode> Parser::normalizeStoreChain(std::shared_ptr<DAGNode> arrayTerm) {
@@ -2295,42 +2301,16 @@ namespace SOMTParser{
             return arrayTerm;
         }
 
-        // Check cache first
-        auto it = array_normalize_cache.find(arrayTerm);
-        if (it != array_normalize_cache.end()) {
-            return it->second;
-        }
-
-        StoreChain sc = collectStoreChain(arrayTerm);
-        
-        if (sc.updates.empty()) {
-            array_normalize_cache[arrayTerm] = sc.base;
-            return sc.base;
-        }
-
-        // Merge duplicate indices: latest overwrites older ones
-        std::unordered_map<std::shared_ptr<DAGNode>, std::shared_ptr<DAGNode>, NodeHash, NodeEqual> overwrite;
-        for (auto& kv : sc.updates) {
-            overwrite[kv.first] = kv.second;
-        }
-
-        // For stable hash-cons, need fixed order
-        // Use pointer-based ordering for deterministic results
-        std::vector<std::shared_ptr<DAGNode>> keys;
-        for (auto& kv : overwrite) {
-            keys.push_back(kv.first);
-        }
-        std::sort(keys.begin(), keys.end(), compareNodePtrLess);
-
-        // Reconstruct store chain (oldest -> newest)
-        // Use mkOper directly to avoid recursive call to simplifyArray during normalization
-        std::shared_ptr<DAGNode> res = sc.base;
-        for (auto idx : keys) {
-            res = mkOper(res->getSort(), NODE_KIND::NT_STORE, res, idx, overwrite[idx]);
-        }
-
-        array_normalize_cache[arrayTerm] = res;
-        return res;
+        // SOUNDNESS FIX: previously this merged store updates by structural
+        // index equality and REORDERED the chain by pointer
+        // (std::sort(..., compareNodePtrLess)). Reordering writes is unsound
+        // when symbolic indices can alias: store(store(b,i,x),j,y) and
+        // store(store(b,j,y),i,x) disagree when i == j. Merging across
+        // intervening writes is likewise unsound (an intervening index may
+        // equal an earlier one). We therefore preserve the store chain exactly;
+        // the array theory solver normalizes soundly via congruence + lazy
+        // read-over-write.
+        return arrayTerm;
     }
 
     std::shared_ptr<DAGNode> Parser::simplifyArray(std::shared_ptr<DAGNode> node) {
