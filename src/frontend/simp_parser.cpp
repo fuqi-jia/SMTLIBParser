@@ -2565,8 +2565,19 @@ namespace SOMTParser{
                 }
                 break;
             } else {
-                // Array variable
+                // Any other array term — an uninterpreted array-valued
+                // function application (f x), a (select arr-of-arr i), an ite,
+                // etc. — has an unknown value, so two such arrays CANNOT be
+                // shown unequal by canonical-form comparison. Treat as
+                // uncertain (the sole caller folds `(= a b)` to `false` only
+                // when BOTH operands are var-free concrete constant arrays;
+                // returning false here would have wrongly concluded distinct
+                // UF-array applications are unequal — an unsound false-UNSAT,
+                // e.g. `(= (RF t) (RF s))`).
                 if (cur->isVar() && cur->isArray()) {
+                    return true;
+                }
+                if (!cur->isConst()) {
                     return true;
                 }
                 break;
