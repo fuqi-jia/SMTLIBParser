@@ -36,15 +36,47 @@ Node Rewriter::rewriteOnce(Node root) {
         if (it != memo_.end())
             return it->second;
     }
-    std::vector<Node> newKids;
-    newKids.reserve(numChildren(root));
-    for (Node c : children(root)) {
-        newKids.push_back(c ? rewriteOnce(c) : nullptr);
+
+    // Iterative post-order (two-visit work-stack) to avoid call-stack overflow
+    // on deeply nested terms (let-expanded program-translation benchmarks
+    // recurse hundreds of thousands deep). Behavior-identical to the former
+    // recursion: children rewritten bottom-up, then rebuildLike + rule dispatch.
+    struct Frame { Node n; bool processed; };
+    std::vector<Frame> stack;
+    stack.push_back({root, false});
+
+    while (!stack.empty()) {
+        Frame& frame = stack.back();
+        Node n = frame.n;  // non-null: we never push null children
+
+        if (auto it = memo_.find(n); it != memo_.end()) {
+            stack.pop_back();
+            continue;
+        }
+
+        if (!frame.processed) {
+            frame.processed = true;  // do NOT touch `frame` after a push_back
+            const size_t nc = numChildren(n);
+            for (int i = static_cast<int>(nc) - 1; i >= 0; --i) {
+                Node c = child(n, i);
+                if (c && memo_.find(c) == memo_.end()) {
+                    stack.push_back({c, false});
+                }
+            }
+            continue;
+        }
+
+        stack.pop_back();
+        std::vector<Node> newKids;
+        newKids.reserve(numChildren(n));
+        for (Node c : children(n)) {
+            newKids.push_back(c ? memo_.at(c) : nullptr);
+        }
+        Node rebuilt = ctx_.rebuildLike(n, newKids);
+        memo_[n] = rules_.dispatch(rebuilt, ctx_);
     }
-    Node rebuilt = ctx_.rebuildLike(root, newKids);
-    Node result = rules_.dispatch(rebuilt, ctx_);
-    memo_[root] = result;
-    return result;
+
+    return memo_.at(root);
 }
 
 Node Rewriter::rewrite(Node root, bool enable_fixpoint, unsigned max_rounds) {
