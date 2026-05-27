@@ -2255,8 +2255,25 @@ namespace SOMTParser{
                 if(allChildrenProcessed) {
                     nodeStack.pop();
                     std::shared_ptr<DAGNode> result;
-                    
-                    if(currentNode->isLetBindVar()) {
+
+                    if(currentNode->isLet() || currentNode->isLetChain()) {
+                        // A NESTED let/let-chain (e.g. one sitting inside a
+                        // let-binding's value: (let ((a (let ((b ...)) ...))) ...)).
+                        // Its body's let_bind_var references were already
+                        // substituted during this traversal, so STRIP the let
+                        // wrapper and return the processed body — exactly as the
+                        // top-level let is stripped via resultMap[body] below.
+                        // Without this the inner NT_LET/NT_LET_CHAIN node is
+                        // reconstructed verbatim and survives expansion, reaching
+                        // the consumer as an unmapped node (false unknown on every
+                        // formula with a let nested in a binding value, e.g. the
+                        // CSE encodings in QF_ALIA SVCOMP).
+                        std::shared_ptr<DAGNode> innerBody = currentNode->isLet()
+                            ? currentNode->getChild(0)
+                            : currentNode->getChild(currentNode->getChildrenSize() - 1);
+                        result = resultMap[innerBody];
+                        hasChangedMap[currentNode] = true;
+                    } else if(currentNode->isLetBindVar()) {
                         // if the current node is a let_bind_var, replace it with its child(0)
                         condAssert(currentNode->getChildrenSize() > 0, "let_bind_var should have at least one child");
                         result = resultMap[currentNode->getChild(0)]; // use the processed child(0)
