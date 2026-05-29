@@ -759,6 +759,22 @@ namespace SOMTParser{
 	std::shared_ptr<DAGNode> Parser::parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params, bool indexed_under_score){
 		TIME_FUNC();
 		auto func = getSymbolManager()->resolveFun(s);
+		// Datatype tester/constructor/selector applied here: the indexed tester
+		// form (_ is C) registers as a FuncDec named "is-C", and an applied
+		// constructor/selector also resolves as a FuncDec — applyFun would emit a
+		// generic UF apply, losing the DT kind so downstream datatype reasoning
+		// treats the term as opaque (the QF_DT tester-on-constructor false-SAT
+		// class). Tag it with its true DT node kind first. getDtFunctionKind
+		// returns NT_UF_APPLY for non-DT functions, so this only affects genuine
+		// datatype applications (constructor: return sort is the DT; tester/
+		// selector: first arg sort is the DT and the name matches).
+		if(func){
+			NODE_KIND dtk = getDtFunctionKind(func->getSort(), s, oper_params);
+			if(dtk == NODE_KIND::NT_DT_TESTER || dtk == NODE_KIND::NT_DT_CONSTRUCTOR ||
+			   dtk == NODE_KIND::NT_DT_SELECTOR){
+				return getNodeManager()->createNode(func->getSort(), dtk, s, oper_params);
+			}
+		}
 		// Non-indexed (op ...): user define-fun / define-fun-rec / pending declare-fun (body) may shadow only allow_builtin_shadow names.
 		if(!indexed_under_score && func && (func->isFuncDef() || func->isFuncRec() || func->isFuncDec())){
 			if(!SOMTParser::isBuiltinNameReservedAgainstUserFun(s)){
