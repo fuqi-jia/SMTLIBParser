@@ -2282,8 +2282,20 @@ namespace SOMTParser{
                         // if some children have been replaced, reconstruct the node
                         // For UFApply, preserve the original function name (mkOper uses
                         // kindToString() which overwrites "f1" with "UF_APPLY").
+                        // SAME for DT kinds (constructor/selector/tester): the operator
+                        // NAME identifies which constructor (e.g. "stack" vs "empty").
+                        // mkOper would clobber it with kindToString(NT_DT_TESTER) =
+                        // "UNKNOWN_KIND", which propagates through xolver to a tester
+                        // EUF symbol "#dt.is.UNKNOWN_KIND" — DtReasoner's tester-
+                        // consistency then false-conflicts is-empty(u) ∧ u=empty
+                        // because "UNKNOWN_KIND" != "empty" (220/308 QF_DT blocksworld
+                        // BMC false-UNSATs class).
                         // For other kinds, keep mkOper to retain simp_oper folding.
-                        if(currentNode->getKind() == NODE_KIND::NT_UF_APPLY || currentNode->getKind() == NODE_KIND::NT_FUNC_APPLY){
+                        if(currentNode->getKind() == NODE_KIND::NT_UF_APPLY ||
+                           currentNode->getKind() == NODE_KIND::NT_FUNC_APPLY ||
+                           currentNode->getKind() == NODE_KIND::NT_DT_CONSTRUCTOR ||
+                           currentNode->getKind() == NODE_KIND::NT_DT_SELECTOR ||
+                           currentNode->getKind() == NODE_KIND::NT_DT_TESTER){
                             result = getNodeManager()->createNode(currentNode->getSort(), currentNode->getKind(), currentNode->getName(), processedChildren);
                         } else {
                             result = mkOper(currentNode->getSort(), currentNode->getKind(), processedChildren);
