@@ -1379,8 +1379,10 @@ namespace SOMTParser{
                 case '"':    // double quote: SMT-LIB2 standard encoding
                     result += "\"\"";
                     break;
-                case '\\':   // backslash
-                    result += "\\\\";
+                case '\\':   // backslash: emit as \u{5c} — under SMT-LIB 2.6 a
+                             // bare backslash is literal EXCEPT when it forms \u,
+                             // so this is the only unambiguous round-trip encoding
+                    result += "\\u{5c}";
                     break;
                 default:
                     // printable ASCII: no escaping needed
@@ -1399,77 +1401,65 @@ namespace SOMTParser{
     }
 
     std::string ConversionUtils::unescapeString(const std::string& s){
+        // SMT-LIB 2.6 string literal semantics: the ONLY escape sequences are
+        //   ""      -> one literal double quote (outer quotes already stripped)
+        //   \u{H+}  -> Unicode code point, 1..5 hex digits
+        //   \uHHHH  -> Unicode code point, exactly 4 hex digits
+        // Everything else, INCLUDING \n, \r, \\, is literal characters.
+        // (The previous C-style decoding shrank literals like "\r\n" to CRLF,
+        // making string-length objectives disagree with the standard and z3.)
         std::string result = "";
+        auto isHex = [](char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+                   (c >= 'A' && c <= 'F');
+        };
+        auto appendCodePoint = [&result](unsigned long cp) {
+            if (cp <= 0x7F) {
+                result += static_cast<char>(cp);
+            } else if (cp <= 0x7FF) {
+                result += static_cast<char>(0xC0 | (cp >> 6));
+                result += static_cast<char>(0x80 | (cp & 0x3F));
+            } else if (cp <= 0xFFFF) {
+                result += static_cast<char>(0xE0 | (cp >> 12));
+                result += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+                result += static_cast<char>(0x80 | (cp & 0x3F));
+            } else {
+                result += static_cast<char>(0xF0 | (cp >> 18));
+                result += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+                result += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+                result += static_cast<char>(0x80 | (cp & 0x3F));
+            }
+        };
         size_t i = 0;
-        while(i < s.length()) {
-            if(s[i] == '\\' && i + 1 < s.length()) {
-                switch(s[i + 1]) {
-                    case 'n':    // newline
-                        result += '\n';
-                        break;
-                    case 't':    // tab
-                        result += '\t';
-                        break;
-                    case 'r':    // carriage return
-                        result += '\r';
-                        break;
-                    case '\\':   // backslash
-                        result += '\\';
-                        break;
-                    case '"':    // double quote
-                        result += '"';
-                        break;
-                    case '\'':   // single quote
-                        result += '\'';
-                        break;
-                    case '0':    // null character
-                        result += '\0';
-                        break;
-                    case 'a':    // alert
-                        result += '\a';
-                        break;
-                    case 'b':    // backspace
-                        result += '\b';
-                        break;
-                    case 'f':    // form feed
-                        result += '\f';
-                        break;
-                    case 'v':    // vertical tab
-                        result += '\v';
-                        break;
-                    case 'x':    // hexadecimal escape \xHH
-                        if(i + 3 < s.length()) {
-                            std::string hexStr = s.substr(i + 2, 2);
-                            try {
-                                unsigned char value = static_cast<unsigned char>(std::stoi(hexStr, nullptr, 16));
-                                result += value;
-                                i += 2; // skip two hexadecimal characters
-                            } catch(...) {
-                                // if hexadecimal parsing fails, keep the original character
-                                result += s[i];
-                                i--; // back one character, because i+=2 later
-                            }
-                        } else {
-                            // incomplete hexadecimal escape, keep the original character
-                            result += s[i];
-                            i--; // back one character, because i+=2 later
-                        }
-                        break;
-                    default:
-                        // if not a known escape character, keep the backslash and character
-                        result += s[i];
-                        result += s[i + 1];
-                        break;
-                }
-                i += 2; // skip the escape character and the next character
-            } else if (s[i] == '"' && i + 1 < s.length() && s[i + 1] == '"') {
-                // SMT-LIB2: doubled double-quote inside a string literal = one literal '"'
+        while (i < s.length()) {
+            if (s[i] == '"' && i + 1 < s.length() && s[i + 1] == '"') {
                 result += '"';
                 i += 2;
-            } else {
-                result += s[i]; // if the current character is not an escape character, add it directly
-                i++;
+                continue;
             }
+            if (s[i] == '\\' && i + 1 < s.length() && s[i + 1] == 'u') {
+                if (i + 2 < s.length() && s[i + 2] == '{') {
+                    size_t close = s.find('}', i + 3);
+                    if (close != std::string::npos && close > i + 3 &&
+                        close - (i + 3) <= 5) {
+                        std::string hex = s.substr(i + 3, close - (i + 3));
+                        bool allHex = true;
+                        for (char h : hex) { if (!isHex(h)) { allHex = false; break; } }
+                        if (allHex) {
+                            appendCodePoint(std::stoul(hex, nullptr, 16));
+                            i = close + 1;
+                            continue;
+                        }
+                    }
+                } else if (i + 5 < s.length() && isHex(s[i + 2]) && isHex(s[i + 3]) &&
+                           isHex(s[i + 4]) && isHex(s[i + 5])) {
+                    appendCodePoint(std::stoul(s.substr(i + 2, 4), nullptr, 16));
+                    i += 6;
+                    continue;
+                }
+            }
+            result += s[i];
+            i++;
         }
         return result;
     }
