@@ -2895,10 +2895,15 @@ namespace SOMTParser{
 				// Parse return type
 				std::shared_ptr<Sort> return_sort = parseSort();
 				
-				// Declare the function so it can be referenced
+				// Declare the function so it can be referenced.
+				// Solver models re-define functions the input already
+				// declared (uninterpreted functions get concrete bodies in
+				// get-model output) — skip re-declaration instead of raising
+				// a spurious "Multiple declarations" error.
 				if (!param_sorts.empty()) {
-					// Function with parameters - declare it
-					mkFuncDec(func_name, param_sorts, return_sort);
+					if (!getSymbolManager()->getFun(func_name)) {
+						mkFuncDec(func_name, param_sorts, return_sort);
+					}
 					if (!getSymbolManager()->getFun(func_name) || !getSymbolManager()->hasFunctionName(func_name)) {
 						getSymbolManager()->addFunctionName(func_name);
 					}
