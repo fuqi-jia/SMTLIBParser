@@ -102,6 +102,9 @@ namespace SOMTParser{
                 logic_name == "QF_BVFP" ||
                 logic_name == "QF_BVLRA" ||
                 logic_name == "QF_DT" ||
+                logic_name == "QF_DTLIA" ||
+                logic_name == "QF_DTLIRA" ||
+                logic_name == "QF_DTNIA" ||
                 logic_name == "QF_BVFPLRA" ||
                 logic_name == "QF_FP" ||
                 logic_name == "QF_FPLRA" ||
