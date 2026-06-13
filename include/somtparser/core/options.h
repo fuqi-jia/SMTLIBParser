@@ -142,6 +142,49 @@ namespace SOMTParser{
                 logic_name == "UFLRA" ||
                 logic_name == "UFNIA" ||
                 logic_name == "BV" ||
+                // Quantified (non-QF) SMT-LIB divisions — the whitelist
+                // previously covered only a handful, so most quantified
+                // benchmarks were rejected at (set-logic ...).
+                logic_name == "ABV" ||
+                logic_name == "ABVFP" ||
+                logic_name == "ABVFPLRA" ||
+                logic_name == "ALIA" ||
+                logic_name == "ANIA" ||
+                logic_name == "AUFBV" ||
+                logic_name == "AUFBVDTLIA" ||
+                logic_name == "AUFBVDTNIA" ||
+                logic_name == "AUFBVDTNIRA" ||
+                logic_name == "AUFBVFP" ||
+                logic_name == "AUFBVFPDTNIRA" ||
+                logic_name == "AUFDTLIA" ||
+                logic_name == "AUFDTLIRA" ||
+                logic_name == "AUFDTNIRA" ||
+                logic_name == "AUFFPDTNIRA" ||
+                logic_name == "AUFNIA" ||
+                logic_name == "BVFP" ||
+                logic_name == "BVFPLRA" ||
+                logic_name == "FP" ||
+                logic_name == "FPLRA" ||
+                logic_name == "NIA" ||
+                logic_name == "NRA" ||
+                logic_name == "UF" ||
+                logic_name == "UFBV" ||
+                logic_name == "UFBVDT" ||
+                logic_name == "UFBVDTLIA" ||
+                logic_name == "UFBVDTNIA" ||
+                logic_name == "UFBVDTNIRA" ||
+                logic_name == "UFBVFP" ||
+                logic_name == "UFBVFPDTNIRA" ||
+                logic_name == "UFBVLIA" ||
+                logic_name == "UFDT" ||
+                logic_name == "UFDTLIA" ||
+                logic_name == "UFDTLIRA" ||
+                logic_name == "UFDTNIA" ||
+                logic_name == "UFDTNIRA" ||
+                logic_name == "UFFPDTNIRA" ||
+                logic_name == "UFIDL" ||
+                logic_name == "UFLIA" ||
+                logic_name == "UFNIRA" ||
                 logic_name == "ALL") {
                     logic = logic_name;
                     return true;

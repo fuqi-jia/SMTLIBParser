@@ -27,6 +27,7 @@
 #include "somtparser/frontend/parser.h"
 #include "somtparser/core/timing.h"
 #include <stack>
+#include <cctype>
 
 namespace SOMTParser{
 
@@ -394,17 +395,46 @@ namespace SOMTParser{
                         frame.result = res;
                         frame.state = FrameState::Finish;
                     }else if (head == "!"){
-                        // Handle (! <formula> :named <name>) syntax
+                        // (! <term> <attr>+), <attr> ::= :keyword [value].
+                        // Only :named is recorded (unsat cores); every other
+                        // annotation (:pattern (...), :weight n, :qid s,
+                        // :lblpos l, ...) is a hint and is skipped — including
+                        // parenthesised pattern lists.  Previously only :named
+                        // was handled, so quantified benchmarks carrying
+                        // :pattern (almost all of UFNIA/UFDT/...) failed to parse.
                         std::shared_ptr<DAGNode> formula = parseExpr();
-                        // Check for :named annotation
-                        KEYWORD key = attemptParseKeywords();
-                        if(key == KEYWORD::KW_NAMED){
-                             std::string name = getSymbol();
-                            // Store the named formula for unsat core functionality
-                            // This could be stored in a separate map for named assertions
-                            context_.named_assertions[name] = formula;
+                        scanToNextSymbol();
+                        while(*bufptr && *bufptr != ')'){
+                            if(*bufptr == ':'){
+                                std::string kw;
+                                while(*bufptr && !isspace((unsigned char)*bufptr)
+                                      && *bufptr != '(' && *bufptr != ')'){
+                                    kw += *bufptr++;
+                                }
+                                scanToNextSymbol();
+                                if(kw == ":named" && *bufptr
+                                   && *bufptr != ':' && *bufptr != ')'){
+                                    std::string name = getSymbol();
+                                    context_.named_assertions[name] = formula;
+                                    scanToNextSymbol();
+                                }else if(*bufptr == '('){
+                                    // skip a balanced parenthesised value
+                                    int depth = 0;
+                                    do{
+                                        if(*bufptr == '(') depth++;
+                                        else if(*bufptr == ')') depth--;
+                                        bufptr++;
+                                    }while(*bufptr && depth > 0);
+                                    scanToNextSymbol();
+                                }else if(*bufptr && *bufptr != ':' && *bufptr != ')'){
+                                    getSymbol();  // single-token value
+                                    scanToNextSymbol();
+                                }
+                            }else{
+                                getSymbol();  // unexpected token; make progress
+                                scanToNextSymbol();
+                            }
                         }
-    
                         frame.result = formula;
                         parseRpar();
                         frame.state = FrameState::Finish;
