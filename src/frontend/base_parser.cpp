@@ -1536,6 +1536,17 @@ namespace SOMTParser{
 		//<option ::= <attribute>
 		//(set-option <option>)
 		if (command == "set-option") {
+			// Store the key/value pair so consumers can read it (e.g. OMT
+			// multi-objective :opt.priority).  This command used to be
+			// skipped wholesale, silently dropping every option.
+			std::string opt_key = getSymbol();
+			if (!opt_key.empty() && opt_key[0] == ':') {
+				opt_key = opt_key.substr(1);
+			}
+			std::string opt_value = getSymbol();
+			if (!opt_key.empty()) {
+				setOption(opt_key, opt_value);
+			}
 			skipToRpar();
 			return CMD_TYPE::CT_SET_OPTION;
 		}
