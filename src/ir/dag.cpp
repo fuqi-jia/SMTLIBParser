@@ -76,8 +76,13 @@ namespace SOMTParser{
     }
 
     std::string dumpConst(const std::string& name, const std::shared_ptr<Sort>& sort){
-        // Always handle rational a/b form first, regardless of sort
-        if (isRationalFormat(name)) {
+        // Rational a/b form is only meaningful for ARITHMETIC sorts.  It must
+        // never apply to other sorts: a string literal may legitimately
+        // contain '/' (e.g. "/api/v1/"), and splitting it at the slash used
+        // to emit (/ " api/v1/") — a malformed division — corrupting every
+        // string-theory query whose literals contain a slash.
+        if (sort && (sort->isReal() || sort->isInt() || sort->isIntOrReal())
+            && isRationalFormat(name)) {
             return formatRationalDivision(name);
         }
         if(sort->isReal() || sort->isIntOrReal()){
