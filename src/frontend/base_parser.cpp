@@ -769,6 +769,8 @@ namespace SOMTParser{
 				if (command_logging_) {
 					Command cmd(type);
 					cmd.line_number = line_number;
+					if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
+					if (!pending_keyword_.empty()) cmd.keyword = std::move(pending_keyword_);
 					script_.addCommand(cmd);
 				}
 				if (type == CMD_TYPE::CT_EXIT) break;
@@ -811,6 +813,8 @@ namespace SOMTParser{
 				if (command_logging_) {
 					Command cmd(type);
 					cmd.line_number = line_number;
+					if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
+					if (!pending_keyword_.empty()) cmd.keyword = std::move(pending_keyword_);
 					script_.addCommand(cmd);
 				}
 				if (type == CMD_TYPE::CT_EXIT) break;
@@ -894,6 +898,9 @@ namespace SOMTParser{
 	}
 
 	CMD_TYPE Parser::parseCommand() {
+		// Reset the per-command interactive payload before parsing this command.
+		pending_value_terms_.clear();
+		pending_keyword_.clear();
 
 		size_t command_ln = line_number;
 		std::string command = getSymbol();
@@ -1396,8 +1403,9 @@ namespace SOMTParser{
 		}
 
 		if (command == "echo") {
-			// ignore
-			warn_cmd_nsup(command, command_ln);
+			// (echo <string>) — capture the string literal so the consumer can
+			// echo it back (was previously discarded with the rest of the line).
+			if (*bufptr != ')') pending_keyword_ = getSymbol();
 			skipToRpar();
 			return CMD_TYPE::CT_ECHO;
 		}
@@ -1425,8 +1433,8 @@ namespace SOMTParser{
 		}
 
 		if (command == "get-info") {
-			//ignore
-			warn_cmd_nsup(command, command_ln);
+			// (get-info <:keyword>) — capture the keyword to answer the query.
+			if (*bufptr != ')') pending_keyword_ = getSymbol();
 			skipToRpar();
 			return CMD_TYPE::CT_GET_INFO;
 		}
@@ -1474,8 +1482,16 @@ namespace SOMTParser{
 		}
 
 		if (command == "get-value") {
-			//ignore
-			warn_cmd_nsup(command, command_ln);
+			// (get-value ( <term>+ )) — parse the term list so the consumer can
+			// evaluate each term in the model and print (term value) pairs.
+			if (*bufptr == '(') {
+				parseLpar();
+				while (*bufptr && *bufptr != ')') {
+					std::shared_ptr<DAGNode> t = parseExpr();
+					if (t) pending_value_terms_.push_back(t);
+				}
+				parseRpar();
+			}
 			skipToRpar();
 			return CMD_TYPE::CT_GET_VALUE;
 		}
@@ -1662,10 +1678,16 @@ namespace SOMTParser{
 
 	Command Parser::nextCommand() {
 		if (!bufptr || !*bufptr) return Command(CMD_TYPE::CT_EOF);
+		pending_value_terms_.clear();
+		pending_keyword_.clear();
 		parseLpar();
 		CMD_TYPE type = parseCommand();
 		Command cmd(type);
 		cmd.line_number = line_number;
+		// Attach any interactive-command payload captured during parseCommand
+		// (get-value term list / echo string / get-info keyword).
+		if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
+		if (!pending_keyword_.empty()) cmd.keyword = std::move(pending_keyword_);
 		parseRpar();
 		if (command_logging_) {
 			script_.addCommand(cmd);

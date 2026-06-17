@@ -58,6 +58,11 @@ struct Command {
     std::shared_ptr<DAGNode> weight;                         // assert-soft weight
     size_t push_pop_level = 1;                               // push, pop
     std::string logic;                                       // set-logic
+    // Interactive-command payloads (previously discarded — the consumer logged
+    // the command TYPE only). Populated by parseCommand so a downstream solver
+    // can answer the query:
+    std::vector<std::shared_ptr<DAGNode>> value_terms;       // get-value term list
+    std::string keyword;                                     // echo string / get-info :keyword / get-option
 
     Command(CMD_TYPE t = CMD_TYPE(0)) : type(t) {} // initialized with default CT_UNKNOWN=0
 

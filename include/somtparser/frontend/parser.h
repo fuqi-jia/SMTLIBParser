@@ -217,6 +217,12 @@ namespace SOMTParser{
         /** Whether to log each parsed command into script_. */
         bool                                          command_logging_ = false;
 
+        /** Payload of the command currently being parsed, threaded from
+         *  parseCommand() into the Command built by nextCommand(). Cleared at
+         *  the start of each nextCommand(). */
+        std::vector<std::shared_ptr<DAGNode>>         pending_value_terms_;
+        std::string                                   pending_keyword_;
+
     public:
         
         /**
