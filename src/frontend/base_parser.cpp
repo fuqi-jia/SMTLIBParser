@@ -35,6 +35,31 @@
 
 namespace SOMTParser{
 
+	// Response/control commands a consumer must replay in source order to answer
+	// an interactive script (echo / get-* / check-sat). These are FEW per script,
+	// so they are ALWAYS recorded in the Script even when command_logging_ is off
+	// — that keeps the full command log (which also captures the bulk
+	// assert/declare commands) opt-in, avoiding per-assert memory on large files.
+	static bool isResponseCommand(CMD_TYPE t) {
+		switch (t) {
+			case CMD_TYPE::CT_ECHO:
+			case CMD_TYPE::CT_GET_INFO:
+			case CMD_TYPE::CT_GET_VALUE:
+			case CMD_TYPE::CT_GET_ASSIGNMENT:
+			case CMD_TYPE::CT_GET_MODEL:
+			case CMD_TYPE::CT_GET_OPTION:
+			case CMD_TYPE::CT_GET_PROOF:
+			case CMD_TYPE::CT_GET_ASSERTIONS:
+			case CMD_TYPE::CT_GET_UNSAT_CORE:
+			case CMD_TYPE::CT_GET_UNSAT_ASSUMPTIONS:
+			case CMD_TYPE::CT_CHECK_SAT:
+			case CMD_TYPE::CT_CHECK_SAT_ASSUMING:
+				return true;
+			default:
+				return false;
+		}
+	}
+
 	Parser::Parser(){
 		buffer = nullptr;
 		bufptr = nullptr;
@@ -766,7 +791,7 @@ namespace SOMTParser{
 			while (*bufptr) {
 				parseLpar();
 				CMD_TYPE type = parseCommand();
-				if (command_logging_) {
+				if (command_logging_ || isResponseCommand(type)) {
 					Command cmd(type);
 					cmd.line_number = line_number;
 					if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
@@ -810,7 +835,7 @@ namespace SOMTParser{
 			while (*bufptr) {
 				parseLpar();
 				CMD_TYPE type = parseCommand();
-				if (command_logging_) {
+				if (command_logging_ || isResponseCommand(type)) {
 					Command cmd(type);
 					cmd.line_number = line_number;
 					if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
@@ -1689,7 +1714,7 @@ namespace SOMTParser{
 		if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
 		if (!pending_keyword_.empty()) cmd.keyword = std::move(pending_keyword_);
 		parseRpar();
-		if (command_logging_) {
+		if (command_logging_ || isResponseCommand(type)) {
 			script_.addCommand(cmd);
 		}
 		return cmd;
