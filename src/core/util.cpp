@@ -887,41 +887,61 @@ namespace SOMTParser{
     }
 
 
-    std::string BitVectorUtils::bvShl(const std::string& bv, const std::string& n){
-        // left shift
-        condAssert(bv[0] == '#' && bv[1] == 'b', "BitVectorUtils::bvShl: invalid bitvector");
-        condAssert(n[0] == '#' && n[1] == 'b', "BitVectorUtils::bvShl: invalid bitvector");
-        size_t shift = Integer(n.substr(2, n.size() - 2)).toULong();
-        if(shift >= bv.size() - 2){
-            return "#b0" + std::string(shift - bv.size() + 2, '0');
+    // Normalize a BV literal (#b... or #x...) to canonical #b binary form.
+    // The string-manipulating BV utilities below operate on the bit string, so
+    // a hex literal must first be widened to 4 bits per hex digit.
+    static std::string normBvBin(const std::string& s){
+        if(s.size() >= 2 && s[0] == '#' && s[1] == 'b') return s;
+        if(s.size() >= 2 && s[0] == '#' && s[1] == 'x'){
+            std::string r = "#b";
+            for(size_t i = 2; i < s.size(); ++i){
+                char c = s[i];
+                int d = (c >= '0' && c <= '9') ? c - '0'
+                      : (c >= 'a' && c <= 'f') ? c - 'a' + 10
+                      : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : 0;
+                for(int b = 3; b >= 0; --b) r += ((d >> b) & 1) ? '1' : '0';
+            }
+            return r;
         }
-        else{
-            return "#b" + bv.substr(2, bv.size() - 2 - shift) + std::string(shift, '0');
-        }
+        return s;
     }
-    std::string BitVectorUtils::bvLshr(const std::string& bv, const std::string& n){
-        // logical right shift
-        condAssert(bv[0] == '#' && bv[1] == 'b', "BitVectorUtils::bvLshr: invalid bitvector");
-        condAssert(n[0] == '#' && n[1] == 'b', "BitVectorUtils::bvLshr: invalid bitvector");
-        size_t shift = Integer(n.substr(2, n.size() - 2)).toULong();
-        if(shift >= bv.size() - 2){
-            return "#b0" + std::string(shift - bv.size() + 2, '0');
+
+    std::string BitVectorUtils::bvShl(const std::string& bv_in, const std::string& n_in){
+        // logical left shift: value << shift (mod 2^width)
+        const std::string bv = normBvBin(bv_in);
+        const std::string n  = normBvBin(n_in);
+        const size_t width = bv.size() - 2;
+        const size_t shift = bvToNat(n).toULong();   // shift = unsigned VALUE of n
+        if(shift >= width){
+            return "#b" + std::string(width, '0');
         }
-        else{
-            return "#b" + std::string(shift, '0') + bv.substr(2, bv.size() - 2 - shift);
-        }
+        // bit string is MSB-first: a left shift drops the top `shift` bits and
+        // pads `shift` zeros on the low (LSB) end.
+        return "#b" + bv.substr(2 + shift) + std::string(shift, '0');
     }
-    std::string BitVectorUtils::bvAshr(const std::string& bv, const std::string& n){
-        // arithmetic right shift
-        condAssert(bv[0] == '#' && bv[1] == 'b', "BitVectorUtils::bvAshr: invalid bitvector");
-        condAssert(n[0] == '#' && n[1] == 'b', "BitVectorUtils::bvAshr: invalid bitvector");
-        size_t shift = Integer(n.substr(2, n.size() - 2)).toULong();
-        if(shift >= bv.size() - 2){
-            return "#b" + std::string(bv.size() - 2, bv[2]);
+    std::string BitVectorUtils::bvLshr(const std::string& bv_in, const std::string& n_in){
+        // logical right shift: value >> shift (zero-fill)
+        const std::string bv = normBvBin(bv_in);
+        const std::string n  = normBvBin(n_in);
+        const size_t width = bv.size() - 2;
+        const size_t shift = bvToNat(n).toULong();
+        if(shift >= width){
+            return "#b" + std::string(width, '0');
         }
-        else{
-            return "#b" + std::string(shift, bv[2]) + bv.substr(2, bv.size() - 2 - shift);
+        // prepend `shift` zeros, keep the top `width - shift` bits.
+        return "#b" + std::string(shift, '0') + bv.substr(2, width - shift);
+    }
+    std::string BitVectorUtils::bvAshr(const std::string& bv_in, const std::string& n_in){
+        // arithmetic right shift: value >> shift (sign-fill with the MSB)
+        const std::string bv = normBvBin(bv_in);
+        const std::string n  = normBvBin(n_in);
+        const size_t width = bv.size() - 2;
+        const size_t shift = bvToNat(n).toULong();
+        const char sign = bv[2];   // MSB
+        if(shift >= width){
+            return "#b" + std::string(width, sign);
         }
+        return "#b" + std::string(shift, sign) + bv.substr(2, width - shift);
     }
 
     std::string BitVectorUtils::bvConcat(const std::string& bv1, const std::string& bv2){
