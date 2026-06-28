@@ -1938,6 +1938,23 @@ namespace SOMTParser{
         } else if(real.getType() == Number::REAL_TYPE) {
             mpfr_srcptr src = real.getReal().getMPFR();
             mpfr_set(m, src, rnd);
+        } else if(real.getType() == Number::RATIONAL_TYPE) {
+            // Exact rational -> FP, correctly rounded in ONE step to the (eb,sb)
+            // IEEE format.  Setting MPFR's exponent range to the format and
+            // subnormalizing makes the result exactly representable, so fromMpfr()
+            // below merely extracts its bits (no double-rounding).  This is what
+            // makes the emitted (fp #b..) literal match SMT-LIB's native to_fp.
+            mpfr_set_prec(m, static_cast<mpfr_prec_t>(sb));
+            const mpfr_exp_t fmt_emax = static_cast<mpfr_exp_t>(1LL << (eb - 1));
+            const mpfr_exp_t fmt_emin = 3 - fmt_emax - static_cast<mpfr_exp_t>(sb - 1);
+            const mpfr_exp_t old_emin = mpfr_get_emin();
+            const mpfr_exp_t old_emax = mpfr_get_emax();
+            mpfr_set_emin(fmt_emin);
+            mpfr_set_emax(fmt_emax);
+            int tern = mpfr_set_q(m, real.getRational().getMPQ().get_mpq_t(), rnd);
+            mpfr_subnormalize(m, tern, rnd);
+            mpfr_set_emin(old_emin);
+            mpfr_set_emax(old_emax);
         } else {
             mpfr_clear(m);
             return std::nullopt;
