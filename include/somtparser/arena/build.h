@@ -36,4 +36,11 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
 bool checkEquivalent(const std::shared_ptr<SOMTParser::DAGNode>& node,
                      somtarena::ExprId id, somtarena::Arena& a, GapSink& g);
 
+// SOMTParser's public "produce native arena" entry: build a SOMTArena term for every parsed
+// assertion into `arena`, returning the assertion-root ExprIds in order. This is the seam
+// Xolver consumes (II-2b-2) instead of walking DAGNodes. Gaps (should be none — proven over
+// 982 corpus files) are recorded in `g`.
+std::vector<somtarena::ExprId> buildAssertions(SOMTParser::Parser& parser,
+                                               somtarena::Arena& arena, GapSink& g);
+
 }  // namespace xarena_cov

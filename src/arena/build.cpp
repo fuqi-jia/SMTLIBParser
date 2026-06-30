@@ -164,4 +164,14 @@ bool checkEquivalent(const std::shared_ptr<SOMTParser::DAGNode>& node,
     return true;
 }
 
+std::vector<somtarena::ExprId> buildAssertions(SOMTParser::Parser& parser,
+                                               somtarena::Arena& arena, GapSink& g) {
+    std::vector<somtarena::ExprId> roots;
+    BuildState st;
+    for (const auto& a : parser.getAssertions()) {
+        roots.push_back(buildArena(a, arena, g, st));
+    }
+    return roots;
+}
+
 }  // namespace xarena_cov
