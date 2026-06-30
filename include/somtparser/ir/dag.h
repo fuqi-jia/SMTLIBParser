@@ -1140,8 +1140,21 @@ namespace SOMTParser{
             std::array<std::unordered_map<size_t, std::vector<std::pair<std::shared_ptr<DAGNode>, size_t>>>, NUM_KINDS> node_buckets;
             // Track the number of static constant nodes to preserve them during clear()
             size_t static_node_count = 0;
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P1): inline arena-builder hook. The arena bridge registers a closure that
+            // builds the SOMTArena node for each NEW DAGNode (children already carry handles, since
+            // construction is bottom-up) and caches it via node->setArenaHandle. Type-erased so the
+            // IR module stays free of somtarena. Empty (the default) = inactive -> zero behavior change.
+            std::function<void(const std::shared_ptr<DAGNode>&)> arenaBuilderHook_;
+#endif
         public:
             NodeManager();
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P1): register/clear the inline arena-builder hook. The bridge calls this once an
+            // arena is set up; an empty function disables inline building (back to the default path).
+            void setArenaBuilderHook(std::function<void(const std::shared_ptr<DAGNode>&)> h) { arenaBuilderHook_ = std::move(h); }
+            bool hasArenaBuilderHook() const { return static_cast<bool>(arenaBuilderHook_); }
+#endif
             ~NodeManager();
             std::shared_ptr<DAGNode> getNode(const size_t index) const;
             size_t getIndex(const std::shared_ptr<DAGNode>& node) const;

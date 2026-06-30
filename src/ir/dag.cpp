@@ -1115,6 +1115,11 @@ namespace SOMTParser{
         kind_bucket[node_hash].emplace_back(node, new_index);
         nodes.emplace_back(node);
         node->incUseCount();
+#ifdef SOMTPARSER_WITH_ARENA
+        // II-2b-3 (P1): inline-build this new node's arena node (children already carry handles since
+        // construction is bottom-up). Inactive unless the bridge registered a hook -> default unchanged.
+        if (arenaBuilderHook_) arenaBuilderHook_(node);
+#endif
         return node;
     }
 
