@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(SOMTParser VERSION 1.0.0 LANGUAGES CXX)
 
-# set C++ standard
-set(CMAKE_CXX_STANDARD 17)
+# set C++ standard (C++20: the SOMTArena integration uses std::span etc.; II-2b)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wall -Wextra -Werror")
@@ -59,6 +59,8 @@ endif()
 
 # collect all source files under src/ (mirrors include/somtparser/)
 file(GLOB_RECURSE SOURCES "src/*.cpp")
+# The arena bridge (src/arena/, II-2b) depends on SOMTArena; compiled conditionally below.
+list(FILTER SOURCES EXCLUDE REGEX "/src/arena/")
 
 # collect all header files under include/somtparser/
 file(GLOB_RECURSE HEADERS "include/somtparser/*.h")
@@ -150,6 +152,28 @@ else()
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin
     )
+endif()
+
+# II-2b: SOMTArena bridge. When the somtarena target is available (Xolver's build adds it
+# before this subdirectory), compile src/arena/ into the library + link SOMTArena, so
+# SOMTParser can build native SOMTArena terms from its DAG. Standalone SOMTParser builds
+# without it (no somtarena target -> the bridge is skipped).
+if(TARGET somtarena)
+    file(GLOB ARENA_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/arena/*.cpp")
+    if(TARGET somtparser_static)
+        set(_arena_targets somtparser_static)
+        if(TARGET somtparser_shared)
+            list(APPEND _arena_targets somtparser_shared)
+        endif()
+    else()
+        set(_arena_targets somtparser)
+    endif()
+    foreach(_t ${_arena_targets})
+        target_sources(${_t} PRIVATE ${ARENA_SOURCES})
+        target_link_libraries(${_t} PUBLIC somtarena)
+        target_compile_definitions(${_t} PUBLIC SOMTPARSER_WITH_ARENA)
+    endforeach()
+    message(STATUS "SOMTParser: arena bridge ENABLED (links somtarena)")
 endif()
 
 # install header files only (no .cpp)
