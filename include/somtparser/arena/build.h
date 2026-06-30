@@ -43,4 +43,17 @@ bool checkEquivalent(const std::shared_ptr<SOMTParser::DAGNode>& node,
 std::vector<somtarena::ExprId> buildAssertions(SOMTParser::Parser& parser,
                                                somtarena::Arena& arena, GapSink& g);
 
+// II-2b-3 (P1.1b): register an INLINE arena builder on `nm` so each NEW DAGNode is built into
+// `arena` AS IT IS CREATED during parsing (vs the post-parse buildArena walk). The hook mirrors
+// buildArena's dispatch non-recursively over the children's already-cached handles (DAGNode::
+// arenaExprId, set bottom-up): core nodes -> buildCoreNode; let-scaffolding -> forward a child's
+// handle; quantifiers/bound-vars or any gap -> set `aborted` (the caller then falls back to the
+// buildAssertions walk for the whole problem — de-Bruijn needs top-down context inline can't give).
+// `funcDecls`, `gaps`, and `aborted` must OUTLIVE the parse (the hook captures them by reference).
+// Call BEFORE parsing; clear afterwards with nm.setArenaBuilderHook({}). Gated/used by Xolver behind
+// SOMTP_DAGNODE_ARENA_INLINE; validated structurally against the walk via the somtparser_arena_cov harness.
+void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& arena,
+                               std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
+                               GapSink& gaps, bool& aborted);
+
 }  // namespace xarena_cov

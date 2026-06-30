@@ -198,4 +198,62 @@ std::vector<somtarena::ExprId> buildAssertions(SOMTParser::Parser& parser,
     return roots;
 }
 
+void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& arena,
+                               std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
+                               GapSink& gaps, bool& aborted) {
+    // Pre-build the common static singletons (true/false), inserted at NodeManager init BEFORE any
+    // hook, so formulas referencing them don't bail. They are leaves -> buildCoreNode over no kids.
+    // Rarely-used transcendental/infinity singletons stay unhandled (a formula using one bails).
+    auto prebuild = [&](const std::shared_ptr<SOMTParser::DAGNode>& n) {
+        if (n && n->arenaExprId() == somtarena::NullExpr) {
+            somtarena::ExprId id = buildCoreNode(*n, {}, arena, gaps, funcDecls);
+            if (id != somtarena::NullExpr) n->setArenaHandle(&arena, id);
+        }
+    };
+    prebuild(SOMTParser::NodeManager::getTrue());
+    prebuild(SOMTParser::NodeManager::getFalse());
+
+    nm.setArenaBuilderHook(
+        [&arena, &funcDecls, &gaps, &aborted](const std::shared_ptr<SOMTParser::DAGNode>& node) {
+            using NK = SOMTParser::NODE_KIND;
+            if (aborted || !node) return;
+            NK nk = node->getKind();
+            // Quantifiers + bound vars: de Bruijn needs top-down binder context which bottom-up
+            // inline construction can't provide -> bail; the caller falls back to the walk.
+            if (nk == NK::NT_FORALL || nk == NK::NT_EXISTS || nk == NK::NT_QUANT_VAR) {
+                aborted = true;
+                return;
+            }
+            // Let scaffolding has no arena node of its own; forward the relevant child's handle
+            // (mirrors buildArena's let-elimination by node identity).
+            if (nk == NK::NT_LET_BIND_VAR) {
+                if (node->getChildrenSize() > 0 && node->getChild(0))
+                    node->setArenaHandle(&arena, node->getChild(0)->arenaExprId());
+                return;
+            }
+            if (nk == NK::NT_LET || nk == NK::NT_LET_CHAIN) {
+                size_t nc = node->getChildrenSize();
+                if (nc > 0) {
+                    size_t bi = (nk == NK::NT_LET) ? 0 : (nc - 1);
+                    if (auto b = node->getChild(bi)) node->setArenaHandle(&arena, b->arenaExprId());
+                }
+                return;
+            }
+            if (nk == NK::NT_LET_BIND_VAR_LIST) return;  // structural list, no handle
+            // Core node: gather children's cached handles (built earlier, bottom-up), build, cache.
+            std::vector<somtarena::ExprId> kids;
+            kids.reserve(node->getChildrenSize());
+            for (size_t i = 0; i < node->getChildrenSize(); ++i) {
+                auto c = node->getChild(i);
+                if (!c) continue;
+                somtarena::ExprId cid = c->arenaExprId();
+                if (cid == somtarena::NullExpr) { aborted = true; return; }  // child unbuilt -> bail
+                kids.push_back(cid);
+            }
+            somtarena::ExprId id = buildCoreNode(*node, kids, arena, gaps, funcDecls);
+            if (id == somtarena::NullExpr) { aborted = true; return; }  // unmapped kind / gap -> bail
+            node->setArenaHandle(&arena, id);
+        });
+}
+
 }  // namespace xarena_cov
