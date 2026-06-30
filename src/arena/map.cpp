@@ -23,8 +23,11 @@ somtarena::Payload mapValue(const SOMTParser::DAGNode& n, GapSink& g) {
                 case SOMTParser::Number::RATIONAL_TYPE:
                     return somtarena::payloadRational(num.getRational().getMPQ());
                 case SOMTParser::Number::REAL_TYPE:
-                    g.softGap("MPFR REAL value (non-exact channel): " + num.toString());
-                    return somtarena::payloadNone();
+                    // SMT-LIB decimal literals are EXACT rationals (3.7 == 37/10); the parser
+                    // types them REAL_TYPE (MPFR), but approximateToRational recovers the value
+                    // from realValue.toString() — the SAME 17-sig-digit path the adapter feeds
+                    // to Xolver (extractPayload -> num.toString()), so it is verdict-identical.
+                    return somtarena::payloadRational(num.approximateToRational().getMPQ());
                 default:
                     g.hardGap("unknown Number type");
                     return somtarena::payloadNone();
