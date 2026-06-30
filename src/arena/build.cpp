@@ -65,6 +65,7 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     // --- quantifiers: build in de Bruijn form (Task 6) ---
     if (nk == NK::NT_FORALL || nk == NK::NT_EXISTS) {
         somtarena::ExprId id = buildQuantifier(node, a, g, st);
+        if (id != somtarena::NullExpr) node->setArenaHandle(&a, id);  // II-2b-3 (P0): core node
         st.memo[key] = id;
         return id;
     }
@@ -118,6 +119,9 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
         id = a.mkExpr(k, sort, std::span<const somtarena::ExprId>(kids.data(), kids.size()), pl);
     }
 
+    // II-2b-3 (P0): record this core node's arena handle on the DAGNode (var/apply/generic). The
+    // P2 façade reads it; populating it now is verdict-neutral (cmp_native.sh is the gate).
+    if (id != somtarena::NullExpr) node->setArenaHandle(&a, id);
     st.memo[key] = id;
     return id;
 }

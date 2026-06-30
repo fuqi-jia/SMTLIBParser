@@ -50,6 +50,11 @@
 #include <unordered_set>
 #include <array>
 
+// II-2b-3: forward-declare the SOMTArena Arena so DAGNode can carry an arena handle (its ExprId +
+// the owning arena) WITHOUT pulling the heavy somtarena/Arena.h into this widely-included header.
+// A pointer to a forward-declared class is all P0 needs (set/get only — never dereferenced here).
+namespace somtarena { class Arena; }
+
 namespace SOMTParser{
     // Forward declaration of DAGNode class
     class DAGNode;
@@ -80,6 +85,17 @@ namespace SOMTParser{
         mutable size_t                          cached_hash_code;
         mutable bool                            hash_computed;
         mutable size_t                          _use_count;
+
+#ifdef SOMTPARSER_WITH_ARENA
+        // II-2b-3 (P0): arena handle. The ExprId of the SOMTArena node this DAGNode was built into by
+        // the proven buildArena walk, plus the arena it lives in. Populated for CORE nodes only
+        // (post-let-elim: ops/consts/vars/apply/quant); transient scaffolding (let/let-bind/match) is
+        // never given one. arenaExprId_ == 0 (somtarena::NullExpr) means "no arena node". Raw uint64 +
+        // opaque Arena* keeps somtarena/Arena.h out of this header. Unused until the P2 accessor flip;
+        // merely populating it is verdict-neutral — the 808 native parity (cmp_native.sh) is the gate.
+        const somtarena::Arena*                 arenaPtr_ = nullptr;
+        std::uint64_t                           arenaExprId_ = 0;
+#endif
 
     public:
         DAGNode(std::shared_ptr<Sort> sort, NODE_KIND kind, std::string name, std::vector<std::shared_ptr<DAGNode>> children): sort(sort), kind(kind), name(name), value(nullptr), children(children){
@@ -806,6 +822,15 @@ namespace SOMTParser{
          * 
          * @return The kind of the node
          */
+#ifdef SOMTPARSER_WITH_ARENA
+        // II-2b-3 (P0): arena-handle accessors. setArenaHandle() is called by the buildArena walk for
+        // each core node; arenaExprId()/arenaPtr() are read by the P2 façade (0 == not built into an
+        // arena, e.g. transient let/match scaffolding or a not-yet-built node).
+        void setArenaHandle(const somtarena::Arena* a, std::uint64_t id) { arenaPtr_ = a; arenaExprId_ = id; }
+        std::uint64_t arenaExprId() const { return arenaExprId_; }
+        const somtarena::Arena* arenaPtr() const { return arenaPtr_; }
+#endif
+
         NODE_KIND getKind()           const { return kind; };
 
         /**
