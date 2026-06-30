@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace xarena_cov {
@@ -13,6 +14,10 @@ namespace xarena_cov {
 struct GapSink {
     std::vector<std::string> hard;   // unmapped kind/sort/value, equivalence mismatch
     std::vector<std::string> soft;   // expected/classified notes (e.g. MPFR real)
+    // II-2b-2: native datatype SortId -> its SOMTParser Sort. The arena datatype sort carries
+    // only the NAME; the Sort carries constructors/selectors. mapSort records every datatype
+    // sort it creates here so the Xolver import can populate its DatatypeRegistry.
+    std::unordered_map<somtarena::SortId, std::shared_ptr<SOMTParser::Sort>> dtSorts;
     void hardGap(std::string s) { hard.push_back(std::move(s)); }
     void softGap(std::string s) { soft.push_back(std::move(s)); }
 };

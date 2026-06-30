@@ -106,8 +106,15 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
             st.memo[key] = somtarena::NullExpr;
             return somtarena::NullExpr;
         }
-        somtarena::Payload pl =
-            node->getValue() ? mapValue(*node, g) : somtarena::payloadNone();
+        // Datatype operators carry their operator NAME (constructor/selector/tester symbol) in
+        // the payload so Xolver's DatatypeRegistry can resolve them — mirrors the adapter. These
+        // nodes have no getValue(), so mapValue would drop the name.
+        somtarena::Payload pl;
+        if (nk == NK::NT_DT_CONSTRUCTOR || nk == NK::NT_DT_SELECTOR || nk == NK::NT_DT_TESTER) {
+            pl = somtarena::payloadString(node->getName());
+        } else {
+            pl = node->getValue() ? mapValue(*node, g) : somtarena::payloadNone();
+        }
         id = a.mkExpr(k, sort, std::span<const somtarena::ExprId>(kids.data(), kids.size()), pl);
     }
 

@@ -79,7 +79,11 @@ somtarena::SortId mapSort(const std::shared_ptr<SOMTParser::Sort>& s,
     }
     if (s->isStr()) return a.stringSort();
     if (s->isRoundingMode()) return a.roundingModeSort();
-    if (s->isDatatype()) return a.datatypeSort(s->toString(), {});
+    if (s->isDatatype()) {
+        somtarena::SortId id = a.datatypeSort(s->toString(), {});
+        g.dtSorts[id] = s;  // II-2b-2: carry the Sort (constructors/selectors) for the Xolver import
+        return id;
+    }
     // Uninterpreted / declared / defined sorts (declare-sort E 0, etc.). The parser may
     // also wrap the builtins as SK_DEC arity-0 — canonicalize those, else make an arena
     // uninterpreted sort keyed by name (params for higher-arity declared sorts).
