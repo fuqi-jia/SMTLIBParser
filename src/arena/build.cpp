@@ -16,6 +16,14 @@ bool isApply(NK k) {
 }
 somtarena::ExprId buildQuantifier(const std::shared_ptr<SOMTParser::DAGNode>& node,
                                   somtarena::Arena& a, GapSink& g, BuildState& st);
+// II-2b-3 (P1.1): build the arena node for ONE non-let, non-quant DAGNode given its children's
+// already-built handles `kids`. Shared by the recursive walk (buildArena) and the inline hook
+// (installInlineArenaBuilder) so both emit byte-identical nodes. Returns NullExpr and records a gap
+// on an unmapped kind. Does NOT memoize or set the DAGNode handle — the caller owns that.
+somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
+                                const std::vector<somtarena::ExprId>& kids,
+                                somtarena::Arena& a, GapSink& g,
+                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls);
 }  // namespace
 
 somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
@@ -77,50 +85,10 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
         if (auto c = node->getChild(i)) kids.push_back(buildArena(c, a, g, st));
     }
 
-    somtarena::SortId sort = mapSort(node->getSort(), a, g);
-    somtarena::ExprId id = somtarena::NullExpr;
+    somtarena::ExprId id = buildCoreNode(*node, kids, a, g, st.funcDecls);
 
-    if (isVarLeaf(nk)) {
-        // Variable identity carried by its name (so x != y structurally).
-        id = a.mkExpr(somtarena::Kind::Var, sort, {}, somtarena::payloadString(node->getName()));
-    } else if (isApply(nk)) {
-        // UF apply: FuncDecl(name, [argSorts..., resultSort]) + Apply(funcDecl, args).
-        std::string fname = node->getName();
-        somtarena::ExprId fd;
-        if (auto fdIt = st.funcDecls.find(fname); fdIt != st.funcDecls.end()) {
-            fd = fdIt->second;
-        } else {
-            std::vector<somtarena::SortId> sig;
-            sig.reserve(kids.size() + 1);
-            for (auto kid : kids) sig.push_back(a.sortOf(kid));
-            sig.push_back(sort);  // result sort last
-            fd = a.mkFuncDecl(fname, std::span<const somtarena::SortId>(sig.data(), sig.size()));
-            st.funcDecls[fname] = fd;
-        }
-        id = a.mkApply(fd, std::span<const somtarena::ExprId>(kids.data(), kids.size()));
-    } else {
-        bool mapped = false;
-        somtarena::Kind k = mapKind(nk, mapped);
-        if (!mapped) {
-            g.hardGap("unmapped kind=" + std::to_string(static_cast<int>(nk)) +
-                      " name='" + node->getName() + "'");
-            st.memo[key] = somtarena::NullExpr;
-            return somtarena::NullExpr;
-        }
-        // Datatype operators carry their operator NAME (constructor/selector/tester symbol) in
-        // the payload so Xolver's DatatypeRegistry can resolve them — mirrors the adapter. These
-        // nodes have no getValue(), so mapValue would drop the name.
-        somtarena::Payload pl;
-        if (nk == NK::NT_DT_CONSTRUCTOR || nk == NK::NT_DT_SELECTOR || nk == NK::NT_DT_TESTER) {
-            pl = somtarena::payloadString(node->getName());
-        } else {
-            pl = node->getValue() ? mapValue(*node, g) : somtarena::payloadNone();
-        }
-        id = a.mkExpr(k, sort, std::span<const somtarena::ExprId>(kids.data(), kids.size()), pl);
-    }
-
-    // II-2b-3 (P0): record this core node's arena handle on the DAGNode (var/apply/generic). The
-    // P2 façade reads it; populating it now is verdict-neutral (cmp_native.sh is the gate).
+    // II-2b-3 (P0): record this core node's arena handle on the DAGNode. The inline hook (P1.1) does
+    // the same via buildCoreNode; populating it is verdict-neutral (cmp_native.sh is the gate).
     if (id != somtarena::NullExpr) node->setArenaHandle(&a, id);
     st.memo[key] = id;
     return id;
@@ -157,6 +125,51 @@ somtarena::ExprId buildQuantifier(const std::shared_ptr<SOMTParser::DAGNode>& no
         q = (nk == NK::NT_FORALL) ? a.mkForall(varSorts[i], q) : a.mkExists(varSorts[i], q);
     }
     return q;
+}
+
+somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
+                                const std::vector<somtarena::ExprId>& kids,
+                                somtarena::Arena& a, GapSink& g,
+                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls) {
+    NK nk = node.getKind();
+    somtarena::SortId sort = mapSort(node.getSort(), a, g);
+    if (isVarLeaf(nk)) {
+        // Variable identity carried by its name (so x != y structurally).
+        return a.mkExpr(somtarena::Kind::Var, sort, {}, somtarena::payloadString(node.getName()));
+    }
+    if (isApply(nk)) {
+        // UF apply: FuncDecl(name, [argSorts..., resultSort]) + Apply(funcDecl, args).
+        std::string fname = node.getName();
+        somtarena::ExprId fd;
+        if (auto fdIt = funcDecls.find(fname); fdIt != funcDecls.end()) {
+            fd = fdIt->second;
+        } else {
+            std::vector<somtarena::SortId> sig;
+            sig.reserve(kids.size() + 1);
+            for (auto kid : kids) sig.push_back(a.sortOf(kid));
+            sig.push_back(sort);  // result sort last
+            fd = a.mkFuncDecl(fname, std::span<const somtarena::SortId>(sig.data(), sig.size()));
+            funcDecls[fname] = fd;
+        }
+        return a.mkApply(fd, std::span<const somtarena::ExprId>(kids.data(), kids.size()));
+    }
+    bool mapped = false;
+    somtarena::Kind k = mapKind(nk, mapped);
+    if (!mapped) {
+        g.hardGap("unmapped kind=" + std::to_string(static_cast<int>(nk)) +
+                  " name='" + node.getName() + "'");
+        return somtarena::NullExpr;
+    }
+    // Datatype operators carry their operator NAME (constructor/selector/tester symbol) in the
+    // payload so Xolver's DatatypeRegistry can resolve them — mirrors the adapter. These nodes have
+    // no getValue(), so mapValue would drop the name.
+    somtarena::Payload pl;
+    if (nk == NK::NT_DT_CONSTRUCTOR || nk == NK::NT_DT_SELECTOR || nk == NK::NT_DT_TESTER) {
+        pl = somtarena::payloadString(node.getName());
+    } else {
+        pl = node.getValue() ? mapValue(node, g) : somtarena::payloadNone();
+    }
+    return a.mkExpr(k, sort, std::span<const somtarena::ExprId>(kids.data(), kids.size()), pl);
 }
 }  // namespace
 
