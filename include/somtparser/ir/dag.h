@@ -55,6 +55,12 @@
 // A pointer to a forward-declared class is all P0 needs (set/get only — never dereferenced here).
 namespace somtarena { class Arena; }
 
+#ifdef SOMTPARSER_WITH_ARENA
+// II-2b-3 (P3.a): parser-side ExprId -> Sort read registry (only forward-declares Sort, so no cycle
+// with this widely-included header). getSort() reads it under the SOMTP_DAGNODE_ARENA_READS flag.
+#include "somtparser/arena/read_registry.h"
+#endif
+
 namespace SOMTParser{
     // Forward declaration of DAGNode class
     class DAGNode;
@@ -797,8 +803,30 @@ namespace SOMTParser{
          * 
          * @return The sort of the node
          */
-        std::shared_ptr<Sort> getSort()
-                                    const { return sort; };
+        std::shared_ptr<Sort> getSort() const {
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P3.a): serve the sort from the shared SOMTArena term-IR via the parser-side
+            // read registry when SOMTP_DAGNODE_ARENA_READS is on. Verdict-neutral: the registry holds
+            // the SAME interned shared_ptr<Sort> the `sort` field holds (registered by the builder
+            // from the authoritative field), so on == off exactly. sortOf() matches the node's owning
+            // arena (arenaPtr_), so a stale handle into a discarded arena falls back to the field.
+            // Also falls back for handle-less nodes (quantifier/let scaffolding, arenaExprId_==0), an
+            // unregistered ExprId, or the flag off. The arena BUILDER must NOT use this path — it uses
+            // getSortRaw() so the arena is always built from the authoritative field.
+            static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
+                                               return e && *e && *e != '0'; }();
+            if (useArena && arenaExprId_ != 0) {
+                if (auto s = ArenaReadRegistry::instance().sortOf(arenaPtr_, arenaExprId_)) return s;
+            }
+#endif
+            return sort;
+        };
+#ifdef SOMTPARSER_WITH_ARENA
+        // II-2b-3 (P3.a): the authoritative field sort, bypassing the arena read registry. Used by
+        // the arena builder (src/arena/build.cpp), which is the SOURCE that populates the registry and
+        // must never read back from it (a node may still hold a stale handle from a discarded build).
+        std::shared_ptr<Sort> getSortRaw() const { return sort; }
+#endif
         /**
          * @brief Get the name of the node
          * 

@@ -1,5 +1,6 @@
 // II-2a parallel build implementation.
 #include "somtparser/arena/build.h"
+#include "somtparser/arena/read_registry.h"  // II-2b-3 (P3.a): ExprId -> Sort read registry
 #include "somtarena/Payload.h"
 
 #include <span>
@@ -41,7 +42,7 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
             return somtarena::NullExpr;
         }
         std::uint64_t index = st.depth - 1 - it->second;
-        return a.mkBoundVar(mapSort(node->getSort(), a, g), index);
+        return a.mkBoundVar(mapSort(node->getSortRaw(), a, g), index);  // P3.a: field, not registry
     }
 
     const SOMTParser::DAGNode* key = node.get();
@@ -73,7 +74,11 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     // --- quantifiers: build in de Bruijn form (Task 6) ---
     if (nk == NK::NT_FORALL || nk == NK::NT_EXISTS) {
         somtarena::ExprId id = buildQuantifier(node, a, g, st);
-        if (id != somtarena::NullExpr) node->setArenaHandle(&a, id);  // II-2b-3 (P0): core node
+        if (id != somtarena::NullExpr) {
+            node->setArenaHandle(&a, id);  // II-2b-3 (P0): core node
+            // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
+            SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
+        }
         st.memo[key] = id;
         return id;
     }
@@ -89,7 +94,11 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
 
     // II-2b-3 (P0): record this core node's arena handle on the DAGNode. The inline hook (P1.1) does
     // the same via buildCoreNode; populating it is verdict-neutral (cmp_native.sh is the gate).
-    if (id != somtarena::NullExpr) node->setArenaHandle(&a, id);
+    if (id != somtarena::NullExpr) {
+        node->setArenaHandle(&a, id);
+        // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
+        SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
+    }
     st.memo[key] = id;
     return id;
 }
@@ -113,7 +122,7 @@ somtarena::ExprId buildQuantifier(const std::shared_ptr<SOMTParser::DAGNode>& no
     varSorts.reserve(vars.size());
     for (std::size_t i = 0; i < vars.size(); ++i) {
         st.boundDepth[vars[i].get()] = D + i;  // binder position (outermost = D)
-        varSorts.push_back(mapSort(vars[i]->getSort(), a, g));
+        varSorts.push_back(mapSort(vars[i]->getSortRaw(), a, g));  // P3.a: field, not registry
     }
     st.depth = D + vars.size();
     somtarena::ExprId bodyId = buildArena(body, a, g, st);
@@ -132,7 +141,7 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
                                 somtarena::Arena& a, GapSink& g,
                                 std::unordered_map<std::string, somtarena::ExprId>& funcDecls) {
     NK nk = node.getKind();
-    somtarena::SortId sort = mapSort(node.getSort(), a, g);
+    somtarena::SortId sort = mapSort(node.getSortRaw(), a, g);  // P3.a: field, not registry
     if (isVarLeaf(nk)) {
         // Variable identity carried by its name (so x != y structurally).
         return a.mkExpr(somtarena::Kind::Var, sort, {}, somtarena::payloadString(node.getName()));
@@ -181,7 +190,7 @@ bool checkEquivalent(const std::shared_ptr<SOMTParser::DAGNode>& node,
         return false;
     }
     GapSink tmp;  // re-derive the expected sort without double-counting
-    if (a.sortOf(id) != mapSort(node->getSort(), a, tmp)) {
+    if (a.sortOf(id) != mapSort(node->getSortRaw(), a, tmp)) {  // P3.a: field, not registry
         g.hardGap("checkEquivalent: sort mismatch for '" + node->getName() + "'");
         return false;
     }
@@ -190,6 +199,9 @@ bool checkEquivalent(const std::shared_ptr<SOMTParser::DAGNode>& node,
 
 std::vector<somtarena::ExprId> buildAssertions(SOMTParser::Parser& parser,
                                                somtarena::Arena& arena, GapSink& g) {
+    // P3.a: fresh registry per parse (walk path) so ExprIds from a prior file can't leak. Runs once
+    // before the walk populates it; never mid-read (theory getSort reads happen after import).
+    SOMTParser::ArenaReadRegistry::instance().clear();
     std::vector<somtarena::ExprId> roots;
     BuildState st;
     for (const auto& a : parser.getAssertions()) {
@@ -201,13 +213,20 @@ std::vector<somtarena::ExprId> buildAssertions(SOMTParser::Parser& parser,
 void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& arena,
                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
                                GapSink& gaps, bool& aborted) {
+    // P3.a: fresh registry per parse (inline path) so ExprIds from a prior file can't leak. Runs once
+    // at hook install (before parse/population); never mid-read.
+    SOMTParser::ArenaReadRegistry::instance().clear();
     // Pre-build the common static singletons (true/false), inserted at NodeManager init BEFORE any
     // hook, so formulas referencing them don't bail. They are leaves -> buildCoreNode over no kids.
     // Rarely-used transcendental/infinity singletons stay unhandled (a formula using one bails).
     auto prebuild = [&](const std::shared_ptr<SOMTParser::DAGNode>& n) {
         if (n && n->arenaExprId() == somtarena::NullExpr) {
             somtarena::ExprId id = buildCoreNode(*n, {}, arena, gaps, funcDecls);
-            if (id != somtarena::NullExpr) n->setArenaHandle(&arena, id);
+            if (id != somtarena::NullExpr) {
+                n->setArenaHandle(&arena, id);
+                // P3.a: register the singleton's own (field) sort under its handle (own-handle site).
+                SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, n->getSortRaw());
+            }
         }
     };
     prebuild(SOMTParser::NodeManager::getTrue());
@@ -226,6 +245,9 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
             }
             // Let scaffolding has no arena node of its own; forward the relevant child's handle
             // (mirrors buildArena's let-elimination by node identity).
+            // P3.a: deliberately NOT registered here — these sites reuse a CHILD's ExprId, which its
+            // structural owner already registered with the same sort (a let's sort == its forwarded
+            // child's sort). Re-registering the let node's sort would risk overwriting that entry.
             if (nk == NK::NT_LET_BIND_VAR) {
                 if (node->getChildrenSize() > 0 && node->getChild(0))
                     node->setArenaHandle(&arena, node->getChild(0)->arenaExprId());
@@ -253,6 +275,8 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
             somtarena::ExprId id = buildCoreNode(*node, kids, arena, gaps, funcDecls);
             if (id == somtarena::NullExpr) { aborted = true; return; }  // unmapped kind / gap -> bail
             node->setArenaHandle(&arena, id);
+            // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
+            SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, node->getSortRaw());
         });
 }
 
