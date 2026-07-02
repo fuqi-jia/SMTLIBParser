@@ -27,8 +27,24 @@ std::shared_ptr<Sort> ArenaReadRegistry::sortOf(const somtarena::Arena* arena,
     return it->second.sort;
 }
 
+// II-2b-3 (P3.b): mirror of registerSort/sortOf for Value. Same Arena*-tag discipline: the entry is
+// tagged with its owning arena and valueOf() only returns on a matching arena, so a DAGNode still
+// holding a stale handle into a discarded (double-build) arena falls back to its field.
+void ArenaReadRegistry::registerValue(const somtarena::Arena* arena, std::uint64_t exprId,
+                                      std::shared_ptr<Value> v) {
+    value_[exprId] = ValueEntry{arena, std::move(v)};
+}
+
+std::shared_ptr<Value> ArenaReadRegistry::valueOf(const somtarena::Arena* arena,
+                                                  std::uint64_t exprId) const {
+    auto it = value_.find(exprId);
+    if (it == value_.end() || it->second.arena != arena) return nullptr;  // absent or foreign arena
+    return it->second.value;
+}
+
 void ArenaReadRegistry::clear() {
     sort_.clear();
+    value_.clear();  // II-2b-3 (P3.b): clear the value map too
 }
 
 }  // namespace SOMTParser

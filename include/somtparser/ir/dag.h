@@ -866,24 +866,67 @@ namespace SOMTParser{
          * 
          * @return The value of the node
          */
-        std::shared_ptr<Value> getValue()           const { return value; };
+        std::shared_ptr<Value> getValue() const {
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P3.b): serve the value from the shared SOMTArena term-IR via the parser-side
+            // read registry when SOMTP_DAGNODE_ARENA_READS is on (mirrors getSort, P3.a). Verdict-
+            // neutral: the registry holds the SAME interned shared_ptr<Value> the `value` field holds
+            // — populated by the builder from getValueRaw() at handle-set time, and kept in sync by
+            // setValue() on any post-handle mutation. valueOf() matches the node's owning arena
+            // (arenaPtr_), so a stale handle into a discarded arena falls back to the field; likewise
+            // for handle-less nodes (arenaExprId_==0), an unregistered/null-valued ExprId, or flag
+            // off. The arena BUILDER must NOT use this path — it reads getValueRaw() (authoritative
+            // field) so the arena is always built from the correct value.
+            static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
+                                               return e && *e && *e != '0'; }();
+            if (useArena && arenaExprId_ != 0) {
+                if (auto v = ArenaReadRegistry::instance().valueOf(arenaPtr_, arenaExprId_)) return v;
+            }
+#endif
+            return value;
+        };
+#ifdef SOMTPARSER_WITH_ARENA
+        // II-2b-3 (P3.b): the authoritative field value, bypassing the arena read registry. Used by
+        // the arena builder (src/arena/map.cpp mapValue, src/arena/build.cpp), which is the SOURCE
+        // that populates the registry and must never read back from it (a node may still hold a stale
+        // handle from a discarded build).
+        std::shared_ptr<Value> getValueRaw() const { return value; }
+#endif
 
         /**
          * @brief Set the value of the node
-         * 
+         *
          * @param v The value to set
          */
-        void setValue(std::shared_ptr<Value> v) { value = v; };
+        void setValue(std::shared_ptr<Value> v) {
+            value = v;
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P3.b): keep the read registry in sync with this mutation when the node already
+            // carries an arena handle (a POST-handle setValue, e.g. mkConstBv/mkConstFp enriching a
+            // const node's value after createNode fired the inline hook). Without this, getValue()
+            // would return the value the builder captured at handle-set time, not the mutated field
+            // -> a verdict divergence vs the flag-off path. When setValue runs BEFORE the handle is
+            // set (construction), arenaExprId_==0 so this is skipped and the handle-set populate
+            // captures the final field value. Either ordering keeps registry == field.
+            static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
+                                               return e && *e && *e != '0'; }();
+            if (useArena && arenaExprId_ != 0 && arenaPtr_) {
+                ArenaReadRegistry::instance().registerValue(arenaPtr_, arenaExprId_, value);
+            }
+#endif
+        };
 
-        void setValue(const Integer& v) { value = newValue(v); };
+        // Typed setValue overloads delegate to the shared_ptr overload above so the P3.b registry
+        // sync lives in exactly one place (behaviorally identical to the prior `value = newValue(v)`).
+        void setValue(const Integer& v) { setValue(newValue(v)); };
 
-        void setValue(const Real& v) { value = newValue(v); };
+        void setValue(const Real& v) { setValue(newValue(v)); };
 
-        void setValue(const double& v) { value = newValue(v); };
+        void setValue(const double& v) { setValue(newValue(v)); };
 
-        void setValue(const int& v) { value = newValue(v); };
+        void setValue(const int& v) { setValue(newValue(v)); };
 
-        void setValue(const Interval& v) { value = newValue(v); };
+        void setValue(const Interval& v) { setValue(newValue(v)); };
         
         /**
          * @brief Get the number of children of the node

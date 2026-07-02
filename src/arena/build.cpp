@@ -78,6 +78,8 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
             node->setArenaHandle(&a, id);  // II-2b-3 (P0): core node
             // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
             SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
+            // P3.b: register this node's own (field) value beside the sort (authoritative field).
+            SOMTParser::ArenaReadRegistry::instance().registerValue(&a, id, node->getValueRaw());
         }
         st.memo[key] = id;
         return id;
@@ -98,6 +100,8 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
         node->setArenaHandle(&a, id);
         // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
         SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
+        // P3.b: register this node's own (field) value beside the sort (authoritative field).
+        SOMTParser::ArenaReadRegistry::instance().registerValue(&a, id, node->getValueRaw());
     }
     st.memo[key] = id;
     return id;
@@ -176,7 +180,7 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
     if (nk == NK::NT_DT_CONSTRUCTOR || nk == NK::NT_DT_SELECTOR || nk == NK::NT_DT_TESTER) {
         pl = somtarena::payloadString(node.getName());
     } else {
-        pl = node.getValue() ? mapValue(node, g) : somtarena::payloadNone();
+        pl = node.getValueRaw() ? mapValue(node, g) : somtarena::payloadNone();  // P3.b: field, not registry
     }
     return a.mkExpr(k, sort, std::span<const somtarena::ExprId>(kids.data(), kids.size()), pl);
 }
@@ -226,6 +230,8 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
                 n->setArenaHandle(&arena, id);
                 // P3.a: register the singleton's own (field) sort under its handle (own-handle site).
                 SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, n->getSortRaw());
+                // P3.b: register the singleton's own (field) value beside the sort (authoritative field).
+                SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, n->getValueRaw());
             }
         }
     };
@@ -277,6 +283,8 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
             node->setArenaHandle(&arena, id);
             // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
             SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, node->getSortRaw());
+            // P3.b: register this node's own (field) value beside the sort (authoritative field).
+            SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, node->getValueRaw());
         });
 }
 

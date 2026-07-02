@@ -8,7 +8,7 @@
 namespace xarena_cov {
 
 somtarena::Payload mapValue(const SOMTParser::DAGNode& n, GapSink& g) {
-    auto val = n.getValue();
+    auto val = n.getValueRaw();  // II-2b-3 (P3.b): builder reads the authoritative field, not the registry
     if (!val) return somtarena::payloadNone();
     switch (val->getType()) {
         case SOMTParser::BOOLEAN:

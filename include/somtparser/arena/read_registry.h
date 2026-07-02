@@ -20,7 +20,9 @@
 namespace somtarena { class Arena; }
 
 namespace SOMTParser {
-    class Sort;  // forward-declared: this header must not pull in the full Sort definition.
+    class Sort;   // forward-declared: this header must not pull in the full Sort definition.
+    class Value;  // II-2b-3 (P3.b): forward-declared too (Value is a rich MPFR/Interval-bearing type;
+                  // keep this header light — layering, no full Value include).
 
     // Per-parse singleton keyed by somtarena ExprId (uint64), each entry tagged with its owning
     // Arena*. Populated at arena-handle-set time by the builder (src/arena/build.cpp), cleared per
@@ -31,7 +33,15 @@ namespace SOMTParser {
             const somtarena::Arena* arena;   // owning arena (compared, never dereferenced)
             std::shared_ptr<Sort>   sort;
         };
-        std::unordered_map<std::uint64_t, Entry> sort_;
+        // II-2b-3 (P3.b): a SEPARATE Arena*-tagged ExprId -> Value map, distinct from the Sort map.
+        // Value-bearing nodes are a subset (const/value-carrying); keeping this map separate avoids
+        // bloating the Sort entry with an always-present (usually null) value slot.
+        struct ValueEntry {
+            const somtarena::Arena* arena;   // owning arena (compared, never dereferenced)
+            std::shared_ptr<Value>  value;
+        };
+        std::unordered_map<std::uint64_t, Entry>      sort_;
+        std::unordered_map<std::uint64_t, ValueEntry> value_;
 
        public:
         static ArenaReadRegistry& instance();  // per-parse singleton; cleared per build
@@ -40,7 +50,16 @@ namespace SOMTParser {
                           std::shared_ptr<Sort> s);
         // nullptr if the ExprId is absent OR was registered for a different arena.
         std::shared_ptr<Sort> sortOf(const somtarena::Arena* arena, std::uint64_t exprId) const;
-        void clear();
+
+        // II-2b-3 (P3.b): same contract for Value. registerValue stores the SAME interned
+        // shared_ptr<Value> the DAGNode field holds (populated by the builder at handle-set time, and
+        // kept in sync by DAGNode::setValue on post-handle mutation), so valueOf() returns the
+        // identical object. nullptr if the ExprId is absent OR was registered for a different arena.
+        void registerValue(const somtarena::Arena* arena, std::uint64_t exprId,
+                           std::shared_ptr<Value> v);
+        std::shared_ptr<Value> valueOf(const somtarena::Arena* arena, std::uint64_t exprId) const;
+
+        void clear();  // clears BOTH the sort and value maps
     };
 }  // namespace SOMTParser
 #endif  // SOMTPARSER_WITH_ARENA
