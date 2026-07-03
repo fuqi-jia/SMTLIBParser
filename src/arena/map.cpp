@@ -38,7 +38,7 @@ somtarena::Payload mapValue(const SOMTParser::DAGNode& n, GapSink& g) {
             // The BV literal lives in the node name (#b../#x../decimal). Best-effort parse
             // to u64 for coverage; exact >64-bit BV fidelity is II-2b's concern.
             unsigned long long bits = 0;
-            const std::string& nm = n.getName();
+            const std::string nm = n.getNameRaw();  // II-2b-3 (P3.e): builder reads the field, not the registry
             try {
                 if (nm.size() > 2 && nm[0] == '#' && nm[1] == 'b')
                     bits = std::stoull(nm.substr(2), nullptr, 2);

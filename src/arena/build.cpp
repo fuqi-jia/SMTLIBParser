@@ -27,6 +27,12 @@ void registerArenaNode(somtarena::Arena& a, somtarena::ExprId id,
                        const std::shared_ptr<SOMTParser::DAGNode>& node) {
     auto& reg = SOMTParser::ArenaReadRegistry::instance();
     reg.registerNode(&a, id, node);
+    // II-2b-3 (P3.e): register this node's OWN (field) name, owner-tagged. Done for EVERY structural
+    // node — including quantifiers, leaves, and operators whose name is "" — so it must precede the
+    // quantifier/leaf early-returns below. registerArenaNode is only called at the 4 structural-owner
+    // sites; let scaffolding returns early and never calls it, so a let node never registers a name →
+    // the owner-tag rejects its forwarded-ExprId query → field fallback. Correct by construction.
+    reg.registerName(&a, id, node.get(), node->getNameRaw());
     somtarena::Kind k = a.kind(id);
     if (somtarena::isQuantifier(k)) return;  // field-backed: child normal form differs
     std::span<const somtarena::ExprId> cs =
@@ -57,7 +63,7 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     if (nk == NK::NT_QUANT_VAR) {
         auto it = st.boundDepth.find(node.get());
         if (it == st.boundDepth.end()) {
-            g.hardGap("unbound quant var: '" + node->getName() + "'");
+            g.hardGap("unbound quant var: '" + node->getNameRaw() + "'");  // P3.e: field, not registry
             return somtarena::NullExpr;
         }
         std::uint64_t index = st.depth - 1 - it->second;
@@ -173,11 +179,11 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
     somtarena::SortId sort = mapSort(node.getSortRaw(), a, g);  // P3.a: field, not registry
     if (isVarLeaf(nk)) {
         // Variable identity carried by its name (so x != y structurally).
-        return a.mkExpr(somtarena::Kind::Var, sort, {}, somtarena::payloadString(node.getName()));
+        return a.mkExpr(somtarena::Kind::Var, sort, {}, somtarena::payloadString(node.getNameRaw()));  // P3.e: field
     }
     if (isApply(nk)) {
         // UF apply: FuncDecl(name, [argSorts..., resultSort]) + Apply(funcDecl, args).
-        std::string fname = node.getName();
+        std::string fname = node.getNameRaw();  // P3.e: field, not registry (builder is the source)
         somtarena::ExprId fd;
         if (auto fdIt = funcDecls.find(fname); fdIt != funcDecls.end()) {
             fd = fdIt->second;
@@ -195,7 +201,7 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
     somtarena::Kind k = mapKind(nk, mapped);
     if (!mapped) {
         g.hardGap("unmapped kind=" + std::to_string(static_cast<int>(nk)) +
-                  " name='" + node.getName() + "'");
+                  " name='" + node.getNameRaw() + "'");  // P3.e: field, not registry
         return somtarena::NullExpr;
     }
     // Datatype operators carry their operator NAME (constructor/selector/tester symbol) in the
@@ -203,7 +209,7 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
     // no getValue(), so mapValue would drop the name.
     somtarena::Payload pl;
     if (nk == NK::NT_DT_CONSTRUCTOR || nk == NK::NT_DT_SELECTOR || nk == NK::NT_DT_TESTER) {
-        pl = somtarena::payloadString(node.getName());
+        pl = somtarena::payloadString(node.getNameRaw());  // P3.e: field, not registry (builder is source)
     } else {
         pl = node.getValueRaw() ? mapValue(node, g) : somtarena::payloadNone();  // P3.b: field, not registry
     }
@@ -215,12 +221,12 @@ bool checkEquivalent(const std::shared_ptr<SOMTParser::DAGNode>& node,
                      somtarena::ExprId id, somtarena::Arena& a, GapSink& g) {
     if (!node) return true;
     if (id == somtarena::NullExpr || !a.isValidHandle(id)) {
-        g.hardGap("checkEquivalent: invalid built handle for '" + node->getName() + "'");
+        g.hardGap("checkEquivalent: invalid built handle for '" + node->getNameRaw() + "'");  // P3.e: field
         return false;
     }
     GapSink tmp;  // re-derive the expected sort without double-counting
     if (a.sortOf(id) != mapSort(node->getSortRaw(), a, tmp)) {  // P3.a: field, not registry
-        g.hardGap("checkEquivalent: sort mismatch for '" + node->getName() + "'");
+        g.hardGap("checkEquivalent: sort mismatch for '" + node->getNameRaw() + "'");  // P3.e: field
         return false;
     }
     return true;

@@ -829,10 +829,34 @@ namespace SOMTParser{
 #endif
         /**
          * @brief Get the name of the node
-         * 
+         *
          * @return The name of the node
          */
-        std::string getName()       const { return name; };
+        std::string getName() const {
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P3.e): serve the name from the shared SOMTArena term-IR via the parser-side read
+            // registry when SOMTP_DAGNODE_ARENA_READS is on (mirrors P3.a getSort / P3.b getValue).
+            // Verdict-neutral: registerName stores the SAME field string, keyed by BOTH arena AND owner
+            // (like children_, NOT sort_), so nameFor returns null for the let-forward alias — a let
+            // node forwards a child's ExprId but its OWN name (bound var) differs from the child's — and
+            // the let node falls back to its own `name` field. Also falls back for handle-less nodes
+            // (arenaExprId_==0), an unregistered ExprId, a stale handle (Arena* mismatch), or flag off.
+            // A NULL nameFor means "absent" (NOT the empty string — operators legitimately have name"");
+            // the arena BUILDER must NOT use this path — it uses getNameRaw() (authoritative field).
+            static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
+                                               return e && *e && *e != '0'; }();
+            if (useArena && arenaExprId_ != 0) {
+                if (auto* n = ArenaReadRegistry::instance().nameFor(arenaPtr_, arenaExprId_, this)) return *n;
+            }
+#endif
+            return name;
+        };
+#ifdef SOMTPARSER_WITH_ARENA
+        // II-2b-3 (P3.e): the authoritative field name, bypassing the arena read registry. Used by the
+        // arena builder (src/arena/build.cpp), which is the SOURCE that populates the registry and must
+        // never read back from it. Mirrors getSortRaw/getValueRaw/getChildRaw.
+        std::string getNameRaw() const { return name; }
+#endif
 
         /**
          * @brief Get the re-named name of the node

@@ -75,11 +75,29 @@ const std::vector<std::uint64_t>* ArenaReadRegistry::childrenOf(const somtarena:
     return &it->second.childIds;
 }
 
+// II-2b-3 (P3.e): ExprId -> node NAME. Same owner-tag discipline as childrenOf: nameFor gates on BOTH
+// the Arena* AND the owner. The owner tag rejects the let-forward alias — a let node forwards a
+// child's ExprId as its own handle, but its OWN name (the bound var) differs from the forwarded
+// child's name, so it must fall back to its own field rather than read the child's registered name.
+void ArenaReadRegistry::registerName(const somtarena::Arena* arena, std::uint64_t exprId,
+                                     const DAGNode* owner, std::string name) {
+    name_[exprId] = NameEntry{arena, owner, std::move(name)};
+}
+
+const std::string* ArenaReadRegistry::nameFor(const somtarena::Arena* arena, std::uint64_t exprId,
+                                              const DAGNode* owner) const {
+    auto it = name_.find(exprId);
+    if (it == name_.end() || it->second.arena != arena || it->second.owner != owner)
+        return nullptr;  // absent, foreign arena, or let-forward alias (owner mismatch)
+    return &it->second.name;
+}
+
 void ArenaReadRegistry::clear() {
     sort_.clear();
     value_.clear();     // II-2b-3 (P3.b): clear the value map too
     node_.clear();      // II-2b-3 (P3.c): and the node map
     children_.clear();  // II-2b-3 (P3.c): and the children map
+    name_.clear();      // II-2b-3 (P3.e): and the name map
 }
 
 }  // namespace SOMTParser

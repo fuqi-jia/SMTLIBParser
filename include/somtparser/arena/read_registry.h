@@ -63,10 +63,20 @@ namespace SOMTParser {
             const DAGNode*             owner;    // structural owner (compared, never dereferenced)
             std::vector<std::uint64_t> childIds;
         };
+        // II-2b-3 (P3.e): Arena*-+owner-tagged ExprId -> node NAME (DAGNode::name field). Owner-tagged
+        // like children_ (NOT sort_): a let node forwards a child's ExprId but its OWN name (bound var)
+        // differs from the forwarded child's name, so nameFor must reject the let-forward alias via the
+        // owner check.
+        struct NameEntry {
+            const somtarena::Arena* arena;   // owning arena (compared, never dereferenced)
+            const DAGNode*          owner;   // structural owner (compared, never dereferenced)
+            std::string             name;
+        };
         std::unordered_map<std::uint64_t, Entry>         sort_;
         std::unordered_map<std::uint64_t, ValueEntry>    value_;
         std::unordered_map<std::uint64_t, NodeEntry>     node_;
         std::unordered_map<std::uint64_t, ChildrenEntry> children_;
+        std::unordered_map<std::uint64_t, NameEntry>     name_;
 
        public:
         static ArenaReadRegistry& instance();  // per-parse singleton; cleared per build
@@ -100,7 +110,17 @@ namespace SOMTParser {
         const std::vector<std::uint64_t>* childrenOf(const somtarena::Arena* arena,
                                                      std::uint64_t exprId, const DAGNode* owner) const;
 
-        void clear();  // clears ALL FOUR maps (sort_, value_, node_, children_)
+        // II-2b-3 (P3.e): ExprId -> node NAME (DAGNode::name field). Owner-tagged like childrenOf:
+        // nameFor returns the name only when BOTH the Arena* AND the owner match (nullptr otherwise:
+        // absent, foreign arena, or a let-forward alias where owner != the querying node) — so the
+        // caller falls back to its field. A NULL return means "absent", NOT the empty string (operators
+        // legitimately have name==""). The returned pointer aliases the map entry; valid until clear().
+        void registerName(const somtarena::Arena* arena, std::uint64_t exprId,
+                          const DAGNode* owner, std::string name);
+        const std::string* nameFor(const somtarena::Arena* arena, std::uint64_t exprId,
+                                   const DAGNode* owner) const;
+
+        void clear();  // clears ALL FIVE maps (sort_, value_, node_, children_, name_)
     };
 }  // namespace SOMTParser
 #endif  // SOMTPARSER_WITH_ARENA
