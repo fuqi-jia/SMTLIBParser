@@ -55,11 +55,16 @@ somtarena::ExprId buildQuantifier(const std::shared_ptr<SOMTParser::DAGNode>& no
 // already-built handles `kids`. Shared by the recursive walk (buildArena) and the inline hook
 // (installInlineArenaBuilder) so both emit byte-identical nodes. Returns NullExpr and records a gap
 // on an unmapped kind. Does NOT memoize or set the DAGNode handle — the caller owns that.
+// II-2b-3 (E4 step4b.1): the candidate kind is THREADED in as `nk` (last param) rather than read
+// from node.getKind() — this is the SHARED core builder's last candidate kind-field dependency. Both
+// callers pass what getKind() returns today (walk: node->getKind(); hook: the threaded nk_param), so
+// this is verdict-neutral by construction. No default (both flipGtGe + nk are always passed
+// explicitly) so a future caller can't silently inherit the wrong kind.
 somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
                                 const std::vector<somtarena::ExprId>& kids,
                                 somtarena::Arena& a, GapSink& g,
                                 std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
-                                bool flipGtGe = false);
+                                bool flipGtGe, NK nk);
 }  // namespace
 
 somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
@@ -131,7 +136,10 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
         if (auto c = node->getChildRaw(i)) kids.push_back(buildArena(c, a, g, st));
     }
 
-    somtarena::ExprId id = buildCoreNode(*node, kids, a, g, st.funcDecls, st.flipGtGe);
+    // II-2b-3 (E4 step4b.1): the walk's ONE remaining candidate kind-field read, centralized here as
+    // the buildCoreNode `nk` argument (subject of step4b.2 — can the walk be made kind-field-free?).
+    somtarena::ExprId id =
+        buildCoreNode(*node, kids, a, g, st.funcDecls, st.flipGtGe, node->getKind());
 
     // II-2b-3 (P0): record this core node's arena handle on the DAGNode. The inline hook (P1.1) does
     // the same via buildCoreNode; populating it is verdict-neutral (cmp_native.sh is the gate).
@@ -185,8 +193,10 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
                                 const std::vector<somtarena::ExprId>& kids,
                                 somtarena::Arena& a, GapSink& g,
                                 std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
-                                bool flipGtGe) {
-    NK nk = node.getKind();
+                                bool flipGtGe, NK nk) {
+    // II-2b-3 (E4 step4b.1): `nk` is the THREADED candidate kind (see fwd-decl comment) — the shared
+    // core builder no longer reads node.getKind(). Other field reads below (getSortRaw/getNameRaw/
+    // getValueRaw) are the node's OWN sort/name/value fields, not the kind field being dropped.
     somtarena::SortId sort = mapSort(node.getSortRaw(), a, g);  // P3.a: field, not registry
     // II-2b-3 (P4.c): >/>= -> </<= child-swap flip, mirroring FrontendAdapter::importNode
     // (adapter.cpp:171-177). Swap the first two child handles and retarget the Kind so the emitted
@@ -286,7 +296,8 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
     // Rarely-used transcendental/infinity singletons stay unhandled (a formula using one bails).
     auto prebuild = [&](const std::shared_ptr<SOMTParser::DAGNode>& n) {
         if (n && n->arenaExprId() == somtarena::NullExpr) {
-            somtarena::ExprId id = buildCoreNode(*n, {}, arena, gaps, funcDecls);
+            somtarena::ExprId id =
+                buildCoreNode(*n, {}, arena, gaps, funcDecls, /*flipGtGe=*/false, n->getKind());
             if (id != somtarena::NullExpr) {
                 n->setArenaHandle(&arena, id, /*finalized=*/true);
                 // P3.a: register the singleton's own (field) sort under its handle (own-handle site).
@@ -346,7 +357,10 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
                 if (cid == somtarena::NullExpr) { aborted = true; return; }  // child unbuilt -> bail
                 kids.push_back(cid);
             }
-            somtarena::ExprId id = buildCoreNode(*node, kids, arena, gaps, funcDecls);
+            // II-2b-3 (E4 step4b.1): pass the THREADED nk (== nk_param) — this inline path is now fully
+            // field-free for the candidate kind (buildCoreNode no longer reads node.getKind()).
+            somtarena::ExprId id =
+                buildCoreNode(*node, kids, arena, gaps, funcDecls, /*flipGtGe=*/false, nk);
             if (id == somtarena::NullExpr) { aborted = true; return; }  // unmapped kind / gap -> bail
             node->setArenaHandle(&arena, id, /*finalized=*/true);
             // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
