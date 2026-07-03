@@ -5,6 +5,7 @@
 
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace xarena_cov {
@@ -49,7 +50,8 @@ somtarena::ExprId buildQuantifier(const std::shared_ptr<SOMTParser::DAGNode>& no
 somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
                                 const std::vector<somtarena::ExprId>& kids,
                                 somtarena::Arena& a, GapSink& g,
-                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls);
+                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
+                                bool flipGtGe = false);
 }  // namespace
 
 somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
@@ -121,7 +123,7 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
         if (auto c = node->getChildRaw(i)) kids.push_back(buildArena(c, a, g, st));
     }
 
-    somtarena::ExprId id = buildCoreNode(*node, kids, a, g, st.funcDecls);
+    somtarena::ExprId id = buildCoreNode(*node, kids, a, g, st.funcDecls, st.flipGtGe);
 
     // II-2b-3 (P0): record this core node's arena handle on the DAGNode. The inline hook (P1.1) does
     // the same via buildCoreNode; populating it is verdict-neutral (cmp_native.sh is the gate).
@@ -174,9 +176,21 @@ somtarena::ExprId buildQuantifier(const std::shared_ptr<SOMTParser::DAGNode>& no
 somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
                                 const std::vector<somtarena::ExprId>& kids,
                                 somtarena::Arena& a, GapSink& g,
-                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls) {
+                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
+                                bool flipGtGe) {
     NK nk = node.getKind();
     somtarena::SortId sort = mapSort(node.getSortRaw(), a, g);  // P3.a: field, not registry
+    // II-2b-3 (P4.c): >/>= -> </<= child-swap flip, mirroring FrontendAdapter::importNode
+    // (adapter.cpp:171-177). Swap the first two child handles and retarget the Kind so the emitted
+    // native node is Lt/Le(swapped) — nativeToXolverKind(Lt/Le)=Kind::Lt/Leq, giving byte-parity with
+    // the adapter's IR. Gated (flipGtGe) so only the rewritten-NRA walk flips; leaves are unaffected.
+    if (flipGtGe && (nk == NK::NT_GT || nk == NK::NT_GE) && kids.size() >= 2) {
+        std::vector<somtarena::ExprId> sw(kids.begin(), kids.end());
+        std::swap(sw[0], sw[1]);
+        somtarena::Kind fk = (nk == NK::NT_GT) ? somtarena::Kind::Lt : somtarena::Kind::Le;
+        return a.mkExpr(fk, sort, std::span<const somtarena::ExprId>(sw.data(), sw.size()),
+                        node.getValueRaw() ? mapValue(node, g) : somtarena::payloadNone());
+    }
     if (isVarLeaf(nk)) {
         // Variable identity carried by its name (so x != y structurally).
         return a.mkExpr(somtarena::Kind::Var, sort, {}, somtarena::payloadString(node.getNameRaw()));  // P3.e: field

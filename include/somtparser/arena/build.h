@@ -23,6 +23,12 @@ struct BuildState {
     std::unordered_map<const SOMTParser::DAGNode*, std::uint64_t> boundDepth;
     std::uint64_t depth = 0;  // current number of enclosing binders
     std::set<int> seenKinds;  // NODE_KINDs exercised (coverage report)
+    // II-2b-3 (P4.c): apply the adapter's >/>= -> </<= child-swap flip during buildCoreNode so a
+    // Stage-A-rewritten NRA arena import produces Lt/Leq(swapped kids) == the FrontendAdapter's IR
+    // (byte-parity for the CAD var-order-sensitive NRA path). Default OFF (only the rewritten-NRA
+    // walk sets it); every other arena path — inline non-NRA, the plain buildAssertions walk —
+    // keeps the native Gt/Ge unflipped, so this is behavior-neutral for them.
+    bool flipGtGe = false;
 };
 
 // Build the native arena term for a DAGNode root (recursive + memoized). Records gaps in g.
