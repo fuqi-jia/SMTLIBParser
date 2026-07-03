@@ -1075,13 +1075,18 @@ namespace SOMTParser{
         }
     }
     
-    std::shared_ptr<DAGNode> NodeManager::insertNodeToBucket(const std::shared_ptr<DAGNode>& node) {
+    std::shared_ptr<DAGNode> NodeManager::insertNodeToBucket(const std::shared_ptr<DAGNode>& node, NODE_KIND candidateKind) {
         TIME_FUNC();
-        auto bucket_index = static_cast<size_t>(node->getKind());
+        // II-2b-3 (E3-dedup): the candidate's kind is threaded in (candidateKind == its createNode
+        // NODE_KIND == what node->getKind() holds today) — the dedup path must NOT read the candidate's
+        // kind field, since the candidate has no arena handle yet (arenaBuilderHook_ fires only after
+        // the dedup decision, below). Bucket index / hash / equivalence all source the candidate kind
+        // from candidateKind; pre-existing bucket nodes (pair.first) still read their own field.
+        auto bucket_index = static_cast<size_t>(candidateKind);
         auto& kind_bucket = node_buckets[bucket_index];
-        
+
         // pre-calculate hash code to avoid repeated calculation
-        size_t node_hash = node->hashCode();
+        size_t node_hash = node->hashCode(candidateKind);
         
         // secondary hash lookup: first use hash code to locate the small bucket
         auto hash_it = kind_bucket.find(node_hash);
@@ -1097,11 +1102,15 @@ namespace SOMTParser{
                     return node_ptr;
                 }
                 // fast structure comparison (avoid the expensive isEquivalentTo call)
-                if(pair.first->getKind() == node->getKind() &&
+                if(pair.first->getKind() == candidateKind &&
                 pair.first->getChildrenSize() == node->getChildrenSize() &&
                 pair.first->getName() == node->getName()) {
-                    // only call the expensive isEquivalentTo when the structure matches completely
-                    if(pair.first->isEquivalentTo(*node)) {
+                    // only call the expensive isEquivalentTo when the structure matches completely.
+                    // II-2b-3 (E3-dedup): call ON the candidate (node) with the bucket node as `other`
+                    // and the threaded candidateKind — so the candidate's kind is NOT read from its
+                    // field. Equivalence is symmetric, so the boolean result is identical to today's
+                    // pair.first->isEquivalentTo(*node).
+                    if(node->isEquivalentTo(*pair.first, candidateKind)) {
                         auto node_ptr = nodes[pair.second];
                         node_ptr->incUseCount();
                         return node_ptr;
@@ -1124,29 +1133,31 @@ namespace SOMTParser{
     }
 
     void NodeManager::initializeStaticNodes() {
-        // Basic constants
-        insertNodeToBucket(NULL_NODE);
-        insertNodeToBucket(UNKNOWN_NODE);
-        insertNodeToBucket(ERROR_NODE);
-        insertNodeToBucket(TRUE_NODE);
-        insertNodeToBucket(FALSE_NODE);
-        insertNodeToBucket(E_NODE);
-        insertNodeToBucket(PI_NODE);
-        insertNodeToBucket(NAN_NODE);
-        insertNodeToBucket(EPSILON_NODE);
-        insertNodeToBucket(POS_EPSILON_NODE);
-        insertNodeToBucket(NEG_EPSILON_NODE);
-        
+        // Basic constants. II-2b-3 (E3-dedup): these fully-built static constants carry their kind in
+        // their field at init time; read it once here (at the registration site, outside the dedup
+        // logic) to thread it in — insertNodeToBucket itself no longer reads the candidate's field.
+        insertNodeToBucket(NULL_NODE, NULL_NODE->getKind());
+        insertNodeToBucket(UNKNOWN_NODE, UNKNOWN_NODE->getKind());
+        insertNodeToBucket(ERROR_NODE, ERROR_NODE->getKind());
+        insertNodeToBucket(TRUE_NODE, TRUE_NODE->getKind());
+        insertNodeToBucket(FALSE_NODE, FALSE_NODE->getKind());
+        insertNodeToBucket(E_NODE, E_NODE->getKind());
+        insertNodeToBucket(PI_NODE, PI_NODE->getKind());
+        insertNodeToBucket(NAN_NODE, NAN_NODE->getKind());
+        insertNodeToBucket(EPSILON_NODE, EPSILON_NODE->getKind());
+        insertNodeToBucket(POS_EPSILON_NODE, POS_EPSILON_NODE->getKind());
+        insertNodeToBucket(NEG_EPSILON_NODE, NEG_EPSILON_NODE->getKind());
+
         // Infinity nodes
-        insertNodeToBucket(STR_INF_NODE);
-        insertNodeToBucket(STR_POS_INF_NODE);
-        insertNodeToBucket(STR_NEG_INF_NODE);
-        insertNodeToBucket(INT_INF_NODE);
-        insertNodeToBucket(INT_POS_INF_NODE);
-        insertNodeToBucket(INT_NEG_INF_NODE);
-        insertNodeToBucket(REAL_INF_NODE);
-        insertNodeToBucket(REAL_POS_INF_NODE);
-        insertNodeToBucket(REAL_NEG_INF_NODE);
+        insertNodeToBucket(STR_INF_NODE, STR_INF_NODE->getKind());
+        insertNodeToBucket(STR_POS_INF_NODE, STR_POS_INF_NODE->getKind());
+        insertNodeToBucket(STR_NEG_INF_NODE, STR_NEG_INF_NODE->getKind());
+        insertNodeToBucket(INT_INF_NODE, INT_INF_NODE->getKind());
+        insertNodeToBucket(INT_POS_INF_NODE, INT_POS_INF_NODE->getKind());
+        insertNodeToBucket(INT_NEG_INF_NODE, INT_NEG_INF_NODE->getKind());
+        insertNodeToBucket(REAL_INF_NODE, REAL_INF_NODE->getKind());
+        insertNodeToBucket(REAL_POS_INF_NODE, REAL_POS_INF_NODE->getKind());
+        insertNodeToBucket(REAL_NEG_INF_NODE, REAL_NEG_INF_NODE->getKind());
         
         // Mark how many nodes are static constants so we can preserve them during clear()
         static_node_count = nodes.size();
@@ -1155,79 +1166,85 @@ namespace SOMTParser{
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, NODE_KIND kind, std::string name, std::vector<std::shared_ptr<DAGNode>> children) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, kind, name, children);
-        return insertNodeToBucket(node);
+        // II-2b-3 (E3-dedup): thread the construction kind (the createNode arg) into the dedup path.
+        return insertNodeToBucket(node, kind);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, NODE_KIND kind, std::string name) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, kind, name);
-        return insertNodeToBucket(node);
+        return insertNodeToBucket(node, kind);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, NODE_KIND kind) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, kind);
-        return insertNodeToBucket(node);
+        return insertNodeToBucket(node, kind);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort);
-        return insertNodeToBucket(node);
+        // DAGNode(sort) sets kind == NT_UNKNOWN (see the ctor); thread that literal.
+        return insertNodeToBucket(node, NODE_KIND::NT_UNKNOWN);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode() {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>();
-        return insertNodeToBucket(node);
+        // DAGNode() sets kind == NT_UNKNOWN.
+        return insertNodeToBucket(node, NODE_KIND::NT_UNKNOWN);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(NODE_KIND kind, std::string name) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(kind, name);
-        return insertNodeToBucket(node);
+        return insertNodeToBucket(node, kind);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(NODE_KIND kind) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(kind);
-        return insertNodeToBucket(node);
+        return insertNodeToBucket(node, kind);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const Integer& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node);
+        // The value ctors set kind == NT_CONST.
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const Real& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node);
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const double& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node);
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const int& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node);
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const bool& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node);
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(const std::string& n) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(n);
-        return insertNodeToBucket(node);
+        // DAGNode(string) derives the kind by parsing n inside the ctor; read it once here (at the
+        // construction site, outside the dedup logic) to thread it in.
+        return insertNodeToBucket(node, node->getKind());
     }
 
 }

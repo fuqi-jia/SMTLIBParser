@@ -1229,18 +1229,46 @@ namespace SOMTParser{
         }
 
         /**
+         * @brief Equivalence check with THIS node's kind threaded in.
+         *
+         * II-2b-3 (E3-dedup): used by the hash-cons dedup path where THIS is the freshly-built
+         * candidate (called as candidate->isEquivalentTo(*bucketNode, candidateKind)). The candidate
+         * has no arena handle yet, so its kind is threaded from createNode instead of read from the
+         * this->kind field. thisKind == this->kind for the candidate, so the boolean result is
+         * byte-identical to isEquivalentTo(other) — only the SOURCE of the candidate's kind changes.
+         * `other` (the pre-existing bucket node) still reads other.kind (field-drop is a later step).
+         */
+        bool isEquivalentTo(const DAGNode& other, NODE_KIND thisKind) const {
+            std::unordered_set<std::pair<const DAGNode*, const DAGNode*>, PairNodePtrHash, PairNodePtrEqual> visited;
+            return isEquivalentTo(other, thisKind, visited);
+        }
+
+        /**
          * @brief Get the hash code of the node
          * 
          * @return The hash code of the node
          */
         std::size_t hashCode() const{
+            // II-2b-3 (E3-dedup): the normal path sources the kind from the field; identical value.
+            return hashCode(kind);
+        }
+
+        /**
+         * @brief Get the hash code of the node with its kind THREADED in.
+         *
+         * II-2b-3 (E3-dedup): used by the hash-cons dedup path (insertNodeToBucket) where the
+         * freshly-built candidate has no arena handle yet, so its kind cannot be read back from the
+         * arena. threadedKind == this->kind for the candidate, so the returned hash is byte-identical
+         * to hashCode() — only the SOURCE of h2 changes (the param, not the this->kind field).
+         */
+        std::size_t hashCode(NODE_KIND threadedKind) const{
             if(hash_computed) {
                 return cached_hash_code;
             }
-            
+
             // high quality hash algorithm, reduce conflicts
             size_t h1 = std::hash<std::string>{}(sort->toString());
-            size_t h2 = static_cast<size_t>(kind);
+            size_t h2 = static_cast<size_t>(threadedKind);
             size_t h3 = name.empty() ? 0 : std::hash<std::string>{}(name);
             size_t h4 = children.size();
             size_t h5 = children_hash.empty() ? 0 : std::hash<std::string>{}(children_hash);
@@ -1315,6 +1343,53 @@ namespace SOMTParser{
             }
             visited.insert(p);
             
+            // most expensive recursive comparison at the end
+            for (size_t i = 0; i < children.size(); i++) {
+                if (!children[i]->isEquivalentTo(*other.children[i], visited)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // II-2b-3 (E3-dedup): recursive equivalence where THIS node's (top-level) kind is threaded in
+        // via `thisKind` instead of read from the this->kind field. Mirrors the body above exactly,
+        // save for the single `thisKind != other.kind` structural check. Children recurse through the
+        // normal (field-sourced) 2-arg path — they are pre-existing nodes whose kind fields are valid.
+        // For the candidate, thisKind == this->kind, so the result is byte-identical to the 2-arg form.
+        bool isEquivalentTo(const DAGNode& other, NODE_KIND thisKind,
+                std::unordered_set<std::pair<const DAGNode*, const DAGNode*>, PairNodePtrHash, PairNodePtrEqual>& visited) const {
+            TIME_FUNC();
+
+            // fastest check: pointer same
+            if (this == &other) {
+                return true;
+            }
+
+            // fast structure check (avoid the expensive subsequent comparison)
+            if (thisKind != other.kind ||
+                children.size() != other.children.size() ||
+                sort.get() != other.sort.get()) {
+                return false;
+            }
+
+            // name check
+            if (name != other.name) {
+                return false;
+            }
+
+            // children_hash check (if both are calculated, this is the fastest deep comparison)
+            if (!children_hash.empty() && !other.children_hash.empty() &&
+                children_hash != other.children_hash) {
+                return false;
+            }
+
+            auto p = std::make_pair(this, &other);
+            if(visited.find(p) != visited.end()){
+                return true;
+            }
+            visited.insert(p);
+
             // most expensive recursive comparison at the end
             for (size_t i = 0; i < children.size(); i++) {
                 if (!children[i]->isEquivalentTo(*other.children[i], visited)) {
@@ -1445,7 +1520,9 @@ namespace SOMTParser{
             inline static const std::shared_ptr<DAGNode> REAL_NEG_INF_NODE = std::make_shared<DAGNode>(SortManager::REAL_SORT, NODE_KIND::NT_NEG_INFINITY, "-INF");
         private:
             void initializeStaticNodes();
-            std::shared_ptr<DAGNode> insertNodeToBucket(const std::shared_ptr<DAGNode>& node);
+            // II-2b-3 (E3-dedup): candidateKind is threaded from createNode so the hash-cons dedup
+            // never reads the freshly-built candidate's kind field (it has no arena handle yet).
+            std::shared_ptr<DAGNode> insertNodeToBucket(const std::shared_ptr<DAGNode>& node, NODE_KIND candidateKind);
     };
 
 }
