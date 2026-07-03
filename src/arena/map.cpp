@@ -270,4 +270,181 @@ somtarena::Kind mapKind(SOMTParser::NODE_KIND k, bool& mapped) {
     }
 }
 
+SOMTParser::NODE_KIND arenaKindToNodeKind(const somtarena::Arena& a, somtarena::ExprId id) {
+    using NK = SOMTParser::NODE_KIND;
+    using K = somtarena::Kind;
+    // Eq/Distinct collapse: their bool-ness is derived from the FIRST operand's sort (Cap.3 §3
+    // dropped the EqBool/EqOther tags from the arena vocabulary). Eq/Distinct are NOT Apply, so
+    // the operands are the plain children (no funcDecl child-0 to skip). Empty child list ->
+    // safe *_OTHER default.
+    auto firstOperandIsBool = [&a](somtarena::ExprId n) -> bool {
+        const auto ch = a.children(n);
+        return !ch.empty() && a.sortOf(ch[0]) == a.boolSort();
+    };
+    switch (a.kind(id)) {
+        // --- constants / vars ---
+        case K::Const:        return NK::NT_CONST;
+        case K::Var:          return NK::NT_VAR;
+        case K::True:         return NK::NT_CONST_TRUE;
+        case K::False:        return NK::NT_CONST_FALSE;
+        case K::ConstArray:   return NK::NT_CONST_ARRAY;
+        // --- boolean / core ---
+        case K::And:      return NK::NT_AND;
+        case K::Or:       return NK::NT_OR;
+        case K::Not:      return NK::NT_NOT;
+        case K::Implies:  return NK::NT_IMPLIES;
+        case K::Xor:      return NK::NT_XOR;
+        case K::Eq:       return firstOperandIsBool(id) ? NK::NT_EQ_BOOL : NK::NT_EQ_OTHER;
+        case K::Distinct: return firstOperandIsBool(id) ? NK::NT_DISTINCT_BOOL : NK::NT_DISTINCT_OTHER;
+        case K::Ite:      return NK::NT_ITE;
+        // --- arithmetic ---
+        case K::Add:      return NK::NT_ADD;
+        case K::Neg:      return NK::NT_NEG;
+        case K::Sub:      return NK::NT_SUB;
+        case K::Mul:      return NK::NT_MUL;
+        case K::IntAnd:   return NK::NT_IAND;
+        case K::Pow2:     return NK::NT_POW2;
+        case K::Pow:      return NK::NT_POW;
+        case K::IntDiv:   return NK::NT_DIV_INT;
+        case K::RealDiv:  return NK::NT_DIV_REAL;
+        case K::Mod:      return NK::NT_MOD;
+        case K::Abs:      return NK::NT_ABS;
+        case K::Sqrt:     return NK::NT_SQRT;
+        case K::SafeSqrt: return NK::NT_SAFESQRT;
+        case K::Ceil:     return NK::NT_CEIL;
+        case K::Floor:    return NK::NT_FLOOR;
+        case K::Round:    return NK::NT_ROUND;
+        case K::Gcd:      return NK::NT_GCD;
+        case K::Lcm:      return NK::NT_LCM;
+        case K::Fact:     return NK::NT_FACT;
+        case K::Max:      return NK::NT_MAX;
+        case K::Min:      return NK::NT_MIN;
+        // --- transcendental ---
+        case K::Exp:  return NK::NT_EXP;   case K::Ln:   return NK::NT_LN;
+        case K::Lg:   return NK::NT_LG;    case K::Lb:   return NK::NT_LB;
+        case K::Log:  return NK::NT_LOG;
+        case K::Sin:  return NK::NT_SIN;   case K::Cos:  return NK::NT_COS;
+        case K::Tan:  return NK::NT_TAN;   case K::Cot:  return NK::NT_COT;
+        case K::Sec:  return NK::NT_SEC;   case K::Csc:  return NK::NT_CSC;
+        case K::Asin: return NK::NT_ASIN;  case K::Acos: return NK::NT_ACOS;
+        case K::Atan: return NK::NT_ATAN;  case K::Acot: return NK::NT_ACOT;
+        case K::Asec: return NK::NT_ASEC;  case K::Acsc: return NK::NT_ACSC;
+        case K::Sinh: return NK::NT_SINH;  case K::Cosh: return NK::NT_COSH;
+        case K::Tanh: return NK::NT_TANH;  case K::Asech: return NK::NT_ASECH;
+        case K::Acsch: return NK::NT_ACSCH; case K::Acoth: return NK::NT_ACOTH;
+        case K::Atan2: return NK::NT_ATAN2; case K::Asinh: return NK::NT_ASINH;
+        case K::Acosh: return NK::NT_ACOSH; case K::Atanh: return NK::NT_ATANH;
+        case K::Sech: return NK::NT_SECH;  case K::Csch: return NK::NT_CSCH;
+        case K::Coth: return NK::NT_COTH;
+        // --- predicates / comparisons / conversions ---
+        case K::IsDivisible: return NK::NT_IS_DIVISIBLE;
+        case K::IsPrime:     return NK::NT_IS_PRIME;
+        case K::IsEven:      return NK::NT_IS_EVEN;
+        case K::IsOdd:       return NK::NT_IS_ODD;
+        case K::IsInt:       return NK::NT_IS_INT;
+        case K::Le: return NK::NT_LE;   case K::Lt: return NK::NT_LT;
+        case K::Ge: return NK::NT_GE;   case K::Gt: return NK::NT_GT;
+        case K::ToInt:  return NK::NT_TO_INT;
+        case K::ToReal: return NK::NT_TO_REAL;
+        // --- bit-vectors ---
+        case K::BvNot: return NK::NT_BV_NOT;   case K::BvNeg: return NK::NT_BV_NEG;
+        case K::BvAnd: return NK::NT_BV_AND;   case K::BvOr:  return NK::NT_BV_OR;
+        case K::BvXor: return NK::NT_BV_XOR;   case K::BvNand: return NK::NT_BV_NAND;
+        case K::BvNor: return NK::NT_BV_NOR;   case K::BvXnor: return NK::NT_BV_XNOR;
+        case K::BvComp: return NK::NT_BV_COMP; case K::BvAdd: return NK::NT_BV_ADD;
+        case K::BvSub: return NK::NT_BV_SUB;   case K::BvMul: return NK::NT_BV_MUL;
+        case K::BvUdiv: return NK::NT_BV_UDIV; case K::BvSdiv: return NK::NT_BV_SDIV;
+        case K::BvUrem: return NK::NT_BV_UREM; case K::BvSrem: return NK::NT_BV_SREM;
+        case K::BvUmod: return NK::NT_BV_UMOD; case K::BvSmod: return NK::NT_BV_SMOD;
+        case K::BvShl: return NK::NT_BV_SHL;   case K::BvLshr: return NK::NT_BV_LSHR;
+        case K::BvAshr: return NK::NT_BV_ASHR;
+        case K::BvUlt: return NK::NT_BV_ULT;   case K::BvUle: return NK::NT_BV_ULE;
+        case K::BvUgt: return NK::NT_BV_UGT;   case K::BvUge: return NK::NT_BV_UGE;
+        case K::BvSlt: return NK::NT_BV_SLT;   case K::BvSle: return NK::NT_BV_SLE;
+        case K::BvSgt: return NK::NT_BV_SGT;   case K::BvSge: return NK::NT_BV_SGE;
+        case K::BvConcat: return NK::NT_BV_CONCAT;
+        case K::BvToNat: return NK::NT_BV_TO_NAT; case K::NatToBv: return NK::NT_NAT_TO_BV;
+        case K::BvToInt: return NK::NT_BV_TO_INT; case K::IntToBv: return NK::NT_INT_TO_BV;
+        case K::BvExtract: return NK::NT_BV_EXTRACT; case K::BvRepeat: return NK::NT_BV_REPEAT;
+        case K::BvZeroExtend: return NK::NT_BV_ZERO_EXT; case K::BvSignExtend: return NK::NT_BV_SIGN_EXT;
+        case K::BvRotateLeft: return NK::NT_BV_ROTATE_LEFT; case K::BvRotateRight: return NK::NT_BV_ROTATE_RIGHT;
+        case K::BvNego: return NK::NT_BV_NEGO; case K::BvUaddo: return NK::NT_BV_UADDO;
+        case K::BvSaddo: return NK::NT_BV_SADDO; case K::BvUmulo: return NK::NT_BV_UMULO;
+        case K::BvSmulo: return NK::NT_BV_SMULO; case K::BvUdivo: return NK::NT_BV_UDIVO;
+        case K::BvSdivo: return NK::NT_BV_SDIVO; case K::BvUremo: return NK::NT_BV_UREMO;
+        case K::BvSremo: return NK::NT_BV_SREMO; case K::BvUmodo: return NK::NT_BV_UMODO;
+        case K::BvSmodo: return NK::NT_BV_SMODO;
+        // --- floating point ---
+        case K::FpAdd: return NK::NT_FP_ADD; case K::FpSub: return NK::NT_FP_SUB;
+        case K::FpMul: return NK::NT_FP_MUL; case K::FpDiv: return NK::NT_FP_DIV;
+        case K::FpAbs: return NK::NT_FP_ABS; case K::FpNeg: return NK::NT_FP_NEG;
+        case K::FpRem: return NK::NT_FP_REM; case K::FpFma: return NK::NT_FP_FMA;
+        case K::FpSqrt: return NK::NT_FP_SQRT; case K::FpRoundToIntegral: return NK::NT_FP_ROUND_TO_INTEGRAL;
+        case K::FpMin: return NK::NT_FP_MIN; case K::FpMax: return NK::NT_FP_MAX;
+        case K::FpLe: return NK::NT_FP_LE; case K::FpLt: return NK::NT_FP_LT;
+        case K::FpGe: return NK::NT_FP_GE; case K::FpGt: return NK::NT_FP_GT;
+        case K::FpEq: return NK::NT_FP_EQ;
+        case K::FpToUbv: return NK::NT_FP_TO_UBV; case K::FpToSbv: return NK::NT_FP_TO_SBV;
+        case K::FpToReal: return NK::NT_FP_TO_REAL; case K::FpToFp: return NK::NT_FP_TO_FP;
+        case K::FpToFpUnsigned: return NK::NT_FP_TO_FP_UNSIGNED; case K::FpToIeeeBv: return NK::NT_FP_TO_IEEE_BV;
+        case K::FpIsNormal: return NK::NT_FP_IS_NORMAL; case K::FpIsSubnormal: return NK::NT_FP_IS_SUBNORMAL;
+        case K::FpIsZero: return NK::NT_FP_IS_ZERO; case K::FpIsInf: return NK::NT_FP_IS_INF;
+        case K::FpIsNan: return NK::NT_FP_IS_NAN; case K::FpIsNeg: return NK::NT_FP_IS_NEG;
+        case K::FpIsPos: return NK::NT_FP_IS_POS;
+        // --- arrays ---
+        case K::Select: return NK::NT_SELECT; case K::Store: return NK::NT_STORE;
+        // --- strings ---
+        case K::StrLen: return NK::NT_STR_LEN; case K::StrConcat: return NK::NT_STR_CONCAT;
+        case K::StrSubstr: return NK::NT_STR_SUBSTR; case K::StrIndexof: return NK::NT_STR_INDEXOF;
+        case K::StrCharat: return NK::NT_STR_CHARAT; case K::StrUpdate: return NK::NT_STR_UPDATE;
+        case K::StrReplace: return NK::NT_STR_REPLACE; case K::StrReplaceAll: return NK::NT_STR_REPLACE_ALL;
+        case K::StrReplaceRe: return NK::NT_STR_REPLACE_REG; case K::StrReplaceReAll: return NK::NT_STR_REPLACE_REG_ALL;
+        case K::StrIndexofRe: return NK::NT_STR_INDEXOF_REG; case K::StrToLower: return NK::NT_STR_TO_LOWER;
+        case K::StrToUpper: return NK::NT_STR_TO_UPPER; case K::StrRev: return NK::NT_STR_REV;
+        case K::StrSplit: return NK::NT_STR_SPLIT; case K::StrSplitAt: return NK::NT_STR_SPLIT_AT;
+        case K::StrSplitRest: return NK::NT_STR_SPLIT_REST; case K::StrNumSplits: return NK::NT_STR_NUM_SPLITS;
+        case K::StrSplitAtRe: return NK::NT_STR_SPLIT_AT_RE; case K::StrSplitRestRe: return NK::NT_STR_SPLIT_REST_RE;
+        case K::StrNumSplitsRe: return NK::NT_STR_NUM_SPLITS_RE; case K::StrLt: return NK::NT_STR_LT;
+        case K::StrLe: return NK::NT_STR_LE; case K::StrGt: return NK::NT_STR_GT;
+        case K::StrGe: return NK::NT_STR_GE; case K::StrInRe: return NK::NT_STR_IN_REG;
+        case K::StrContains: return NK::NT_STR_CONTAINS; case K::StrIsDigit: return NK::NT_STR_IS_DIGIT;
+        case K::StrPrefixof: return NK::NT_STR_PREFIXOF; case K::StrSuffixof: return NK::NT_STR_SUFFIXOF;
+        case K::StrFromInt: return NK::NT_STR_FROM_INT; case K::StrToInt: return NK::NT_STR_TO_INT;
+        case K::StrToRe: return NK::NT_STR_TO_REG; case K::StrToCode: return NK::NT_STR_TO_CODE;
+        case K::StrFromCode: return NK::NT_STR_FROM_CODE;
+        // --- regex ---
+        case K::ReConcat: return NK::NT_REG_CONCAT; case K::ReUnion: return NK::NT_REG_UNION;
+        case K::ReInter: return NK::NT_REG_INTER; case K::ReDiff: return NK::NT_REG_DIFF;
+        case K::ReStar: return NK::NT_REG_STAR; case K::RePlus: return NK::NT_REG_PLUS;
+        case K::ReOpt: return NK::NT_REG_OPT; case K::ReRange: return NK::NT_REG_RANGE;
+        case K::ReRepeat: return NK::NT_REG_REPEAT; case K::ReComplement: return NK::NT_REG_COMPLEMENT;
+        case K::ReLoop: return NK::NT_REG_LOOP; case K::ReNone: return NK::NT_REG_NONE;
+        case K::ReAll: return NK::NT_REG_ALL; case K::ReAllchar: return NK::NT_REG_ALLCHAR;
+        // --- functions / UF ---
+        case K::Apply: return NK::NT_UF_APPLY;  // collapse family: uniform UF apply (see header)
+        // K::FuncDecl is in mapKind's forward image (NT_FUNC_DEC) but is a pure symbol node, NOT a
+        // term a DAGNode carries through getKind(); treat it as outside the image -> NT_UNKNOWN.
+        case K::FuncDecl: return NK::NT_UNKNOWN;
+        // --- datatypes ---
+        case K::DtConstructor: return NK::NT_DT_CONSTRUCTOR; case K::DtSelector: return NK::NT_DT_SELECTOR;
+        case K::DtTester: return NK::NT_DT_TESTER; case K::DtMatch: return NK::NT_DT_MATCH;
+        // --- transcendental / special constants ---
+        case K::Pi: return NK::NT_CONST_PI;
+        case K::Infinity: return NK::NT_INFINITY; case K::Nan: return NK::NT_NAN;
+        case K::Epsilon: return NK::NT_EPSILON;
+        case K::PosInfinity: return NK::NT_POS_INFINITY; case K::NegInfinity: return NK::NT_NEG_INFINITY;
+        case K::PosEpsilon: return NK::NT_POS_EPSILON; case K::NegEpsilon: return NK::NT_NEG_EPSILON;
+        // --- real-algebraic (Xolver NRA witnesses) ---
+        case K::RootObj: return NK::NT_ROOT_OBJ;
+        case K::RootOfWithInterval: return NK::NT_ROOT_OF_WITH_INTERVAL;
+        case K::RealAlgebraicNumber: return NK::NT_REAL_ALGEBRAIC_NUMBER;
+        // --- quantifiers ---
+        case K::Forall: return NK::NT_FORALL;
+        case K::Exists: return NK::NT_EXISTS;
+        // Arena-internal / non-DAGNode kinds (E, BoundVar, Sort*, ConstArray already handled above,
+        // etc.) a getKind() call never legitimately reaches: defensive NT_UNKNOWN.
+        default: return NK::NT_UNKNOWN;
+    }
+}
+
 }  // namespace xarena_cov

@@ -33,6 +33,20 @@ somtarena::SortId mapSort(const std::shared_ptr<SOMTParser::Sort>& s,
 // walk resolves specially (let-elim / de Bruijn) rather than mapping directly.
 somtarena::Kind mapKind(SOMTParser::NODE_KIND k, bool& mapped);
 
+// Inverse of mapKind (II-2b-3 P4.a): reconstruct the DAGNode NODE_KIND from an arena node.
+// For the 3 many-to-one collapse families, disambiguate from arena context:
+//   K::Apply    -> NT_UF_APPLY        (uniform — the UF/defined/rec split is parser-internal &
+//                                       lossless for the solver; NT_FUNC_APPLY is inlined,
+//                                       NT_FUNC_REC_APPLY is served as a plain UF apply
+//                                       everywhere downstream)
+//   K::Eq       -> NT_EQ_BOOL       if the first operand's sort is Bool, else NT_EQ_OTHER
+//   K::Distinct -> NT_DISTINCT_BOOL if the first operand's sort is Bool, else NT_DISTINCT_OTHER
+// Every other arena Kind in mapKind's image maps 1:1 back to its NODE_KIND. Any arena Kind
+// OUTSIDE mapKind's image (e.g. FuncDecl, or arena-internal kinds a DAGNode never carries)
+// returns NT_UNKNOWN — getKind() is only ever called on nodes that came through mapKind, so
+// this is a defensive default, not an expected path. Pure: reads only kind/children/sortOf.
+SOMTParser::NODE_KIND arenaKindToNodeKind(const somtarena::Arena& a, somtarena::ExprId id);
+
 // SOMTParser constant/value -> native SOMTArena Payload (exact GMP: int->payloadInt(mpz),
 // rational->payloadRational(mpq), bool->payloadBool, string->payloadString, BV->payloadBitVec).
 // An MPFR REAL value (SOMTParser's approximate channel) is a SOFT gap (Xolver is exact-only,
