@@ -15,6 +15,25 @@ bool isVarLeaf(NK k) { return k == NK::NT_VAR; }
 bool isApply(NK k) {
     return k == NK::NT_UF_APPLY || k == NK::NT_FUNC_APPLY || k == NK::NT_FUNC_REC_APPLY;
 }
+// II-2b-3 (P3.c): at an own-handle site, mirror this node into the read registry so the DAGNode child
+// accessors (getChildrenSize/getChildren/getChild) can be served from the arena. registerNode lets a
+// child ExprId resolve back to its DAGNode; registerChildren captures the child ExprId list NOW (the
+// arena is alive) — computing it at read time would use-after-free on the discard path (ir.reset()
+// frees the inline arena). Apply nodes strip the funcDecl (arena child 0) via applyArgs so the list
+// matches the DAGNode child normal form (func symbol lives in the DAGNode's name, not its children).
+// Quantifiers (arena de Bruijn single-binder [paramSort, body] vs DAGNode [body, vars...]) and empty
+// leaves stay field-backed — childrenOf returns null there so the reader uses its field.
+void registerArenaNode(somtarena::Arena& a, somtarena::ExprId id,
+                       const std::shared_ptr<SOMTParser::DAGNode>& node) {
+    auto& reg = SOMTParser::ArenaReadRegistry::instance();
+    reg.registerNode(&a, id, node);
+    somtarena::Kind k = a.kind(id);
+    if (somtarena::isQuantifier(k)) return;  // field-backed: child normal form differs
+    std::span<const somtarena::ExprId> cs =
+        (k == somtarena::Kind::Apply) ? a.applyArgs(id) : a.children(id);  // strip funcDecl on Apply
+    if (cs.empty()) return;  // leaf: field-backed
+    reg.registerChildren(&a, id, node.get(), std::vector<std::uint64_t>(cs.begin(), cs.end()));
+}
 somtarena::ExprId buildQuantifier(const std::shared_ptr<SOMTParser::DAGNode>& node,
                                   somtarena::Arena& a, GapSink& g, BuildState& st);
 // II-2b-3 (P1.1): build the arena node for ONE non-let, non-quant DAGNode given its children's
@@ -49,19 +68,21 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     if (auto it = st.memo.find(key); it != st.memo.end()) return it->second;
 
     // --- let elimination (by node identity, mirrors the verified adapter) ---
+    // P3.c: the builder reads the authoritative FIELD children (getChild*Raw), never the registry
+    // (which it is the source of; a node may still hold a stale handle from a discarded build).
     if (nk == NK::NT_LET_BIND_VAR) {
-        somtarena::ExprId id = node->getChildrenSize() > 0
-                                   ? buildArena(node->getChild(0), a, g, st)
+        somtarena::ExprId id = node->getChildrenSizeRaw() > 0
+                                   ? buildArena(node->getChildRaw(0), a, g, st)
                                    : somtarena::NullExpr;
         st.memo[key] = id;
         return id;
     }
     if (nk == NK::NT_LET || nk == NK::NT_LET_CHAIN) {
-        size_t nc = node->getChildrenSize();
+        size_t nc = node->getChildrenSizeRaw();
         somtarena::ExprId id = somtarena::NullExpr;
         if (nc > 0) {
             size_t bi = (nk == NK::NT_LET) ? 0 : (nc - 1);
-            id = buildArena(node->getChild(bi), a, g, st);
+            id = buildArena(node->getChildRaw(bi), a, g, st);
         }
         st.memo[key] = id;
         return id;
@@ -80,16 +101,18 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
             SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
             // P3.b: register this node's own (field) value beside the sort (authoritative field).
             SOMTParser::ArenaReadRegistry::instance().registerValue(&a, id, node->getValueRaw());
+            // P3.c: register the node (children skipped for quantifiers — normal form differs).
+            registerArenaNode(a, id, node);
         }
         st.memo[key] = id;
         return id;
     }
 
-    // --- build children first (post-order) ---
+    // --- build children first (post-order) --- P3.c: field (Raw) children, not the registry.
     std::vector<somtarena::ExprId> kids;
-    kids.reserve(node->getChildrenSize());
-    for (size_t i = 0; i < node->getChildrenSize(); ++i) {
-        if (auto c = node->getChild(i)) kids.push_back(buildArena(c, a, g, st));
+    kids.reserve(node->getChildrenSizeRaw());
+    for (size_t i = 0; i < node->getChildrenSizeRaw(); ++i) {
+        if (auto c = node->getChildRaw(i)) kids.push_back(buildArena(c, a, g, st));
     }
 
     somtarena::ExprId id = buildCoreNode(*node, kids, a, g, st.funcDecls);
@@ -102,6 +125,8 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
         SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
         // P3.b: register this node's own (field) value beside the sort (authoritative field).
         SOMTParser::ArenaReadRegistry::instance().registerValue(&a, id, node->getValueRaw());
+        // P3.c: register the node + its (Apply-remapped) child ExprId list for arena-served reads.
+        registerArenaNode(a, id, node);
     }
     st.memo[key] = id;
     return id;
@@ -232,6 +257,8 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
                 SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, n->getSortRaw());
                 // P3.b: register the singleton's own (field) value beside the sort (authoritative field).
                 SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, n->getValueRaw());
+                // P3.c: register the singleton node (leaf — children skipped, field-backed).
+                registerArenaNode(arena, id, n);
             }
         }
     };
@@ -254,25 +281,26 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
             // P3.a: deliberately NOT registered here — these sites reuse a CHILD's ExprId, which its
             // structural owner already registered with the same sort (a let's sort == its forwarded
             // child's sort). Re-registering the let node's sort would risk overwriting that entry.
+            // P3.c: let scaffolding reads its FIELD (Raw) children — the arena reads are being built.
             if (nk == NK::NT_LET_BIND_VAR) {
-                if (node->getChildrenSize() > 0 && node->getChild(0))
-                    node->setArenaHandle(&arena, node->getChild(0)->arenaExprId());
+                if (node->getChildrenSizeRaw() > 0 && node->getChildRaw(0))
+                    node->setArenaHandle(&arena, node->getChildRaw(0)->arenaExprId());
                 return;
             }
             if (nk == NK::NT_LET || nk == NK::NT_LET_CHAIN) {
-                size_t nc = node->getChildrenSize();
+                size_t nc = node->getChildrenSizeRaw();
                 if (nc > 0) {
                     size_t bi = (nk == NK::NT_LET) ? 0 : (nc - 1);
-                    if (auto b = node->getChild(bi)) node->setArenaHandle(&arena, b->arenaExprId());
+                    if (auto b = node->getChildRaw(bi)) node->setArenaHandle(&arena, b->arenaExprId());
                 }
                 return;
             }
             if (nk == NK::NT_LET_BIND_VAR_LIST) return;  // structural list, no handle
             // Core node: gather children's cached handles (built earlier, bottom-up), build, cache.
             std::vector<somtarena::ExprId> kids;
-            kids.reserve(node->getChildrenSize());
-            for (size_t i = 0; i < node->getChildrenSize(); ++i) {
-                auto c = node->getChild(i);
+            kids.reserve(node->getChildrenSizeRaw());
+            for (size_t i = 0; i < node->getChildrenSizeRaw(); ++i) {
+                auto c = node->getChildRaw(i);
                 if (!c) continue;
                 somtarena::ExprId cid = c->arenaExprId();
                 if (cid == somtarena::NullExpr) { aborted = true; return; }  // child unbuilt -> bail
@@ -285,6 +313,8 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
             SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, node->getSortRaw());
             // P3.b: register this node's own (field) value beside the sort (authoritative field).
             SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, node->getValueRaw());
+            // P3.c: register the node + its (Apply-remapped) child ExprId list for arena-served reads.
+            registerArenaNode(arena, id, node);
         });
 }
 

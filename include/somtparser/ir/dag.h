@@ -930,27 +930,94 @@ namespace SOMTParser{
         
         /**
          * @brief Get the number of children of the node
-         * 
+         *
          * @return The number of children of the node
          */
-        size_t getChildrenSize()    const { return children.size(); };
+        size_t getChildrenSize() const {
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P3.c): serve the child count from the shared SOMTArena term-IR via the parser-
+            // side read registry when SOMTP_DAGNODE_ARENA_READS is on. Verdict-neutral: childrenOf
+            // returns the child ExprId list captured at build time (Apply-remapped to DAGNode normal
+            // form), whose size == the `children` field size. Falls back to the field for handle-less
+            // nodes (arenaExprId_==0), quantifier/leaf nodes (not registered), the let-forward alias
+            // (owner mismatch), a stale handle into a discarded arena (Arena* mismatch), or flag off.
+            static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
+                                               return e && *e && *e != '0'; }();
+            if (useArena && arenaExprId_ != 0) {
+                if (auto* cids = ArenaReadRegistry::instance().childrenOf(arenaPtr_, arenaExprId_, this))
+                    return cids->size();
+            }
+#endif
+            return children.size();
+        };
 
         /**
          * @brief Get the children of the node
-         * 
+         *
          * @return The children of the node
          */
-        std::vector<std::shared_ptr<DAGNode>> getChildren() 
-                                    const { return children; };
+        std::vector<std::shared_ptr<DAGNode>> getChildren() const {
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P3.c): materialize the children from the arena read registry — each child
+            // ExprId -> its canonical DAGNode via nodeFor. Whole-node field fallback: if the size
+            // differs from the field, or ANY child ExprId isn't registered (nodeFor null), return the
+            // field vector ENTIRELY (never a partial / nullptr-bearing list).
+            static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
+                                               return e && *e && *e != '0'; }();
+            if (useArena && arenaExprId_ != 0) {
+                if (auto* cids = ArenaReadRegistry::instance().childrenOf(arenaPtr_, arenaExprId_, this)) {
+                    if (cids->size() == children.size()) {
+                        std::vector<std::shared_ptr<DAGNode>> res;
+                        res.reserve(cids->size());
+                        bool ok = true;
+                        for (std::uint64_t cid : *cids) {
+                            auto n = ArenaReadRegistry::instance().nodeFor(arenaPtr_, cid);
+                            if (!n) { ok = false; break; }
+                            res.push_back(std::move(n));
+                        }
+                        if (ok) return res;
+                    }
+                }
+            }
+#endif
+            return children;
+        };
 
         /**
          * @brief Get the child of the node
-         * 
+         *
          * @param i The index of the child
          * @return The child of the node
          */
-        std::shared_ptr<DAGNode> getChild(int i) 
-                                    const { return children[i]; };
+        std::shared_ptr<DAGNode> getChild(int i) const {
+#ifdef SOMTPARSER_WITH_ARENA
+            // II-2b-3 (P3.c): serve child i from the arena read registry (its child ExprId -> DAGNode
+            // via nodeFor). Whole-node field fallback: if the arena child count differs from the field,
+            // i is out of range, or the child ExprId isn't registered (nodeFor null), read the FIELD
+            // for the whole node (never a partial / nullptr child).
+            static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
+                                               return e && *e && *e != '0'; }();
+            if (useArena && arenaExprId_ != 0) {
+                if (auto* cids = ArenaReadRegistry::instance().childrenOf(arenaPtr_, arenaExprId_, this)) {
+                    if (cids->size() == children.size() &&
+                        i >= 0 && static_cast<size_t>(i) < cids->size()) {
+                        if (auto n = ArenaReadRegistry::instance().nodeFor(arenaPtr_, (*cids)[i]))
+                            return n;
+                    }
+                }
+            }
+#endif
+            return children[i];
+        };
+#ifdef SOMTPARSER_WITH_ARENA
+        // II-2b-3 (P3.c): field-only child accessors, bypassing the arena read registry. Used by the
+        // arena builder (src/arena/build.cpp), which is the SOURCE that populates the registry and
+        // must never read back from it (a node may still hold a stale handle from a discarded build).
+        // Mirrors getSortRaw/getValueRaw.
+        size_t getChildrenSizeRaw() const { return children.size(); }
+        const std::vector<std::shared_ptr<DAGNode>>& getChildrenRaw() const { return children; }
+        std::shared_ptr<DAGNode> getChildRaw(int i) const { return children[i]; }
+#endif
         // NOTE: function body is the first child
 
         /**

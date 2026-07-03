@@ -42,9 +42,44 @@ std::shared_ptr<Value> ArenaReadRegistry::valueOf(const somtarena::Arena* arena,
     return it->second.value;
 }
 
+// II-2b-3 (P3.c): ExprId -> DAGNode. Same Arena*-tag discipline: nodeFor returns the node only on a
+// matching arena, so a DAGNode still holding a stale handle into a discarded arena reads null. The
+// DAGNode type is incomplete here (forward-declared) — fine, we only move/store/compare shared_ptrs
+// (the deleter is type-erased in the control block created parser-side).
+void ArenaReadRegistry::registerNode(const somtarena::Arena* arena, std::uint64_t exprId,
+                                     std::shared_ptr<DAGNode> node) {
+    node_[exprId] = NodeEntry{arena, std::move(node)};
+}
+
+std::shared_ptr<DAGNode> ArenaReadRegistry::nodeFor(const somtarena::Arena* arena,
+                                                    std::uint64_t exprId) const {
+    auto it = node_.find(exprId);
+    if (it == node_.end() || it->second.arena != arena) return nullptr;  // absent or foreign arena
+    return it->second.node;
+}
+
+// II-2b-3 (P3.c): ExprId -> child ExprId list (DAGNode normal form; Apply funcDecl already stripped
+// at the call site). childrenOf gates on BOTH the Arena* AND the owner: the owner tag rejects the
+// let-forward alias, where a let node's handle is a child's ExprId owned by a DIFFERENT DAGNode.
+void ArenaReadRegistry::registerChildren(const somtarena::Arena* arena, std::uint64_t exprId,
+                                         const DAGNode* owner, std::vector<std::uint64_t> childIds) {
+    children_[exprId] = ChildrenEntry{arena, owner, std::move(childIds)};
+}
+
+const std::vector<std::uint64_t>* ArenaReadRegistry::childrenOf(const somtarena::Arena* arena,
+                                                                std::uint64_t exprId,
+                                                                const DAGNode* owner) const {
+    auto it = children_.find(exprId);
+    if (it == children_.end() || it->second.arena != arena || it->second.owner != owner)
+        return nullptr;  // absent, foreign arena, or let-forward alias (owner mismatch)
+    return &it->second.childIds;
+}
+
 void ArenaReadRegistry::clear() {
     sort_.clear();
-    value_.clear();  // II-2b-3 (P3.b): clear the value map too
+    value_.clear();     // II-2b-3 (P3.b): clear the value map too
+    node_.clear();      // II-2b-3 (P3.c): and the node map
+    children_.clear();  // II-2b-3 (P3.c): and the children map
 }
 
 }  // namespace SOMTParser
