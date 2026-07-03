@@ -1437,14 +1437,17 @@ namespace SOMTParser{
             // builds the SOMTArena node for each NEW DAGNode (children already carry handles, since
             // construction is bottom-up) and caches it via node->setArenaHandle. Type-erased so the
             // IR module stays free of somtarena. Empty (the default) = inactive -> zero behavior change.
-            std::function<void(const std::shared_ptr<DAGNode>&)> arenaBuilderHook_;
+            // II-2b-3 (E3 step4a): the candidate's NODE_KIND is threaded in as the 2nd arg so the hook
+            // need not read the handle-less candidate's kind field (arenaExprId_==0 at hook time — the
+            // hook is what sets the handle). insertNodeToBucket forwards its candidateKind param.
+            std::function<void(const std::shared_ptr<DAGNode>&, NODE_KIND)> arenaBuilderHook_;
 #endif
         public:
             NodeManager();
 #ifdef SOMTPARSER_WITH_ARENA
             // II-2b-3 (P1): register/clear the inline arena-builder hook. The bridge calls this once an
             // arena is set up; an empty function disables inline building (back to the default path).
-            void setArenaBuilderHook(std::function<void(const std::shared_ptr<DAGNode>&)> h) { arenaBuilderHook_ = std::move(h); }
+            void setArenaBuilderHook(std::function<void(const std::shared_ptr<DAGNode>&, NODE_KIND)> h) { arenaBuilderHook_ = std::move(h); }
             bool hasArenaBuilderHook() const { return static_cast<bool>(arenaBuilderHook_); }
 #endif
             ~NodeManager();

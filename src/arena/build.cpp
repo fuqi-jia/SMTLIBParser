@@ -302,10 +302,14 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
     prebuild(SOMTParser::NodeManager::getFalse());
 
     nm.setArenaBuilderHook(
-        [&arena, &funcDecls, &gaps, &aborted](const std::shared_ptr<SOMTParser::DAGNode>& node) {
+        [&arena, &funcDecls, &gaps, &aborted](const std::shared_ptr<SOMTParser::DAGNode>& node,
+                                              SOMTParser::NODE_KIND nk_param) {
             using NK = SOMTParser::NODE_KIND;
             if (aborted || !node) return;
-            NK nk = node->getKind();
+            // II-2b-3 (E3 step4a): use the threaded candidate kind, not node->getKind() — the candidate
+            // has no arena handle yet (this hook is what sets it), so its kind field is the wrong source
+            // once the field is dropped. nk_param == candidateKind == what getKind() returns today.
+            NK nk = nk_param;
             // Quantifiers + bound vars: de Bruijn needs top-down binder context which bottom-up
             // inline construction can't provide -> bail; the caller falls back to the walk.
             if (nk == NK::NT_FORALL || nk == NK::NT_EXISTS || nk == NK::NT_QUANT_VAR) {

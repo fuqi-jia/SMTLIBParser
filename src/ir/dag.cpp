@@ -1127,7 +1127,9 @@ namespace SOMTParser{
 #ifdef SOMTPARSER_WITH_ARENA
         // II-2b-3 (P1): inline-build this new node's arena node (children already carry handles since
         // construction is bottom-up). Inactive unless the bridge registered a hook -> default unchanged.
-        if (arenaBuilderHook_) arenaBuilderHook_(node);
+        // E3 step4a: thread the candidate's NODE_KIND in — the hook must not read the handle-less
+        // candidate's own kind field (arenaExprId_==0 until the hook sets it just below).
+        if (arenaBuilderHook_) arenaBuilderHook_(node, candidateKind);
 #endif
         return node;
     }
