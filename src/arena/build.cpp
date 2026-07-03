@@ -8,6 +8,14 @@
 #include <utility>
 #include <vector>
 
+namespace SOMTParser {
+// II-2b-3 (foundation): definition of the thread_local front-end-phase flag declared in dag.h. Default
+// false. Set true by installInlineArenaBuilder / buildAssertions (below) for the parse+import window;
+// cleared false by the parent (Solver_impl_solve.cpp) right before parser.reset(). Unwired this
+// increment (nothing reads it yet via arenaKind) — purely machinery for the crash-proof is* migration.
+thread_local bool g_frontendPhase = false;
+}  // namespace SOMTParser
+
 namespace xarena_cov {
 
 namespace {
@@ -104,7 +112,7 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     if (nk == NK::NT_FORALL || nk == NK::NT_EXISTS) {
         somtarena::ExprId id = buildQuantifier(node, a, g, st);
         if (id != somtarena::NullExpr) {
-            node->setArenaHandle(&a, id);  // II-2b-3 (P0): core node
+            node->setArenaHandle(&a, id, /*finalized=*/true);  // II-2b-3 (P0): core node (own handle)
             // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
             SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
             // P3.b: register this node's own (field) value beside the sort (authoritative field).
@@ -128,7 +136,7 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     // II-2b-3 (P0): record this core node's arena handle on the DAGNode. The inline hook (P1.1) does
     // the same via buildCoreNode; populating it is verdict-neutral (cmp_native.sh is the gate).
     if (id != somtarena::NullExpr) {
-        node->setArenaHandle(&a, id);
+        node->setArenaHandle(&a, id, /*finalized=*/true);
         // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
         SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
         // P3.b: register this node's own (field) value beside the sort (authoritative field).
@@ -248,6 +256,10 @@ bool checkEquivalent(const std::shared_ptr<SOMTParser::DAGNode>& node,
 
 std::vector<somtarena::ExprId> buildAssertions(SOMTParser::Parser& parser,
                                                somtarena::Arena& arena, GapSink& g) {
+    // II-2b-3 (foundation): enter the front-end phase — this walk stamps arena handles onto the parser
+    // DAGNodes, so arenaKind()'s field-net must keep is*/getKind on the NODE_KIND field until the parent
+    // clears the flag after import+capture. Idempotent with the inline set. Unwired this increment.
+    SOMTParser::g_frontendPhase = true;
     // P3.a: fresh registry per parse (walk path) so ExprIds from a prior file can't leak. Runs once
     // before the walk populates it; never mid-read (theory getSort reads happen after import).
     SOMTParser::ArenaReadRegistry::instance().clear();
@@ -262,6 +274,10 @@ std::vector<somtarena::ExprId> buildAssertions(SOMTParser::Parser& parser,
 void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& arena,
                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
                                GapSink& gaps, bool& aborted) {
+    // II-2b-3 (foundation): enter the front-end phase BEFORE parse — the inline hook forwards let
+    // scaffolding a CHILD's ExprId, so arenaKind()'s field-net must derive is*/getKind from the field
+    // until the parent clears the flag after import+capture. Unwired this increment.
+    SOMTParser::g_frontendPhase = true;
     // P3.a: fresh registry per parse (inline path) so ExprIds from a prior file can't leak. Runs once
     // at hook install (before parse/population); never mid-read.
     SOMTParser::ArenaReadRegistry::instance().clear();
@@ -272,7 +288,7 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
         if (n && n->arenaExprId() == somtarena::NullExpr) {
             somtarena::ExprId id = buildCoreNode(*n, {}, arena, gaps, funcDecls);
             if (id != somtarena::NullExpr) {
-                n->setArenaHandle(&arena, id);
+                n->setArenaHandle(&arena, id, /*finalized=*/true);
                 // P3.a: register the singleton's own (field) sort under its handle (own-handle site).
                 SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, n->getSortRaw());
                 // P3.b: register the singleton's own (field) value beside the sort (authoritative field).
@@ -328,7 +344,7 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
             }
             somtarena::ExprId id = buildCoreNode(*node, kids, arena, gaps, funcDecls);
             if (id == somtarena::NullExpr) { aborted = true; return; }  // unmapped kind / gap -> bail
-            node->setArenaHandle(&arena, id);
+            node->setArenaHandle(&arena, id, /*finalized=*/true);
             // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
             SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, node->getSortRaw());
             // P3.b: register this node's own (field) value beside the sort (authoritative field).

@@ -59,9 +59,29 @@ namespace somtarena { class Arena; }
 // II-2b-3 (P3.a): parser-side ExprId -> Sort read registry (only forward-declares Sort, so no cycle
 // with this widely-included header). getSort() reads it under the SOMTP_DAGNODE_ARENA_READS flag.
 #include "somtparser/arena/read_registry.h"
+// II-2b-3 (foundation): the full SOMTArena Arena (somtarena::Kind + Arena::kind), so arenaKind() can
+// read a node's Kind straight from the shared arena. Arena.h is in the LOWER SOMTArena layer and never
+// includes any SOMTParser type (layering), so this does NOT cycle — unlike map.h, which pulls parser.h
+// back in. mapKind() is only forward-declared for that same reason (its symbol links from
+// src/arena/map.cpp); arenaKind()'s field-net calls it to derive the Kind from the NODE_KIND field.
+#include "somtarena/Arena.h"
+#include <cassert>
+namespace xarena_cov { somtarena::Kind mapKind(SOMTParser::NODE_KIND k, bool& mapped); }
 #endif
 
 namespace SOMTParser{
+#ifdef SOMTPARSER_WITH_ARENA
+    // II-2b-3 (foundation): thread_local front-end-phase flag. TRUE across the whole window in which the
+    // parser's DAGNode graph is read via is*/getKind — parse + import (the arena builder installInline-
+    // ArenaBuilder / buildAssertions set it) + the get-value/declared-var capture — and cleared FALSE by
+    // the parent (Solver_impl_solve.cpp) right before parser.reset(), i.e. before solving. arenaKind()
+    // reads it as a field-net: while TRUE (or a node is handle-less), is*/getKind derive the Kind from
+    // the NODE_KIND field via mapKind rather than the arena, because (1) let scaffolding forwards a
+    // child's ExprId whose arena Kind would misclassify the let node, and (2) the NRA discard path leaves
+    // stale handles. thread_local because solving runs on a worker thread and a standalone DAGNode cannot
+    // reach NodeManager parse-state. Defined in src/arena/build.cpp. UNWIRED this increment.
+    extern thread_local bool g_frontendPhase;
+#endif
     // Forward declaration of DAGNode class
     class DAGNode;
     
@@ -101,6 +121,12 @@ namespace SOMTParser{
         // merely populating it is verdict-neutral — the 808 native parity (cmp_native.sh) is the gate.
         const somtarena::Arena*                 arenaPtr_ = nullptr;
         std::uint64_t                           arenaExprId_ = 0;
+        // II-2b-3 (foundation): "this DAGNode OWNS its arena node" (true) vs "it forwards a child's
+        // ExprId as an alias" (false — the let case). Set true ONLY at the own-handle setArenaHandle
+        // sites (core / quantifier / singleton in build.cpp); left false at the two let-FORWARD sites.
+        // arenaKind() asserts on it to trap, in CI/debug, any future is* caller that reaches the arena
+        // through a forwarded (misclassifying) handle. Unread until the is* migration.
+        bool                                    finalized_ = false;
 #endif
 
     public:
@@ -878,12 +904,41 @@ namespace SOMTParser{
         // II-2b-3 (P0): arena-handle accessors. setArenaHandle() is called by the buildArena walk for
         // each core node; arenaExprId()/arenaPtr() are read by the P2 façade (0 == not built into an
         // arena, e.g. transient let/match scaffolding or a not-yet-built node).
-        void setArenaHandle(const somtarena::Arena* a, std::uint64_t id) { arenaPtr_ = a; arenaExprId_ = id; }
+        // II-2b-3 (foundation): `finalized` marks an OWN-handle set (core / quantifier / singleton). The
+        // two let-FORWARD sites omit it (default false) — a let node aliases a child's ExprId, not its
+        // own — so finalized_ ends up meaning "owns its arena node", which arenaKind()'s assert checks.
+        void setArenaHandle(const somtarena::Arena* a, std::uint64_t id, bool finalized = false) {
+            arenaPtr_ = a; arenaExprId_ = id; finalized_ = finalized;
+        }
         std::uint64_t arenaExprId() const { return arenaExprId_; }
         const somtarena::Arena* arenaPtr() const { return arenaPtr_; }
 #endif
 
         NODE_KIND getKind()           const { return kind; };
+
+#ifdef SOMTPARSER_WITH_ARENA
+        // II-2b-3 (foundation, UNWIRED): the future arena-backed source for getKind()/is*. When
+        // SOMTP_DAGNODE_ARENA_READS is on AND we are past the front-end phase AND this node owns a
+        // finalized arena handle, it reads the somtarena::Kind straight from the shared arena; otherwise
+        // it derives the Kind from the NODE_KIND field via mapKind (verdict-identical). The g_frontend-
+        // Phase guard is the field-net that makes the arena read crash-proof: during parse+import let
+        // scaffolding forwards a CHILD's ExprId (arenaPtr_->kind would return the child's Kind ->
+        // misclassification -> the negateComp OOB SIGSEGV the direct-read attempt hit), and the NRA
+        // discard path leaves stale handles. NOTHING calls this yet — it is installed so the later is*
+        // migration is crash-proof and the finalized_ assert traps, in CI, any site that reaches the
+        // arena via a forwarded (non-final) let handle.
+        somtarena::Kind arenaKind() const {
+            static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
+                                               return e && *e && *e != '0'; }();
+            if (useArena && !g_frontendPhase && arenaExprId_ != 0 && arenaPtr_) {
+                assert(finalized_ && "arenaKind() on a non-final/forwarded (let) handle");
+                return arenaPtr_->kind(arenaExprId_);
+            }
+            // field-net: front-end phase (let nodes may be present) or handle-less -> derive from the
+            // NODE_KIND field via the forward mapKind — verdict-identical to a future arena read.
+            bool mapped = false; return xarena_cov::mapKind(kind, mapped);
+        }
+#endif
 
         /**
          * @brief Get the value of the node
