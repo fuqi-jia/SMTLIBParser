@@ -447,18 +447,18 @@ namespace SOMTParser{
         // check comparison
         bool isEqBool()             const { return (kind == NODE_KIND::NT_EQ_BOOL); };
         bool isEqOther()            const { return (kind == NODE_KIND::NT_EQ_OTHER); };
-        bool isEq() 				const { return (kind == NODE_KIND::NT_EQ || isEqBool() || isEqOther()); };
+        bool isEq() 				const { return arenaKind() == somtarena::Kind::Eq; };
         bool isDistinctBool()       const { return (kind == NODE_KIND::NT_DISTINCT_BOOL); };
         bool isDistinctOther()      const { return (kind == NODE_KIND::NT_DISTINCT_OTHER); };
-        bool isDistinct() 			const { return (kind == NODE_KIND::NT_DISTINCT || isDistinctBool() || isDistinctOther()); };
+        bool isDistinct() 			const { return arenaKind() == somtarena::Kind::Distinct; };
         bool isNeq() 				const { return isDistinct(); };
 
         // check UF
         bool isUFApplication() 			const { return (kind == NODE_KIND::NT_UF_APPLY); };
-        bool isConstructorApp()             const { return (kind == NODE_KIND::NT_DT_CONSTRUCTOR); };
-        bool isSelectorApp()                const { return (kind == NODE_KIND::NT_DT_SELECTOR); };
-        bool isTesterApp()                  const { return (kind == NODE_KIND::NT_DT_TESTER); };
-        bool isMatchApp()                   const { return (kind == NODE_KIND::NT_DT_MATCH); };
+        bool isConstructorApp()             const { return arenaKind() == somtarena::Kind::DtConstructor; };
+        bool isSelectorApp()                const { return arenaKind() == somtarena::Kind::DtSelector; };
+        bool isTesterApp()                  const { return arenaKind() == somtarena::Kind::DtTester; };
+        bool isMatchApp()                   const { return arenaKind() == somtarena::Kind::DtMatch; };
         bool isDtGroundValue()              const {
             if(kind != NODE_KIND::NT_DT_CONSTRUCTOR) return false;
             for(size_t i = 0; i < getChildrenSize(); ++i){
@@ -489,36 +489,36 @@ namespace SOMTParser{
         bool isSqrt() 				const { return arenaKind() == somtarena::Kind::Sqrt; };
         bool isSafeSqrt() 			const { return arenaKind() == somtarena::Kind::SafeSqrt; };
         bool isRealNonlinearOp() 	const { return (isIAnd() || isPow2() || isPow() || isSqrt() || isSafeSqrt()); };
-        bool isExp() 				const { return (kind == NODE_KIND::NT_EXP); };
-        bool isLog() 				const { return (kind == NODE_KIND::NT_LOG); };
-        bool isLn() 				const { return (kind == NODE_KIND::NT_LN); };
-        bool isLb() 				const { return (kind == NODE_KIND::NT_LB); };
-        bool isLg() 				const { return (kind == NODE_KIND::NT_LG); };
-        bool isSin() 				const { return (kind == NODE_KIND::NT_SIN); };
-        bool isCos() 				const { return (kind == NODE_KIND::NT_COS); };
-        bool isSec() 				const { return (kind == NODE_KIND::NT_SEC); };
-        bool isCsc() 				const { return (kind == NODE_KIND::NT_CSC); };
-        bool isTan() 				const { return (kind == NODE_KIND::NT_TAN); };
-        bool isCot() 				const { return (kind == NODE_KIND::NT_COT); };
-        bool isAsin() 				const { return (kind == NODE_KIND::NT_ASIN); };
-        bool isAcos() 				const { return (kind == NODE_KIND::NT_ACOS); };
-        bool isAsec() 				const { return (kind == NODE_KIND::NT_ASEC); };
-        bool isAcsc() 				const { return (kind == NODE_KIND::NT_ACSC); };
-        bool isAtan() 				const { return (kind == NODE_KIND::NT_ATAN); };
-        bool isAcot() 				const { return (kind == NODE_KIND::NT_ACOT); };
-        bool isSinh() 				const { return (kind == NODE_KIND::NT_SINH); };
-        bool isCosh() 				const { return (kind == NODE_KIND::NT_COSH); };
-        bool isTanh() 				const { return (kind == NODE_KIND::NT_TANH); };
-        bool isSech() 				const { return (kind == NODE_KIND::NT_SECH); };
-        bool isCsch() 				const { return (kind == NODE_KIND::NT_CSCH); };
-        bool isCoth() 				const { return (kind == NODE_KIND::NT_COTH); };
-        bool isAsinh() 				const { return (kind == NODE_KIND::NT_ASINH); };
-        bool isAcosh() 				const { return (kind == NODE_KIND::NT_ACOSH); };
-        bool isAtanh() 				const { return (kind == NODE_KIND::NT_ATANH); };
-        bool isAsech() 				const { return (kind == NODE_KIND::NT_ASECH); };
-        bool isAcsch() 				const { return (kind == NODE_KIND::NT_ACSCH); };
-        bool isAcoth() 				const { return (kind == NODE_KIND::NT_ACOTH); };
-        bool isAtan2() 				const { return (kind == NODE_KIND::NT_ATAN2); };
+        bool isExp() 				const { return arenaKind() == somtarena::Kind::Exp; };
+        bool isLog() 				const { return arenaKind() == somtarena::Kind::Log; };
+        bool isLn() 				const { return arenaKind() == somtarena::Kind::Ln; };
+        bool isLb() 				const { return arenaKind() == somtarena::Kind::Lb; };
+        bool isLg() 				const { return arenaKind() == somtarena::Kind::Lg; };
+        bool isSin() 				const { return arenaKind() == somtarena::Kind::Sin; };
+        bool isCos() 				const { return arenaKind() == somtarena::Kind::Cos; };
+        bool isSec() 				const { return arenaKind() == somtarena::Kind::Sec; };
+        bool isCsc() 				const { return arenaKind() == somtarena::Kind::Csc; };
+        bool isTan() 				const { return arenaKind() == somtarena::Kind::Tan; };
+        bool isCot() 				const { return arenaKind() == somtarena::Kind::Cot; };
+        bool isAsin() 				const { return arenaKind() == somtarena::Kind::Asin; };
+        bool isAcos() 				const { return arenaKind() == somtarena::Kind::Acos; };
+        bool isAsec() 				const { return arenaKind() == somtarena::Kind::Asec; };
+        bool isAcsc() 				const { return arenaKind() == somtarena::Kind::Acsc; };
+        bool isAtan() 				const { return arenaKind() == somtarena::Kind::Atan; };
+        bool isAcot() 				const { return arenaKind() == somtarena::Kind::Acot; };
+        bool isSinh() 				const { return arenaKind() == somtarena::Kind::Sinh; };
+        bool isCosh() 				const { return arenaKind() == somtarena::Kind::Cosh; };
+        bool isTanh() 				const { return arenaKind() == somtarena::Kind::Tanh; };
+        bool isSech() 				const { return arenaKind() == somtarena::Kind::Sech; };
+        bool isCsch() 				const { return arenaKind() == somtarena::Kind::Csch; };
+        bool isCoth() 				const { return arenaKind() == somtarena::Kind::Coth; };
+        bool isAsinh() 				const { return arenaKind() == somtarena::Kind::Asinh; };
+        bool isAcosh() 				const { return arenaKind() == somtarena::Kind::Acosh; };
+        bool isAtanh() 				const { return arenaKind() == somtarena::Kind::Atanh; };
+        bool isAsech() 				const { return arenaKind() == somtarena::Kind::Asech; };
+        bool isAcsch() 				const { return arenaKind() == somtarena::Kind::Acsch; };
+        bool isAcoth() 				const { return arenaKind() == somtarena::Kind::Acoth; };
+        bool isAtan2() 				const { return arenaKind() == somtarena::Kind::Atan2; };
         bool isTranscendentalOp() 	const { return (isExp() || isLog() || isLn() || isLb() || isLg() || isSin() || isCos() || isSec() || isCsc() || isTan() || isCot() || isAsin() || isAcos() || isAsec() || isAcsc() || isAtan() || isAcot() || isSinh() || isCosh() || isTanh() || isSech() || isCsch() || isCoth() || isAsinh() || isAcosh() || isAtanh() || isAsech() || isAcsch() || isAcoth() || isAtan2()); };
 
         // check arithmetic comparison
@@ -540,11 +540,11 @@ namespace SOMTParser{
         bool isArithConv() 			const { return (isToReal() || isToInt()); };
 
         // check arithmetic properties
-        bool isInt() 				const { return (kind == NODE_KIND::NT_IS_INT); };
-        bool isDivisible() 			const { return (kind == NODE_KIND::NT_IS_DIVISIBLE); };
-        bool isPrime() 				const { return (kind == NODE_KIND::NT_IS_PRIME); };
-        bool isEven() 				const { return (kind == NODE_KIND::NT_IS_EVEN); };
-        bool isOdd() 				const { return (kind == NODE_KIND::NT_IS_ODD); };
+        bool isInt() 				const { return arenaKind() == somtarena::Kind::IsInt; };
+        bool isDivisible() 			const { return arenaKind() == somtarena::Kind::IsDivisible; };
+        bool isPrime() 				const { return arenaKind() == somtarena::Kind::IsPrime; };
+        bool isEven() 				const { return arenaKind() == somtarena::Kind::IsEven; };
+        bool isOdd() 				const { return arenaKind() == somtarena::Kind::IsOdd; };
         bool isArithProp() 			const { return (isInt() || isDivisible() || isPrime() || isEven() || isOdd()); };
         bool isArithAtom() 			const { return isArithComp() || isArithProp(); }
 
@@ -562,63 +562,63 @@ namespace SOMTParser{
         // check arithmetic functions
         // bool isSum() 				const { return (kind == NODE_KIND::NT_SUM); };
         // bool isProd() 				const { return (kind == NODE_KIND::NT_PROD); };
-        bool isGcd() 				const { return (kind == NODE_KIND::NT_GCD); };
-        bool isLcm() 				const { return (kind == NODE_KIND::NT_LCM); };
-        bool isFact() 				const { return (kind == NODE_KIND::NT_FACT); };
+        bool isGcd() 				const { return arenaKind() == somtarena::Kind::Gcd; };
+        bool isLcm() 				const { return arenaKind() == somtarena::Kind::Lcm; };
+        bool isFact() 				const { return arenaKind() == somtarena::Kind::Fact; };
         // Bit-wise operations
-        bool isBVNot() 				const { return (kind == NODE_KIND::NT_BV_NOT); };
-        bool isBVAnd() 				const { return (kind == NODE_KIND::NT_BV_AND); };
-        bool isBVOr() 				const { return (kind == NODE_KIND::NT_BV_OR); };
-        bool isBVXor() 				const { return (kind == NODE_KIND::NT_BV_XOR); };
-        bool isBVNand() 			const { return (kind == NODE_KIND::NT_BV_NAND); };
-        bool isBVNor() 				const { return (kind == NODE_KIND::NT_BV_NOR); };
-        bool isBVXnor() 			const { return (kind == NODE_KIND::NT_BV_XNOR); };
-        bool isBVComp() 			const { return (kind == NODE_KIND::NT_BV_COMP); };
+        bool isBVNot() 				const { return arenaKind() == somtarena::Kind::BvNot; };
+        bool isBVAnd() 				const { return arenaKind() == somtarena::Kind::BvAnd; };
+        bool isBVOr() 				const { return arenaKind() == somtarena::Kind::BvOr; };
+        bool isBVXor() 				const { return arenaKind() == somtarena::Kind::BvXor; };
+        bool isBVNand() 			const { return arenaKind() == somtarena::Kind::BvNand; };
+        bool isBVNor() 				const { return arenaKind() == somtarena::Kind::BvNor; };
+        bool isBVXnor() 			const { return arenaKind() == somtarena::Kind::BvXnor; };
+        bool isBVComp() 			const { return arenaKind() == somtarena::Kind::BvComp; };
         // Arithmetic operations
-        bool isBVNeg() 				const { return (kind == NODE_KIND::NT_BV_NEG); };
-        bool isBVAdd() 				const { return (kind == NODE_KIND::NT_BV_ADD); };
-        bool isBVSub() 				const { return (kind == NODE_KIND::NT_BV_SUB); };
-        bool isBVMul() 				const { return (kind == NODE_KIND::NT_BV_MUL); };
-        bool isBVUDiv() 			const { return (kind == NODE_KIND::NT_BV_UDIV); };
-        bool isBVURem() 			const { return (kind == NODE_KIND::NT_BV_UREM); };
-        bool isBVSDiv() 			const { return (kind == NODE_KIND::NT_BV_SDIV); };
-        bool isBVSRem() 			const { return (kind == NODE_KIND::NT_BV_SREM); };
-        bool isBVUMod() 			const { return (kind == NODE_KIND::NT_BV_UMOD); };
-        bool isBVSMod() 			const { return (kind == NODE_KIND::NT_BV_SMOD); };
+        bool isBVNeg() 				const { return arenaKind() == somtarena::Kind::BvNeg; };
+        bool isBVAdd() 				const { return arenaKind() == somtarena::Kind::BvAdd; };
+        bool isBVSub() 				const { return arenaKind() == somtarena::Kind::BvSub; };
+        bool isBVMul() 				const { return arenaKind() == somtarena::Kind::BvMul; };
+        bool isBVUDiv() 			const { return arenaKind() == somtarena::Kind::BvUdiv; };
+        bool isBVURem() 			const { return arenaKind() == somtarena::Kind::BvUrem; };
+        bool isBVSDiv() 			const { return arenaKind() == somtarena::Kind::BvSdiv; };
+        bool isBVSRem() 			const { return arenaKind() == somtarena::Kind::BvSrem; };
+        bool isBVUMod() 			const { return arenaKind() == somtarena::Kind::BvUmod; };
+        bool isBVSMod() 			const { return arenaKind() == somtarena::Kind::BvSmod; };
         // Arithmetic operations with overflow
-        bool isBVNegO() 			const { return (kind == NODE_KIND::NT_BV_NEGO); };
-        bool isBVUAddO() 			const { return (kind == NODE_KIND::NT_BV_UADDO); };
-        bool isBVSAddO() 			const { return (kind == NODE_KIND::NT_BV_SADDO); };
-        bool isBVUMulO() 			const { return (kind == NODE_KIND::NT_BV_UMULO); };
-        bool isBVSMulO() 			const { return (kind == NODE_KIND::NT_BV_SMULO); };
-        bool isBVUDivO() 			const { return (kind == NODE_KIND::NT_BV_UDIVO); };
-        bool isBVSDivO() 			const { return (kind == NODE_KIND::NT_BV_SDIVO); };
-        bool isBVURemO() 			const { return (kind == NODE_KIND::NT_BV_UREMO); };
-        bool isBVSRemO() 			const { return (kind == NODE_KIND::NT_BV_SREMO); };
-        bool isBVUModO() 			const { return (kind == NODE_KIND::NT_BV_UMODO); };
-        bool isBVSModO() 			const { return (kind == NODE_KIND::NT_BV_SMODO); };
+        bool isBVNegO() 			const { return arenaKind() == somtarena::Kind::BvNego; };
+        bool isBVUAddO() 			const { return arenaKind() == somtarena::Kind::BvUaddo; };
+        bool isBVSAddO() 			const { return arenaKind() == somtarena::Kind::BvSaddo; };
+        bool isBVUMulO() 			const { return arenaKind() == somtarena::Kind::BvUmulo; };
+        bool isBVSMulO() 			const { return arenaKind() == somtarena::Kind::BvSmulo; };
+        bool isBVUDivO() 			const { return arenaKind() == somtarena::Kind::BvUdivo; };
+        bool isBVSDivO() 			const { return arenaKind() == somtarena::Kind::BvSdivo; };
+        bool isBVURemO() 			const { return arenaKind() == somtarena::Kind::BvUremo; };
+        bool isBVSRemO() 			const { return arenaKind() == somtarena::Kind::BvSremo; };
+        bool isBVUModO() 			const { return arenaKind() == somtarena::Kind::BvUmodo; };
+        bool isBVSModO() 			const { return arenaKind() == somtarena::Kind::BvSmodo; };
         // Shift operations
-        bool isBVShl() 				const { return (kind == NODE_KIND::NT_BV_SHL); };
-        bool isBVLSHR() 			const { return (kind == NODE_KIND::NT_BV_LSHR); };
-        bool isBVASHR() 			const { return (kind == NODE_KIND::NT_BV_ASHR); };
-        bool isBVConcat() 			const { return (kind == NODE_KIND::NT_BV_CONCAT); };
-        bool isBVExtract() 			const { return (kind == NODE_KIND::NT_BV_EXTRACT); };
-        bool isBVRepeat() 			const { return (kind == NODE_KIND::NT_BV_REPEAT); };
-        bool isBVZeroExt() 			const { return (kind == NODE_KIND::NT_BV_ZERO_EXT); };
-        bool isBVSignExt() 			const { return (kind == NODE_KIND::NT_BV_SIGN_EXT); };
-        bool isBVRotLeft() 			const { return (kind == NODE_KIND::NT_BV_ROTATE_LEFT); };
-        bool isBVRotRight() 		const { return (kind == NODE_KIND::NT_BV_ROTATE_RIGHT); };
+        bool isBVShl() 				const { return arenaKind() == somtarena::Kind::BvShl; };
+        bool isBVLSHR() 			const { return arenaKind() == somtarena::Kind::BvLshr; };
+        bool isBVASHR() 			const { return arenaKind() == somtarena::Kind::BvAshr; };
+        bool isBVConcat() 			const { return arenaKind() == somtarena::Kind::BvConcat; };
+        bool isBVExtract() 			const { return arenaKind() == somtarena::Kind::BvExtract; };
+        bool isBVRepeat() 			const { return arenaKind() == somtarena::Kind::BvRepeat; };
+        bool isBVZeroExt() 			const { return arenaKind() == somtarena::Kind::BvZeroExtend; };
+        bool isBVSignExt() 			const { return arenaKind() == somtarena::Kind::BvSignExtend; };
+        bool isBVRotLeft() 			const { return arenaKind() == somtarena::Kind::BvRotateLeft; };
+        bool isBVRotRight() 		const { return arenaKind() == somtarena::Kind::BvRotateRight; };
         bool isBVOp() 	    		const { return (isBVNot() || isBVAnd() || isBVOr() || isBVXor() || isBVNand() || isBVNor() || isBVXnor() || isBVAdd() || isBVSub() || isBVMul() || isBVUDiv() || isBVURem() || isBVSDiv() || isBVSRem() || isBVSMod() || isBVShl() || isBVLSHR() || isBVASHR() || isBVConcat() || isBVExtract() || isBVRepeat() || isBVZeroExt() || isBVSignExt() || isBVRotLeft() || isBVRotRight()); };
 
         // check bitvector comparison
-        bool isBVUlt() 	    		const { return (kind == NODE_KIND::NT_BV_ULT); };
-        bool isBVUle() 	    		const { return (kind == NODE_KIND::NT_BV_ULE); };
-        bool isBVUgt() 	    		const { return (kind == NODE_KIND::NT_BV_UGT); };
-        bool isBVUge() 	    		const { return (kind == NODE_KIND::NT_BV_UGE); };
-        bool isBVSlt() 	    		const { return (kind == NODE_KIND::NT_BV_SLT); };
-        bool isBVSle() 	    		const { return (kind == NODE_KIND::NT_BV_SLE); };
-        bool isBVSgt() 	    		const { return (kind == NODE_KIND::NT_BV_SGT); };
-        bool isBVSge() 	    		const { return (kind == NODE_KIND::NT_BV_SGE); };
+        bool isBVUlt() 	    		const { return arenaKind() == somtarena::Kind::BvUlt; };
+        bool isBVUle() 	    		const { return arenaKind() == somtarena::Kind::BvUle; };
+        bool isBVUgt() 	    		const { return arenaKind() == somtarena::Kind::BvUgt; };
+        bool isBVUge() 	    		const { return arenaKind() == somtarena::Kind::BvUge; };
+        bool isBVSlt() 	    		const { return arenaKind() == somtarena::Kind::BvSlt; };
+        bool isBVSle() 	    		const { return arenaKind() == somtarena::Kind::BvSle; };
+        bool isBVSgt() 	    		const { return arenaKind() == somtarena::Kind::BvSgt; };
+        bool isBVSge() 	    		const { return arenaKind() == somtarena::Kind::BvSge; };
         bool isBVTerm()    		    const { return (isBVOp() ||
                                                     (isVar() && isVBV()) ||
                                                     (isConst() && isCBV()) ||
@@ -635,34 +635,34 @@ namespace SOMTParser{
         bool isBVAtom()              const { return isBVCompOp(); } 
 
         // check bitvector conversion
-        bool isBVToNat() 			const { return (kind == NODE_KIND::NT_BV_TO_NAT); };
-        bool isNatToBV() 			const { return (kind == NODE_KIND::NT_NAT_TO_BV); };
-        bool isBVToInt() 			const { return (kind == NODE_KIND::NT_BV_TO_INT); };
-        bool isIntToBV() 			const { return (kind == NODE_KIND::NT_INT_TO_BV); };
+        bool isBVToNat() 			const { return arenaKind() == somtarena::Kind::BvToNat; };
+        bool isNatToBV() 			const { return arenaKind() == somtarena::Kind::NatToBv; };
+        bool isBVToInt() 			const { return arenaKind() == somtarena::Kind::BvToInt; };
+        bool isIntToBV() 			const { return arenaKind() == somtarena::Kind::IntToBv; };
         bool isBVConv() 			const { return (isBVToNat() || isNatToBV() || isBVToInt() || isIntToBV()); };
 
         // check floating point common operators
-        bool isFPAdd() 				const { return (kind == NODE_KIND::NT_FP_ADD); };
-        bool isFPSub() 				const { return (kind == NODE_KIND::NT_FP_SUB); };
-        bool isFPMul() 				const { return (kind == NODE_KIND::NT_FP_MUL); };
-        bool isFPDiv() 				const { return (kind == NODE_KIND::NT_FP_DIV); };
-        bool isFPAbs() 				const { return (kind == NODE_KIND::NT_FP_ABS); };
-        bool isFPNeg() 				const { return (kind == NODE_KIND::NT_FP_NEG); };
-        bool isFPRem() 				const { return (kind == NODE_KIND::NT_FP_REM); };
-        bool isFPFMA() 				const { return (kind == NODE_KIND::NT_FP_FMA); };
-        bool isFPSqrt() 			const { return (kind == NODE_KIND::NT_FP_SQRT); };
-        bool isFPRoundToIntegral()  const { return (kind == NODE_KIND::NT_FP_ROUND_TO_INTEGRAL); };
-        bool isFPRoToInt()  		const { return (kind == NODE_KIND::NT_FP_ROUND_TO_INTEGRAL); };
-        bool isFPMin() 				const { return (kind == NODE_KIND::NT_FP_MIN); };
-        bool isFPMax() 				const { return (kind == NODE_KIND::NT_FP_MAX); };
+        bool isFPAdd() 				const { return arenaKind() == somtarena::Kind::FpAdd; };
+        bool isFPSub() 				const { return arenaKind() == somtarena::Kind::FpSub; };
+        bool isFPMul() 				const { return arenaKind() == somtarena::Kind::FpMul; };
+        bool isFPDiv() 				const { return arenaKind() == somtarena::Kind::FpDiv; };
+        bool isFPAbs() 				const { return arenaKind() == somtarena::Kind::FpAbs; };
+        bool isFPNeg() 				const { return arenaKind() == somtarena::Kind::FpNeg; };
+        bool isFPRem() 				const { return arenaKind() == somtarena::Kind::FpRem; };
+        bool isFPFMA() 				const { return arenaKind() == somtarena::Kind::FpFma; };
+        bool isFPSqrt() 			const { return arenaKind() == somtarena::Kind::FpSqrt; };
+        bool isFPRoundToIntegral()  const { return arenaKind() == somtarena::Kind::FpRoundToIntegral; };
+        bool isFPRoToInt()  		const { return arenaKind() == somtarena::Kind::FpRoundToIntegral; };
+        bool isFPMin() 				const { return arenaKind() == somtarena::Kind::FpMin; };
+        bool isFPMax() 				const { return arenaKind() == somtarena::Kind::FpMax; };
         bool isFPOp() 				const { return (isFPAdd() || isFPSub() || isFPMul() || isFPDiv() || isFPAbs() || isFPNeg() || isFPRem() || isFPFMA() || isFPSqrt() || isFPRoToInt() || isFPMin() || isFPMax() || (isUFApplication() && sort->isFp())); };
 
         // check floating point comparison
-        bool isFPLe() 				const { return (kind == NODE_KIND::NT_FP_LE); };
-        bool isFPLt() 				const { return (kind == NODE_KIND::NT_FP_LT); };
-        bool isFPGe() 				const { return (kind == NODE_KIND::NT_FP_GE); };
-        bool isFPGt() 				const { return (kind == NODE_KIND::NT_FP_GT); };
-        bool isFPEq() 				const { return (kind == NODE_KIND::NT_FP_EQ); };
+        bool isFPLe() 				const { return arenaKind() == somtarena::Kind::FpLe; };
+        bool isFPLt() 				const { return arenaKind() == somtarena::Kind::FpLt; };
+        bool isFPGe() 				const { return arenaKind() == somtarena::Kind::FpGe; };
+        bool isFPGt() 				const { return arenaKind() == somtarena::Kind::FpGt; };
+        bool isFPEq() 				const { return arenaKind() == somtarena::Kind::FpEq; };
         bool isFPComp() 				const {
             bool eqOrDistinctFp = (getChildrenSize() >= 1) &&
                 ((isEq() && getChild(0)->isFPTerm()) || (isDistinct() && getChild(0)->isFPTerm()));
@@ -670,11 +670,11 @@ namespace SOMTParser{
         }
 
         // check floating point conversion
-        bool isFPToUBV() 			const { return (kind == NODE_KIND::NT_FP_TO_UBV); };
-        bool isFPToSBV() 			const { return (kind == NODE_KIND::NT_FP_TO_SBV); };
-        bool isFPToReal() 			const { return (kind == NODE_KIND::NT_FP_TO_REAL); };
-        bool isToFP()     		    const { return (kind == NODE_KIND::NT_FP_TO_FP); };
-        bool isToFPUnsigned()       const { return (kind == NODE_KIND::NT_FP_TO_FP_UNSIGNED); };
+        bool isFPToUBV() 			const { return arenaKind() == somtarena::Kind::FpToUbv; };
+        bool isFPToSBV() 			const { return arenaKind() == somtarena::Kind::FpToSbv; };
+        bool isFPToReal() 			const { return arenaKind() == somtarena::Kind::FpToReal; };
+        bool isToFP()     		    const { return arenaKind() == somtarena::Kind::FpToFp; };
+        bool isToFPUnsigned()       const { return arenaKind() == somtarena::Kind::FpToFpUnsigned; };
 
         bool isFPConv() 			const { return (isFPToUBV() || isFPToSBV() || isFPToReal() || isToFP() || isToFPUnsigned()); };
 
@@ -687,13 +687,13 @@ namespace SOMTParser{
         }
 
         // check floating point properties
-        bool isFPIsNormal() 		const { return (kind == NODE_KIND::NT_FP_IS_NORMAL); };
-        bool isFPIsSubnormal() 		const { return (kind == NODE_KIND::NT_FP_IS_SUBNORMAL); };
-        bool isFPIsZero() 			const { return (kind == NODE_KIND::NT_FP_IS_ZERO); };
-        bool isFPIsInf() 			const { return (kind == NODE_KIND::NT_FP_IS_INF); };
-        bool isFPIsNaN() 			const { return (kind == NODE_KIND::NT_FP_IS_NAN); };
-        bool isFPIsNeg() 			const { return (kind == NODE_KIND::NT_FP_IS_NEG); };
-        bool isFPIsPos() 			const { return (kind == NODE_KIND::NT_FP_IS_POS); };
+        bool isFPIsNormal() 		const { return arenaKind() == somtarena::Kind::FpIsNormal; };
+        bool isFPIsSubnormal() 		const { return arenaKind() == somtarena::Kind::FpIsSubnormal; };
+        bool isFPIsZero() 			const { return arenaKind() == somtarena::Kind::FpIsZero; };
+        bool isFPIsInf() 			const { return arenaKind() == somtarena::Kind::FpIsInf; };
+        bool isFPIsNaN() 			const { return arenaKind() == somtarena::Kind::FpIsNan; };
+        bool isFPIsNeg() 			const { return arenaKind() == somtarena::Kind::FpIsNeg; };
+        bool isFPIsPos() 			const { return arenaKind() == somtarena::Kind::FpIsPos; };
         bool isFPProp() 				const { return isFPIsNormal() || isFPIsSubnormal() || isFPIsZero() || isFPIsInf() || isFPIsNaN() || isFPIsNeg() || isFPIsPos(); }
         bool isFPAtom() 				const { return isFPComp() || isFPProp(); }
 
@@ -703,66 +703,66 @@ namespace SOMTParser{
         bool isArrayOp() 			const { return (isSelect() || isStore() || (isUFApplication() && sort->isArray())); };
 
         // check strings common operators
-        bool isStrLen() 			const { return (kind == NODE_KIND::NT_STR_LEN); };
-        bool isStrConcat() 			const { return (kind == NODE_KIND::NT_STR_CONCAT); };
-        bool isStrSubstr() 			const { return (kind == NODE_KIND::NT_STR_SUBSTR); };
-        bool isStrPrefixof() 		const { return (kind == NODE_KIND::NT_STR_PREFIXOF); };
-        bool isStrSuffixof() 		const { return (kind == NODE_KIND::NT_STR_SUFFIXOF); };
-        bool isStrIndexof() 		const { return (kind == NODE_KIND::NT_STR_INDEXOF); };
-        bool isStrCharat() 			const { return (kind == NODE_KIND::NT_STR_CHARAT); };
-        bool isStrUpdate() 			const { return (kind == NODE_KIND::NT_STR_UPDATE); };
-        bool isStrReplace() 		const { return (kind == NODE_KIND::NT_STR_REPLACE); };
-        bool isStrReplaceAll() 		const { return (kind == NODE_KIND::NT_STR_REPLACE_ALL); };
-        bool isStrToLower() 		const { return (kind == NODE_KIND::NT_STR_TO_LOWER); };
-        bool isStrToUpper() 		const { return (kind == NODE_KIND::NT_STR_TO_UPPER); };
-        bool isStrRev() 			const { return (kind == NODE_KIND::NT_STR_REV); };
-        bool isStrSplit() 			const { return (kind == NODE_KIND::NT_STR_SPLIT); };
-        bool isStrSplitAt() 		const { return (kind == NODE_KIND::NT_STR_SPLIT_AT); };
-        bool isStrSplitRest() 		const { return (kind == NODE_KIND::NT_STR_SPLIT_REST); };
-        bool isStrNumSplits() 		const { return (kind == NODE_KIND::NT_STR_NUM_SPLITS); };
-        bool isStrSplitAtRe() 		const { return (kind == NODE_KIND::NT_STR_SPLIT_AT_RE); };
-        bool isStrSplitRestRe() 		const { return (kind == NODE_KIND::NT_STR_SPLIT_REST_RE); };
-        bool isStrNumSplitsRe() 		const { return (kind == NODE_KIND::NT_STR_NUM_SPLITS_RE); };
+        bool isStrLen() 			const { return arenaKind() == somtarena::Kind::StrLen; };
+        bool isStrConcat() 			const { return arenaKind() == somtarena::Kind::StrConcat; };
+        bool isStrSubstr() 			const { return arenaKind() == somtarena::Kind::StrSubstr; };
+        bool isStrPrefixof() 		const { return arenaKind() == somtarena::Kind::StrPrefixof; };
+        bool isStrSuffixof() 		const { return arenaKind() == somtarena::Kind::StrSuffixof; };
+        bool isStrIndexof() 		const { return arenaKind() == somtarena::Kind::StrIndexof; };
+        bool isStrCharat() 			const { return arenaKind() == somtarena::Kind::StrCharat; };
+        bool isStrUpdate() 			const { return arenaKind() == somtarena::Kind::StrUpdate; };
+        bool isStrReplace() 		const { return arenaKind() == somtarena::Kind::StrReplace; };
+        bool isStrReplaceAll() 		const { return arenaKind() == somtarena::Kind::StrReplaceAll; };
+        bool isStrToLower() 		const { return arenaKind() == somtarena::Kind::StrToLower; };
+        bool isStrToUpper() 		const { return arenaKind() == somtarena::Kind::StrToUpper; };
+        bool isStrRev() 			const { return arenaKind() == somtarena::Kind::StrRev; };
+        bool isStrSplit() 			const { return arenaKind() == somtarena::Kind::StrSplit; };
+        bool isStrSplitAt() 		const { return arenaKind() == somtarena::Kind::StrSplitAt; };
+        bool isStrSplitRest() 		const { return arenaKind() == somtarena::Kind::StrSplitRest; };
+        bool isStrNumSplits() 		const { return arenaKind() == somtarena::Kind::StrNumSplits; };
+        bool isStrSplitAtRe() 		const { return arenaKind() == somtarena::Kind::StrSplitAtRe; };
+        bool isStrSplitRestRe() 		const { return arenaKind() == somtarena::Kind::StrSplitRestRe; };
+        bool isStrNumSplitsRe() 		const { return arenaKind() == somtarena::Kind::StrNumSplitsRe; };
         bool isStrOp() 				const { return (isStrLen() || isStrConcat() || isStrSubstr() || isStrPrefixof() || isStrSuffixof() || isStrIndexof() || isStrCharat() || isStrUpdate() || isStrReplace() || isStrReplaceAll() || isStrToLower() || isStrToUpper() || isStrRev() || isStrSplit() || isStrSplitAt() || isStrSplitRest() || isStrNumSplits() || isStrSplitAtRe() || isStrSplitRestRe() || isStrNumSplitsRe() || (isUFApplication() && sort->isStr())); };
 
         // check strings comparison
-        bool isStrLt() 				const { return (kind == NODE_KIND::NT_STR_LT); };
-        bool isStrLe() 				const { return (kind == NODE_KIND::NT_STR_LE); };
-        bool isStrGt() 				const { return (kind == NODE_KIND::NT_STR_GT); };
-        bool isStrGe() 				const { return (kind == NODE_KIND::NT_STR_GE); };
+        bool isStrLt() 				const { return arenaKind() == somtarena::Kind::StrLt; };
+        bool isStrLe() 				const { return arenaKind() == somtarena::Kind::StrLe; };
+        bool isStrGt() 				const { return arenaKind() == somtarena::Kind::StrGt; };
+        bool isStrGe() 				const { return arenaKind() == somtarena::Kind::StrGe; };
         bool isStrEq() 				const { return (isEq() && getChildrenSize() >= 2 && (getChild(0)->isVStr() || getChild(0)->isCStr() || getChild(0)->isStrOp())); };
         bool isStrComp() 			const { return (isStrLt() || isStrLe() || isStrGt() || isStrGe() || isStrEq()); };
 
         // check strings properties
-        bool isStrInReg() 			const { return (kind == NODE_KIND::NT_STR_IN_REG); };
-        bool isStrContains() 		const { return (kind == NODE_KIND::NT_STR_CONTAINS); };
-        bool isStrIsDigit() 		const { return (kind == NODE_KIND::NT_STR_IS_DIGIT); };
+        bool isStrInReg() 			const { return arenaKind() == somtarena::Kind::StrInRe; };
+        bool isStrContains() 		const { return arenaKind() == somtarena::Kind::StrContains; };
+        bool isStrIsDigit() 		const { return arenaKind() == somtarena::Kind::StrIsDigit; };
         bool isStrProp() 				const { return (isStrInReg() || isStrContains() || isStrIsDigit()); };
         bool isStrAtom() 				const { return isStrComp() || isStrProp(); }
 
         // check strings conversion
-        bool isStrFromInt() 		const { return (kind == NODE_KIND::NT_STR_FROM_INT); };
-        bool isStrToInt() 			const { return (kind == NODE_KIND::NT_STR_TO_INT); };
-        bool isStrToReg() 			const { return (kind == NODE_KIND::NT_STR_TO_REG); };
-        bool isStrToCode() 			const { return (kind == NODE_KIND::NT_STR_TO_CODE); };
-        bool isStrFromCode() 		const { return (kind == NODE_KIND::NT_STR_FROM_CODE); };
+        bool isStrFromInt() 		const { return arenaKind() == somtarena::Kind::StrFromInt; };
+        bool isStrToInt() 			const { return arenaKind() == somtarena::Kind::StrToInt; };
+        bool isStrToReg() 			const { return arenaKind() == somtarena::Kind::StrToRe; };
+        bool isStrToCode() 			const { return arenaKind() == somtarena::Kind::StrToCode; };
+        bool isStrFromCode() 		const { return arenaKind() == somtarena::Kind::StrFromCode; };
         bool isStrConv() 			const { return (isStrFromInt() || isStrToInt() || isStrToReg() || isStrToCode() || isStrFromCode()); };
 
         // reg
-        bool isRegNone() 			const { return (kind == NODE_KIND::NT_REG_NONE); };
-        bool isRegAll() 			const { return (kind == NODE_KIND::NT_REG_ALL); };
-        bool isRegAllChar() 		const { return (kind == NODE_KIND::NT_REG_ALLCHAR); };
-        bool isRegConcat() 		    const { return (kind == NODE_KIND::NT_REG_CONCAT); };
-        bool isRegUnion() 			const { return (kind == NODE_KIND::NT_REG_UNION); };
-        bool isRegInter() 			const { return (kind == NODE_KIND::NT_REG_INTER); };
-        bool isRegDiff() 			const { return (kind == NODE_KIND::NT_REG_DIFF); };
-        bool isRegStar() 			const { return (kind == NODE_KIND::NT_REG_STAR); }; 
-        bool isRegPlus() 			const { return (kind == NODE_KIND::NT_REG_PLUS); };
-        bool isRegOpt() 			const { return (kind == NODE_KIND::NT_REG_OPT); };
-        bool isRegRange() 			const { return (kind == NODE_KIND::NT_REG_RANGE); };
-        bool isRegRepeat() 		    const { return (kind == NODE_KIND::NT_REG_REPEAT); };
-        bool isRegLoop() 			const { return (kind == NODE_KIND::NT_REG_LOOP); };
-        bool isRegComplement() 		const { return (kind == NODE_KIND::NT_REG_COMPLEMENT); };
+        bool isRegNone() 			const { return arenaKind() == somtarena::Kind::ReNone; };
+        bool isRegAll() 			const { return arenaKind() == somtarena::Kind::ReAll; };
+        bool isRegAllChar() 		const { return arenaKind() == somtarena::Kind::ReAllchar; };
+        bool isRegConcat() 		    const { return arenaKind() == somtarena::Kind::ReConcat; };
+        bool isRegUnion() 			const { return arenaKind() == somtarena::Kind::ReUnion; };
+        bool isRegInter() 			const { return arenaKind() == somtarena::Kind::ReInter; };
+        bool isRegDiff() 			const { return arenaKind() == somtarena::Kind::ReDiff; };
+        bool isRegStar() 			const { return arenaKind() == somtarena::Kind::ReStar; }; 
+        bool isRegPlus() 			const { return arenaKind() == somtarena::Kind::RePlus; };
+        bool isRegOpt() 			const { return arenaKind() == somtarena::Kind::ReOpt; };
+        bool isRegRange() 			const { return arenaKind() == somtarena::Kind::ReRange; };
+        bool isRegRepeat() 		    const { return arenaKind() == somtarena::Kind::ReRepeat; };
+        bool isRegLoop() 			const { return arenaKind() == somtarena::Kind::ReLoop; };
+        bool isRegComplement() 		const { return arenaKind() == somtarena::Kind::ReComplement; };
 
         bool isAtom()				const {
             return isArithAtom() || isBVAtom() || isFPAtom() || isStrAtom() ||
