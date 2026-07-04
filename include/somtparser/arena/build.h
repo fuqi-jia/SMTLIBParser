@@ -29,6 +29,17 @@ struct BuildState {
     // walk sets it); every other arena path — inline non-NRA, the plain buildAssertions walk —
     // keeps the native Gt/Ge unflipped, so this is behavior-neutral for them.
     bool flipGtGe = false;
+    // II-2b-3 (E5, "drop DAGNode fields" CRUX): the LIVE inline arena to source each node's
+    // kind/sort/payload FROM (an arena->arena copy), instead of the DAGNode field. Non-null ONLY on
+    // the NRA keep-live rewritten path, where the caller (Solver) holds the inline CoreIr alive across
+    // this whole build (importNativeArenaSharedRewritten + finalizeNativeShared). buildCoreNode reads
+    // the arena source for a node ONLY when node.arenaPtr()==inlineArena (the EXACT held arena) AND
+    // node.arenaExprId()!=0 — a known-live handle into the arena we are holding; any other node (no
+    // handle, or a handle into a different/overwritten arena) falls back to the FIELD path, so a
+    // read can never deref a freed/foreign arena. Verdict-neutral by construction: the inline node
+    // was built from the same DAGNode, so its k/s/payload == the field's, and traversal (children)
+    // is unchanged. Null => every node uses the field path (== prior behavior).
+    const somtarena::Arena* inlineArena = nullptr;
 };
 
 // Build the native arena term for a DAGNode root (recursive + memoized). Records gaps in g.
