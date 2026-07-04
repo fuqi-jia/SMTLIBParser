@@ -1229,47 +1229,51 @@ namespace SOMTParser{
         }
 
         /**
-         * @brief Equivalence check with THIS node's kind threaded in.
+         * @brief Equivalence check with THIS node's kind + sort + name threaded in.
          *
-         * II-2b-3 (E3-dedup): used by the hash-cons dedup path where THIS is the freshly-built
-         * candidate (called as candidate->isEquivalentTo(*bucketNode, candidateKind)). The candidate
-         * has no arena handle yet, so its kind is threaded from createNode instead of read from the
-         * this->kind field. thisKind == this->kind for the candidate, so the boolean result is
-         * byte-identical to isEquivalentTo(other) — only the SOURCE of the candidate's kind changes.
-         * `other` (the pre-existing bucket node) still reads other.kind (field-drop is a later step).
+         * II-2b-3 (E3-dedup / step2): used by the hash-cons dedup path where THIS is the freshly-built
+         * candidate (called as candidate->isEquivalentTo(*bucketNode, candidateKind, candidateSort,
+         * candidateName)). The candidate has no arena handle yet, so its kind/sort/name are threaded
+         * from createNode instead of read from the this->kind/sort/name fields. thisKind/thisSort/
+         * thisName == this->kind/sort/name for the candidate, so the boolean result is byte-identical
+         * to isEquivalentTo(other) — only the SOURCE of the candidate's kind/sort/name changes.
+         * `other` (the pre-existing bucket node) still reads other's fields (field-drop is a later step).
          */
-        bool isEquivalentTo(const DAGNode& other, NODE_KIND thisKind) const {
+        bool isEquivalentTo(const DAGNode& other, NODE_KIND thisKind,
+                const std::shared_ptr<Sort>& thisSort, const std::string& thisName) const {
             std::unordered_set<std::pair<const DAGNode*, const DAGNode*>, PairNodePtrHash, PairNodePtrEqual> visited;
-            return isEquivalentTo(other, thisKind, visited);
+            return isEquivalentTo(other, thisKind, thisSort, thisName, visited);
         }
 
         /**
          * @brief Get the hash code of the node
-         * 
+         *
          * @return The hash code of the node
          */
         std::size_t hashCode() const{
-            // II-2b-3 (E3-dedup): the normal path sources the kind from the field; identical value.
-            return hashCode(kind);
+            // II-2b-3 (E3-dedup / step2): the normal path sources kind/sort/name from the fields; identical value.
+            return hashCode(kind, sort, name);
         }
 
         /**
-         * @brief Get the hash code of the node with its kind THREADED in.
+         * @brief Get the hash code of the node with its kind + sort + name THREADED in.
          *
-         * II-2b-3 (E3-dedup): used by the hash-cons dedup path (insertNodeToBucket) where the
-         * freshly-built candidate has no arena handle yet, so its kind cannot be read back from the
-         * arena. threadedKind == this->kind for the candidate, so the returned hash is byte-identical
-         * to hashCode() — only the SOURCE of h2 changes (the param, not the this->kind field).
+         * II-2b-3 (E3-dedup / step2): used by the hash-cons dedup path (insertNodeToBucket) where the
+         * freshly-built candidate has no arena handle yet, so its kind/sort/name cannot be read back
+         * from the arena. threadedKind/threadedSort/threadedName == this->kind/sort/name for the
+         * candidate, so the returned hash is byte-identical to hashCode() — only the SOURCE of h1
+         * (sort mix), h2 (kind mix) and h3 (name mix) changes (the params, not the this-> fields).
          */
-        std::size_t hashCode(NODE_KIND threadedKind) const{
+        std::size_t hashCode(NODE_KIND threadedKind, const std::shared_ptr<Sort>& threadedSort,
+                const std::string& threadedName) const{
             if(hash_computed) {
                 return cached_hash_code;
             }
 
             // high quality hash algorithm, reduce conflicts
-            size_t h1 = std::hash<std::string>{}(sort->toString());
+            size_t h1 = std::hash<std::string>{}(threadedSort->toString());
             size_t h2 = static_cast<size_t>(threadedKind);
-            size_t h3 = name.empty() ? 0 : std::hash<std::string>{}(name);
+            size_t h3 = threadedName.empty() ? 0 : std::hash<std::string>{}(threadedName);
             size_t h4 = children.size();
             size_t h5 = children_hash.empty() ? 0 : std::hash<std::string>{}(children_hash);
             
@@ -1352,12 +1356,15 @@ namespace SOMTParser{
             return true;
         }
 
-        // II-2b-3 (E3-dedup): recursive equivalence where THIS node's (top-level) kind is threaded in
-        // via `thisKind` instead of read from the this->kind field. Mirrors the body above exactly,
-        // save for the single `thisKind != other.kind` structural check. Children recurse through the
-        // normal (field-sourced) 2-arg path — they are pre-existing nodes whose kind fields are valid.
-        // For the candidate, thisKind == this->kind, so the result is byte-identical to the 2-arg form.
+        // II-2b-3 (E3-dedup / step2): recursive equivalence where THIS node's (top-level) kind + sort +
+        // name are threaded in via `thisKind`/`thisSort`/`thisName` instead of read from the this->
+        // kind/sort/name fields. Mirrors the body above exactly, save for the threaded structural
+        // checks (`thisKind != other.kind`, `thisSort.get() != other.sort.get()`, `thisName != other.name`).
+        // Children recurse through the normal (field-sourced) 2-arg path — they are pre-existing nodes
+        // whose fields are valid. For the candidate, thisKind/thisSort/thisName == this->kind/sort/name,
+        // so the result is byte-identical to the 2-arg form.
         bool isEquivalentTo(const DAGNode& other, NODE_KIND thisKind,
+                const std::shared_ptr<Sort>& thisSort, const std::string& thisName,
                 std::unordered_set<std::pair<const DAGNode*, const DAGNode*>, PairNodePtrHash, PairNodePtrEqual>& visited) const {
             TIME_FUNC();
 
@@ -1369,12 +1376,12 @@ namespace SOMTParser{
             // fast structure check (avoid the expensive subsequent comparison)
             if (thisKind != other.kind ||
                 children.size() != other.children.size() ||
-                sort.get() != other.sort.get()) {
+                thisSort.get() != other.sort.get()) {
                 return false;
             }
 
             // name check
-            if (name != other.name) {
+            if (thisName != other.name) {
                 return false;
             }
 
@@ -1523,9 +1530,11 @@ namespace SOMTParser{
             inline static const std::shared_ptr<DAGNode> REAL_NEG_INF_NODE = std::make_shared<DAGNode>(SortManager::REAL_SORT, NODE_KIND::NT_NEG_INFINITY, "-INF");
         private:
             void initializeStaticNodes();
-            // II-2b-3 (E3-dedup): candidateKind is threaded from createNode so the hash-cons dedup
-            // never reads the freshly-built candidate's kind field (it has no arena handle yet).
-            std::shared_ptr<DAGNode> insertNodeToBucket(const std::shared_ptr<DAGNode>& node, NODE_KIND candidateKind);
+            // II-2b-3 (E3-dedup / step2): candidateKind + candidateSort + candidateName are threaded from
+            // createNode so the hash-cons dedup never reads the freshly-built candidate's kind/sort/name
+            // fields (it has no arena handle yet).
+            std::shared_ptr<DAGNode> insertNodeToBucket(const std::shared_ptr<DAGNode>& node, NODE_KIND candidateKind,
+                const std::shared_ptr<Sort>& candidateSort, const std::string& candidateName);
     };
 
 }

@@ -1075,18 +1075,20 @@ namespace SOMTParser{
         }
     }
     
-    std::shared_ptr<DAGNode> NodeManager::insertNodeToBucket(const std::shared_ptr<DAGNode>& node, NODE_KIND candidateKind) {
+    std::shared_ptr<DAGNode> NodeManager::insertNodeToBucket(const std::shared_ptr<DAGNode>& node, NODE_KIND candidateKind,
+            const std::shared_ptr<Sort>& candidateSort, const std::string& candidateName) {
         TIME_FUNC();
-        // II-2b-3 (E3-dedup): the candidate's kind is threaded in (candidateKind == its createNode
-        // NODE_KIND == what node->getKind() holds today) — the dedup path must NOT read the candidate's
-        // kind field, since the candidate has no arena handle yet (arenaBuilderHook_ fires only after
-        // the dedup decision, below). Bucket index / hash / equivalence all source the candidate kind
-        // from candidateKind; pre-existing bucket nodes (pair.first) still read their own field.
+        // II-2b-3 (E3-dedup / step2): the candidate's kind + sort + name are threaded in (candidateKind/
+        // candidateSort/candidateName == its createNode args == what node->getKind()/getSortRaw()/
+        // getNameRaw() hold today) — the dedup path must NOT read the candidate's kind/sort/name fields,
+        // since the candidate has no arena handle yet (arenaBuilderHook_ fires only after the dedup
+        // decision, below). Bucket index / hash / name-compare / equivalence all source the candidate's
+        // kind/sort/name from the params; pre-existing bucket nodes (pair.first) still read their own fields.
         auto bucket_index = static_cast<size_t>(candidateKind);
         auto& kind_bucket = node_buckets[bucket_index];
 
         // pre-calculate hash code to avoid repeated calculation
-        size_t node_hash = node->hashCode(candidateKind);
+        size_t node_hash = node->hashCode(candidateKind, candidateSort, candidateName);
         
         // secondary hash lookup: first use hash code to locate the small bucket
         auto hash_it = kind_bucket.find(node_hash);
@@ -1102,15 +1104,17 @@ namespace SOMTParser{
                     return node_ptr;
                 }
                 // fast structure comparison (avoid the expensive isEquivalentTo call)
+                // II-2b-3 (E3-dedup / step2): the candidate's name is sourced from candidateName, not
+                // node->getName() — the candidate's name field is not read in the dedup decision.
                 if(pair.first->getKind() == candidateKind &&
                 pair.first->getChildrenSize() == node->getChildrenSize() &&
-                pair.first->getName() == node->getName()) {
+                pair.first->getName() == candidateName) {
                     // only call the expensive isEquivalentTo when the structure matches completely.
-                    // II-2b-3 (E3-dedup): call ON the candidate (node) with the bucket node as `other`
-                    // and the threaded candidateKind — so the candidate's kind is NOT read from its
-                    // field. Equivalence is symmetric, so the boolean result is identical to today's
-                    // pair.first->isEquivalentTo(*node).
-                    if(node->isEquivalentTo(*pair.first, candidateKind)) {
+                    // II-2b-3 (E3-dedup / step2): call ON the candidate (node) with the bucket node as
+                    // `other` and the threaded candidateKind/candidateSort/candidateName — so the
+                    // candidate's kind/sort/name are NOT read from its fields. Equivalence is symmetric,
+                    // so the boolean result is identical to today's pair.first->isEquivalentTo(*node).
+                    if(node->isEquivalentTo(*pair.first, candidateKind, candidateSort, candidateName)) {
                         auto node_ptr = nodes[pair.second];
                         node_ptr->incUseCount();
                         return node_ptr;
@@ -1135,31 +1139,32 @@ namespace SOMTParser{
     }
 
     void NodeManager::initializeStaticNodes() {
-        // Basic constants. II-2b-3 (E3-dedup): these fully-built static constants carry their kind in
-        // their field at init time; read it once here (at the registration site, outside the dedup
-        // logic) to thread it in — insertNodeToBucket itself no longer reads the candidate's field.
-        insertNodeToBucket(NULL_NODE, NULL_NODE->getKind());
-        insertNodeToBucket(UNKNOWN_NODE, UNKNOWN_NODE->getKind());
-        insertNodeToBucket(ERROR_NODE, ERROR_NODE->getKind());
-        insertNodeToBucket(TRUE_NODE, TRUE_NODE->getKind());
-        insertNodeToBucket(FALSE_NODE, FALSE_NODE->getKind());
-        insertNodeToBucket(E_NODE, E_NODE->getKind());
-        insertNodeToBucket(PI_NODE, PI_NODE->getKind());
-        insertNodeToBucket(NAN_NODE, NAN_NODE->getKind());
-        insertNodeToBucket(EPSILON_NODE, EPSILON_NODE->getKind());
-        insertNodeToBucket(POS_EPSILON_NODE, POS_EPSILON_NODE->getKind());
-        insertNodeToBucket(NEG_EPSILON_NODE, NEG_EPSILON_NODE->getKind());
+        // Basic constants. II-2b-3 (E3-dedup / step2): these fully-built static constants carry their
+        // kind/sort/name in their fields at init time; read them once here (at the registration site,
+        // outside the dedup logic) to thread them in — insertNodeToBucket itself no longer reads the
+        // candidate's kind/sort/name fields.
+        insertNodeToBucket(NULL_NODE, NULL_NODE->getKind(), NULL_NODE->getSortRaw(), NULL_NODE->getNameRaw());
+        insertNodeToBucket(UNKNOWN_NODE, UNKNOWN_NODE->getKind(), UNKNOWN_NODE->getSortRaw(), UNKNOWN_NODE->getNameRaw());
+        insertNodeToBucket(ERROR_NODE, ERROR_NODE->getKind(), ERROR_NODE->getSortRaw(), ERROR_NODE->getNameRaw());
+        insertNodeToBucket(TRUE_NODE, TRUE_NODE->getKind(), TRUE_NODE->getSortRaw(), TRUE_NODE->getNameRaw());
+        insertNodeToBucket(FALSE_NODE, FALSE_NODE->getKind(), FALSE_NODE->getSortRaw(), FALSE_NODE->getNameRaw());
+        insertNodeToBucket(E_NODE, E_NODE->getKind(), E_NODE->getSortRaw(), E_NODE->getNameRaw());
+        insertNodeToBucket(PI_NODE, PI_NODE->getKind(), PI_NODE->getSortRaw(), PI_NODE->getNameRaw());
+        insertNodeToBucket(NAN_NODE, NAN_NODE->getKind(), NAN_NODE->getSortRaw(), NAN_NODE->getNameRaw());
+        insertNodeToBucket(EPSILON_NODE, EPSILON_NODE->getKind(), EPSILON_NODE->getSortRaw(), EPSILON_NODE->getNameRaw());
+        insertNodeToBucket(POS_EPSILON_NODE, POS_EPSILON_NODE->getKind(), POS_EPSILON_NODE->getSortRaw(), POS_EPSILON_NODE->getNameRaw());
+        insertNodeToBucket(NEG_EPSILON_NODE, NEG_EPSILON_NODE->getKind(), NEG_EPSILON_NODE->getSortRaw(), NEG_EPSILON_NODE->getNameRaw());
 
         // Infinity nodes
-        insertNodeToBucket(STR_INF_NODE, STR_INF_NODE->getKind());
-        insertNodeToBucket(STR_POS_INF_NODE, STR_POS_INF_NODE->getKind());
-        insertNodeToBucket(STR_NEG_INF_NODE, STR_NEG_INF_NODE->getKind());
-        insertNodeToBucket(INT_INF_NODE, INT_INF_NODE->getKind());
-        insertNodeToBucket(INT_POS_INF_NODE, INT_POS_INF_NODE->getKind());
-        insertNodeToBucket(INT_NEG_INF_NODE, INT_NEG_INF_NODE->getKind());
-        insertNodeToBucket(REAL_INF_NODE, REAL_INF_NODE->getKind());
-        insertNodeToBucket(REAL_POS_INF_NODE, REAL_POS_INF_NODE->getKind());
-        insertNodeToBucket(REAL_NEG_INF_NODE, REAL_NEG_INF_NODE->getKind());
+        insertNodeToBucket(STR_INF_NODE, STR_INF_NODE->getKind(), STR_INF_NODE->getSortRaw(), STR_INF_NODE->getNameRaw());
+        insertNodeToBucket(STR_POS_INF_NODE, STR_POS_INF_NODE->getKind(), STR_POS_INF_NODE->getSortRaw(), STR_POS_INF_NODE->getNameRaw());
+        insertNodeToBucket(STR_NEG_INF_NODE, STR_NEG_INF_NODE->getKind(), STR_NEG_INF_NODE->getSortRaw(), STR_NEG_INF_NODE->getNameRaw());
+        insertNodeToBucket(INT_INF_NODE, INT_INF_NODE->getKind(), INT_INF_NODE->getSortRaw(), INT_INF_NODE->getNameRaw());
+        insertNodeToBucket(INT_POS_INF_NODE, INT_POS_INF_NODE->getKind(), INT_POS_INF_NODE->getSortRaw(), INT_POS_INF_NODE->getNameRaw());
+        insertNodeToBucket(INT_NEG_INF_NODE, INT_NEG_INF_NODE->getKind(), INT_NEG_INF_NODE->getSortRaw(), INT_NEG_INF_NODE->getNameRaw());
+        insertNodeToBucket(REAL_INF_NODE, REAL_INF_NODE->getKind(), REAL_INF_NODE->getSortRaw(), REAL_INF_NODE->getNameRaw());
+        insertNodeToBucket(REAL_POS_INF_NODE, REAL_POS_INF_NODE->getKind(), REAL_POS_INF_NODE->getSortRaw(), REAL_POS_INF_NODE->getNameRaw());
+        insertNodeToBucket(REAL_NEG_INF_NODE, REAL_NEG_INF_NODE->getKind(), REAL_NEG_INF_NODE->getSortRaw(), REAL_NEG_INF_NODE->getNameRaw());
         
         // Mark how many nodes are static constants so we can preserve them during clear()
         static_node_count = nodes.size();
@@ -1168,85 +1173,89 @@ namespace SOMTParser{
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, NODE_KIND kind, std::string name, std::vector<std::shared_ptr<DAGNode>> children) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, kind, name, children);
-        // II-2b-3 (E3-dedup): thread the construction kind (the createNode arg) into the dedup path.
-        return insertNodeToBucket(node, kind);
+        // II-2b-3 (E3-dedup / step2): thread the construction kind + sort + name (the createNode args)
+        // into the dedup path.
+        return insertNodeToBucket(node, kind, sort, name);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, NODE_KIND kind, std::string name) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, kind, name);
-        return insertNodeToBucket(node, kind);
+        return insertNodeToBucket(node, kind, sort, name);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, NODE_KIND kind) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, kind);
-        return insertNodeToBucket(node, kind);
+        // DAGNode(sort, kind) sets name == "" (see the ctor); thread the sort arg and the empty name.
+        return insertNodeToBucket(node, kind, sort, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort);
-        // DAGNode(sort) sets kind == NT_UNKNOWN (see the ctor); thread that literal.
-        return insertNodeToBucket(node, NODE_KIND::NT_UNKNOWN);
+        // DAGNode(sort) sets kind == NT_UNKNOWN, name == "" (see the ctor); thread those literals + sort.
+        return insertNodeToBucket(node, NODE_KIND::NT_UNKNOWN, sort, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode() {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>();
-        // DAGNode() sets kind == NT_UNKNOWN.
-        return insertNodeToBucket(node, NODE_KIND::NT_UNKNOWN);
+        // DAGNode() sets sort == NULL_SORT, kind == NT_UNKNOWN, name == "".
+        return insertNodeToBucket(node, NODE_KIND::NT_UNKNOWN, SortManager::NULL_SORT, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(NODE_KIND kind, std::string name) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(kind, name);
-        return insertNodeToBucket(node, kind);
+        // DAGNode(kind, name) sets sort == NULL_SORT; thread that + the kind/name args.
+        return insertNodeToBucket(node, kind, SortManager::NULL_SORT, name);
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(NODE_KIND kind) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(kind);
-        return insertNodeToBucket(node, kind);
+        // DAGNode(kind) sets sort == NULL_SORT, name == "".
+        return insertNodeToBucket(node, kind, SortManager::NULL_SORT, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const Integer& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        // The value ctors set kind == NT_CONST.
-        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
+        // The value ctors set kind == NT_CONST, name == ""; thread those + the sort arg.
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST, sort, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const Real& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST, sort, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const double& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST, sort, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const int& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST, sort, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(std::shared_ptr<Sort> sort, const bool& v) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(sort, v);
-        return insertNodeToBucket(node, NODE_KIND::NT_CONST);
+        return insertNodeToBucket(node, NODE_KIND::NT_CONST, sort, std::string());
     }
 
     std::shared_ptr<DAGNode> NodeManager::createNode(const std::string& n) {
         TIME_FUNC();
         auto node = std::make_shared<DAGNode>(n);
-        // DAGNode(string) derives the kind by parsing n inside the ctor; read it once here (at the
-        // construction site, outside the dedup logic) to thread it in.
-        return insertNodeToBucket(node, node->getKind());
+        // DAGNode(string) derives the kind/sort/name by parsing n inside the ctor; read them once here
+        // (at the construction site, outside the dedup logic) to thread them in.
+        return insertNodeToBucket(node, node->getKind(), node->getSortRaw(), node->getNameRaw());
     }
 
 }
