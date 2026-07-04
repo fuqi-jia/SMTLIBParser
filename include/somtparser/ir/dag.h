@@ -390,9 +390,9 @@ namespace SOMTParser{
         bool isUnknown() 			const { return kind == NODE_KIND::NT_UNKNOWN; };
 
         // check const
-        bool isCBool() 				const { return (kind == NODE_KIND::NT_CONST_TRUE || kind == NODE_KIND::NT_CONST_FALSE) && sort->isBool(); }; 
-        bool isTrue() 				const { return kind == NODE_KIND::NT_CONST_TRUE && sort->isBool(); };
-        bool isFalse() 			    const { return kind == NODE_KIND::NT_CONST_FALSE && sort->isBool(); };
+        bool isCBool() 				const { return (kind == NODE_KIND::NT_CONST_TRUE || kind == NODE_KIND::NT_CONST_FALSE) && getSort()->isBool(); }; 
+        bool isTrue() 				const { return kind == NODE_KIND::NT_CONST_TRUE && getSort()->isBool(); };
+        bool isFalse() 			    const { return kind == NODE_KIND::NT_CONST_FALSE && getSort()->isBool(); };
         bool isConst() 				const { return  kind == NODE_KIND::NT_CONST || 
                                                     kind == NODE_KIND::NT_CONST_TRUE || kind == NODE_KIND::NT_CONST_FALSE ||
                                                     kind == NODE_KIND::NT_CONST_PI || kind == NODE_KIND::NT_CONST_E ||
@@ -401,25 +401,25 @@ namespace SOMTParser{
                                                     kind == NODE_KIND::NT_POS_EPSILON || kind == NODE_KIND::NT_NEG_EPSILON ||
                                                     kind == NODE_KIND::NT_ROOT_OF_WITH_INTERVAL || kind == NODE_KIND::NT_ROOT_OBJ || kind == NODE_KIND::NT_REAL_ALGEBRAIC_NUMBER; };
         bool isNumeral() 			const { return isCInt() || isCReal(); };
-        bool isCInt()       		const { return isConst() && (sort->isInt() || sort->isIntOrReal()); };
-        bool isCReal()      		const { return isConst() && (sort->isReal() || sort->isIntOrReal()); };
-        bool isCBV()        		const { return isConst() && sort->isBv(); };
-        bool isCFP()        		const { return isConst() && sort->isFp(); };
-        bool isCRoundingMode()      const { return isConst() && sort->isRoundingMode(); };
+        bool isCInt()       		const { return isConst() && (getSort()->isInt() || getSort()->isIntOrReal()); };
+        bool isCReal()      		const { return isConst() && (getSort()->isReal() || getSort()->isIntOrReal()); };
+        bool isCBV()        		const { return isConst() && getSort()->isBv(); };
+        bool isCFP()        		const { return isConst() && getSort()->isFp(); };
+        bool isCRoundingMode()      const { return isConst() && getSort()->isRoundingMode(); };
         bool isCRootOfWithInterval() const { return isConst() && kind == NODE_KIND::NT_ROOT_OF_WITH_INTERVAL; };
         bool isCRootObj()           const { return isConst() && kind == NODE_KIND::NT_ROOT_OBJ; };
         bool isCRealAlgebraicNumber() const { return isConst() && kind == NODE_KIND::NT_REAL_ALGEBRAIC_NUMBER; };
-        bool isCStr()       		const { return isConst() && sort->isStr(); };
+        bool isCStr()       		const { return isConst() && getSort()->isStr(); };
 
         // check var
-        bool isVBool() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && sort->isBool(); };
+        bool isVBool() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && getSort()->isBool(); };
         bool isLiteral() 			const { return (isVBool() || (isNot() && getChild(0)->isVBool()) || isCBool()); };
-        bool isVInt() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && sort->isInt(); };
-        bool isVReal() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && sort->isReal(); };
-        bool isVBV() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && sort->isBv(); };
-        bool isVFP() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && sort->isFp(); };
-        bool isVRoundingMode()      const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && sort->isRoundingMode(); };
-        bool isVStr() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && sort->isStr(); };
+        bool isVInt() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && getSort()->isInt(); };
+        bool isVReal() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && getSort()->isReal(); };
+        bool isVBV() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && getSort()->isBv(); };
+        bool isVFP() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && getSort()->isFp(); };
+        bool isVRoundingMode()      const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && getSort()->isRoundingMode(); };
+        bool isVStr() 				const { return (kind == NODE_KIND::NT_VAR || kind == NODE_KIND::NT_TEMP_VAR || kind == NODE_KIND::NT_QUANT_VAR || kind == NODE_KIND::NT_LET_BIND_VAR || kind == NODE_KIND::NT_PLACEHOLDER_VAR) && getSort()->isStr(); };
         bool isTempVar() 			const { return kind == NODE_KIND::NT_TEMP_VAR; };
         bool isQuantVar() 			const { return kind == NODE_KIND::NT_QUANT_VAR; };
         bool isLetBindVar() 		const { return kind == NODE_KIND::NT_LET_BIND_VAR; };
@@ -432,7 +432,7 @@ namespace SOMTParser{
 
         // check array
         // An array is: array variable, const array, or store operation (which returns array)
-        bool isArray() 			    const { return sort && sort->isArray(); };
+        bool isArray() 			    const { return getSort() && getSort()->isArray(); };
         bool isConstArray() 		const { return arenaKind() == somtarena::Kind::ConstArray; };
 
         bool isAssignableVar() 		const { return isVar() || isUFApplication(); };
@@ -529,7 +529,7 @@ namespace SOMTParser{
         bool isArithTerm() 			const { return (isArithOp() || isArithConv() || isRealNonlinearOp() || isTranscendentalOp() || 
                                                     (isVar() && (isVInt() || isVReal())) ||
                                                     (isConst() && (isCInt() || isCReal())) ||
-                                                    ((isIte() || isMax() || isMin() || isUFApplication()) && (sort->isInt() || sort->isReal() || sort->isIntOrReal()))); };
+                                                    ((isIte() || isMax() || isMin() || isUFApplication()) && (getSort()->isInt() || getSort()->isReal() || getSort()->isIntOrReal()))); };
         bool isArithComp() 			const { return ((isEq() && getChild(0)->isArithTerm())|| 
                                                     (isDistinct() && getChild(0)->isArithTerm()) || 
                                                     isLe() || isLt() || isGe() || isGt()); };
@@ -622,10 +622,10 @@ namespace SOMTParser{
         bool isBVTerm()    		    const { return (isBVOp() ||
                                                     (isVar() && isVBV()) ||
                                                     (isConst() && isCBV()) ||
-                                                    (isIte() && sort->isBv()) ||
-                                                    (isMax() && sort->isBv()) ||
-                                                    (isMin() && sort->isBv()) ||
-                                                    (isUFApplication() && sort->isBv())); };
+                                                    (isIte() && getSort()->isBv()) ||
+                                                    (isMax() && getSort()->isBv()) ||
+                                                    (isMin() && getSort()->isBv()) ||
+                                                    (isUFApplication() && getSort()->isBv())); };
         bool isBVCompOp()     		const {
             bool eqOrDistinctBv = (getChildrenSize() >= 1) &&
                 ((isEq() && getChild(0)->isBVTerm()) || (isDistinct() && getChild(0)->isBVTerm()));
@@ -655,7 +655,7 @@ namespace SOMTParser{
         bool isFPRoToInt()  		const { return arenaKind() == somtarena::Kind::FpRoundToIntegral; };
         bool isFPMin() 				const { return arenaKind() == somtarena::Kind::FpMin; };
         bool isFPMax() 				const { return arenaKind() == somtarena::Kind::FpMax; };
-        bool isFPOp() 				const { return (isFPAdd() || isFPSub() || isFPMul() || isFPDiv() || isFPAbs() || isFPNeg() || isFPRem() || isFPFMA() || isFPSqrt() || isFPRoToInt() || isFPMin() || isFPMax() || (isUFApplication() && sort->isFp())); };
+        bool isFPOp() 				const { return (isFPAdd() || isFPSub() || isFPMul() || isFPDiv() || isFPAbs() || isFPNeg() || isFPRem() || isFPFMA() || isFPSqrt() || isFPRoToInt() || isFPMin() || isFPMax() || (isUFApplication() && getSort()->isFp())); };
 
         // check floating point comparison
         bool isFPLe() 				const { return arenaKind() == somtarena::Kind::FpLe; };
@@ -679,11 +679,11 @@ namespace SOMTParser{
         bool isFPConv() 			const { return (isFPToUBV() || isFPToSBV() || isFPToReal() || isToFP() || isToFPUnsigned()); };
 
         bool isFPTerm() 				const {
-            return isFPOp() || (isFPConv() && sort->isFp()) ||
+            return isFPOp() || (isFPConv() && getSort()->isFp()) ||
                    (isVar() && isVFP()) || (isConst() && isCFP()) ||
-                   (isIte() && sort->isFp()) ||
-                   (isMax() && sort->isFp()) ||
-                   (isMin() && sort->isFp());
+                   (isIte() && getSort()->isFp()) ||
+                   (isMax() && getSort()->isFp()) ||
+                   (isMin() && getSort()->isFp());
         }
 
         // check floating point properties
@@ -700,7 +700,7 @@ namespace SOMTParser{
         // check array
         bool isSelect() 			const { return arenaKind() == somtarena::Kind::Select; };
         bool isStore() 				const { return arenaKind() == somtarena::Kind::Store; };
-        bool isArrayOp() 			const { return (isSelect() || isStore() || (isUFApplication() && sort->isArray())); };
+        bool isArrayOp() 			const { return (isSelect() || isStore() || (isUFApplication() && getSort()->isArray())); };
 
         // check strings common operators
         bool isStrLen() 			const { return arenaKind() == somtarena::Kind::StrLen; };
@@ -723,7 +723,7 @@ namespace SOMTParser{
         bool isStrSplitAtRe() 		const { return arenaKind() == somtarena::Kind::StrSplitAtRe; };
         bool isStrSplitRestRe() 		const { return arenaKind() == somtarena::Kind::StrSplitRestRe; };
         bool isStrNumSplitsRe() 		const { return arenaKind() == somtarena::Kind::StrNumSplitsRe; };
-        bool isStrOp() 				const { return (isStrLen() || isStrConcat() || isStrSubstr() || isStrPrefixof() || isStrSuffixof() || isStrIndexof() || isStrCharat() || isStrUpdate() || isStrReplace() || isStrReplaceAll() || isStrToLower() || isStrToUpper() || isStrRev() || isStrSplit() || isStrSplitAt() || isStrSplitRest() || isStrNumSplits() || isStrSplitAtRe() || isStrSplitRestRe() || isStrNumSplitsRe() || (isUFApplication() && sort->isStr())); };
+        bool isStrOp() 				const { return (isStrLen() || isStrConcat() || isStrSubstr() || isStrPrefixof() || isStrSuffixof() || isStrIndexof() || isStrCharat() || isStrUpdate() || isStrReplace() || isStrReplaceAll() || isStrToLower() || isStrToUpper() || isStrRev() || isStrSplit() || isStrSplitAt() || isStrSplitRest() || isStrNumSplits() || isStrSplitAtRe() || isStrSplitRestRe() || isStrNumSplitsRe() || (isUFApplication() && getSort()->isStr())); };
 
         // check strings comparison
         bool isStrLt() 				const { return arenaKind() == somtarena::Kind::StrLt; };
@@ -766,7 +766,7 @@ namespace SOMTParser{
 
         bool isAtom()				const {
             return isArithAtom() || isBVAtom() || isFPAtom() || isStrAtom() ||
-                   (isUFApplication() && sort->isBool());
+                   (isUFApplication() && getSort()->isBool());
         }
         // check let
         bool isLet()				const { return kind == NODE_KIND::NT_LET; };
