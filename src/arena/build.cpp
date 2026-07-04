@@ -428,21 +428,28 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
     // Rarely-used transcendental/infinity singletons stay unhandled (a formula using one bails).
     auto prebuild = [&](const std::shared_ptr<SOMTParser::DAGNode>& n) {
         if (n && n->arenaExprId() == somtarena::NullExpr) {
-            // II-2b-3 (step3): this true/false singleton prebuild reads the node's OWN sort/name/value
-            // FIELDS here (a static-registration site, outside the dedup/hook fast path — only 2 nodes)
-            // and threads them into buildCoreNode's field path.
+            // II-2b-3 (big-field-drop): this true/false singleton prebuild has no createNode-arg hook to
+            // thread from (a static-registration site, outside the dedup/hook fast path — only 2 nodes),
+            // so capture the singleton's OWN sort/name/value ONCE and source BOTH buildCoreNode AND the
+            // read-registry from those captured values — the registry no longer INDEPENDENTLY re-reads
+            // getSortRaw()/getValueRaw()/getNameRaw(). Verdict-neutral (the captured values are exactly
+            // what the fields hold at this static-init point), mirroring the hook's arg-sourced path.
+            std::shared_ptr<SOMTParser::Sort> pSort = n->getSortRaw();
+            std::string pName = n->getNameRaw();
+            std::shared_ptr<SOMTParser::Value> pValue = n->getValueRaw();
             somtarena::ExprId id =
                 buildCoreNode(*n, {}, arena, gaps, funcDecls, /*flipGtGe=*/false, n->getKind(),
-                              n->getSortRaw(), n->getNameRaw(), n->getValueRaw(),
+                              pSort, pName, pValue,
                               /*liveInline=*/nullptr);  // building the inline arena -> field source
             if (id != somtarena::NullExpr) {
                 n->setArenaHandle(&arena, id, /*finalized=*/true);
-                // P3.a: register the singleton's own (field) sort under its handle (own-handle site).
-                SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, n->getSortRaw());
-                // P3.b: register the singleton's own (field) value beside the sort (authoritative field).
-                SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, n->getValueRaw());
-                // P3.c: register the singleton node (leaf — children skipped, field-backed).
-                registerArenaNode(arena, id, n);
+                // P3.a: register the singleton's (captured) sort under its handle (own-handle site).
+                SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, pSort);
+                // P3.b: register the singleton's (captured) value beside the sort.
+                SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, pValue);
+                // P3.c: register the singleton node (leaf — children skipped, field-backed); OWN name
+                // sourced from the captured value via nameOverride (no getNameRaw() re-read).
+                registerArenaNode(arena, id, n, &pName);
             }
         }
     };
@@ -535,12 +542,20 @@ void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& 
             // NRA pass-2 read-registry population can source them WITHOUT re-reading the DAGNode field.
             // Only when the caller (importNativeArenaSharedRewritten) asked for meta; null otherwise.
             if (metaOut) (*metaOut)[node.get()] = ArenaBuildMeta{sort_param, name_param, value_param};
-            // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
-            SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, node->getSortRaw());
-            // P3.b: register this node's own (field) value beside the sort (authoritative field).
-            SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, node->getValueRaw());
-            // P3.c: register the node + its (Apply-remapped) child ExprId list for arena-served reads.
-            registerArenaNode(arena, id, node);
+            // II-2b-3 (big-field-drop): source the read-registry from the createNode ARGS this hook
+            // already receives (sort_param/value_param/name_param == the candidate's createNode
+            // sort/name/value == node->getSortRaw()/getValueRaw()/getNameRaw() at THIS construction
+            // point — the same equality this hook's buildCoreNode field path already relies on), NOT
+            // by RE-READING the DAGNode fields. Verdict-neutral by construction (arg == field here).
+            // This is the default, corpus-exercised inline path; the own-handle registration now reads
+            // zero of node's sort/name/value fields (registerArenaNode gets the arg name via override).
+            // P3.a: register this node's (arg) sort under its arena handle (own-handle site).
+            SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, sort_param);
+            // P3.b: register this node's (arg) value beside the sort.
+            SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, value_param);
+            // P3.c: register the node + its (Apply-remapped) child ExprId list; the OWN name comes from
+            // the arg (name_param) via nameOverride, so registerArenaNode reads no getNameRaw() here.
+            registerArenaNode(arena, id, node, &name_param);
         });
 }
 
