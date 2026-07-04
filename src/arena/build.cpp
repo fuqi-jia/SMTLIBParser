@@ -409,6 +409,24 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
     prebuild(SOMTParser::NodeManager::getTrue());
     prebuild(SOMTParser::NodeManager::getFalse());
 
+    // II-2b-3 (endgame step1): the hook install itself is now a lean, side-effect-free helper so it
+    // can be re-installed mid-flow onto an ALREADY-LIVE arena (the NRA keep-live Stage-A rewrite —
+    // see installArenaBuilderHookOnly). installInlineArenaBuilder = the parse-time SETUP above
+    // (g_frontendPhase / registry clear / true-false prebuild) + the hook.
+    installArenaBuilderHookOnly(nm, arena, funcDecls, gaps, aborted);
+}
+
+void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& arena,
+                                 std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
+                                 GapSink& gaps, bool& aborted) {
+    // II-2b-3 (endgame step1): install ONLY the arena-builder hook — build each NEW DAGNode into
+    // `arena` as it is created — WITHOUT installInlineArenaBuilder's parse-time setup (registry clear
+    // / g_frontendPhase / true-false prebuild). Used to build the Stage-A Rewriter/expandLet-CREATED
+    // nodes into the HELD live inline arena during the NRA rewritten import, so buildArena's arena->
+    // arena copy (buildCoreNode liveInline path) covers them too (field-path count -> 0). The arena,
+    // funcDecls, gaps, and aborted must OUTLIVE the window the hook is installed; clear with
+    // nm.setArenaBuilderHook({}). Same lambda installInlineArenaBuilder uses, so nodes are emitted
+    // byte-identically whether built at parse or during the rewrite.
     nm.setArenaBuilderHook(
         [&arena, &funcDecls, &gaps, &aborted](const std::shared_ptr<SOMTParser::DAGNode>& node,
                                               SOMTParser::NODE_KIND nk_param) {

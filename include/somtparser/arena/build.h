@@ -73,4 +73,14 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
                                std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
                                GapSink& gaps, bool& aborted);
 
+// II-2b-3 (endgame step1): install ONLY the arena-builder hook (the lambda installInlineArenaBuilder
+// uses) onto `nm`, targeting an ALREADY-LIVE `arena`, WITHOUT the parse-time setup (registry clear /
+// g_frontendPhase / true-false prebuild). Used to build the Stage-A Rewriter/expandLet-CREATED
+// DAGNodes into the held live inline arena during the NRA rewritten import, so buildArena's arena->
+// arena copy covers those nodes too. `arena`, `funcDecls`, `gaps`, `aborted` must OUTLIVE the install
+// window; clear with nm.setArenaBuilderHook({}) afterwards.
+void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& arena,
+                                 std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
+                                 GapSink& gaps, bool& aborted);
+
 }  // namespace xarena_cov
