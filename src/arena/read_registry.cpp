@@ -8,6 +8,11 @@
 
 namespace SOMTParser {
 
+// II-2b-3 (reader-side): g_liveArena is defined in src/arena/build.cpp and declared in dag.h, but dag.h
+// includes THIS header (cycle) so it can't be pulled in — re-declare the extern here. clear() nulls it
+// at every arena-discard seam so a stale DAGNode handle into the discarded arena falls to its field.
+extern thread_local const somtarena::Arena* g_liveArena;
+
 ArenaReadRegistry& ArenaReadRegistry::instance() {
     static ArenaReadRegistry inst;
     return inst;
@@ -98,6 +103,7 @@ void ArenaReadRegistry::clear() {
     node_.clear();      // II-2b-3 (P3.c): and the node map
     children_.clear();  // II-2b-3 (P3.c): and the children map
     name_.clear();      // II-2b-3 (P3.e): and the name map
+    g_liveArena = nullptr;  // II-2b-3: arena-discard seam — stale handles now fall to field
 }
 
 }  // namespace SOMTParser

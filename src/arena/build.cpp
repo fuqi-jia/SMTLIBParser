@@ -14,6 +14,7 @@ namespace SOMTParser {
 // cleared false by the parent (Solver_impl_solve.cpp) right before parser.reset(). Unwired this
 // increment (nothing reads it yet via arenaKind) — purely machinery for the crash-proof is* migration.
 thread_local bool g_frontendPhase = false;
+thread_local const somtarena::Arena* g_liveArena = nullptr;
 }  // namespace SOMTParser
 
 namespace xarena_cov {

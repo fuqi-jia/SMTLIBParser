@@ -81,6 +81,7 @@ namespace SOMTParser{
     // stale handles. thread_local because solving runs on a worker thread and a standalone DAGNode cannot
     // reach NodeManager parse-state. Defined in src/arena/build.cpp. UNWIRED this increment.
     extern thread_local bool g_frontendPhase;
+    extern thread_local const somtarena::Arena* g_liveArena;
 #endif
     // Forward declaration of DAGNode class
     class DAGNode;
@@ -426,22 +427,22 @@ namespace SOMTParser{
         bool isVar() 				const { return (kind == NODE_KIND::NT_VAR || isVBool() || isVInt() || isVReal() || isVBV() || isVFP() || isVRoundingMode() || isVStr() || isTempVar() || isQuantVar() || isLetBindVar() || isPlaceholderVar()); };
         
         // interval
-        bool isMax() 				const { return kind == NODE_KIND::NT_MAX; };
-        bool isMin() 				const { return kind == NODE_KIND::NT_MIN; };
+        bool isMax() 				const { return arenaKind() == somtarena::Kind::Max; };
+        bool isMin() 				const { return arenaKind() == somtarena::Kind::Min; };
 
         // check array
         // An array is: array variable, const array, or store operation (which returns array)
         bool isArray() 			    const { return sort && sort->isArray(); };
-        bool isConstArray() 		const { return kind == NODE_KIND::NT_CONST_ARRAY; };
+        bool isConstArray() 		const { return arenaKind() == somtarena::Kind::ConstArray; };
 
         bool isAssignableVar() 		const { return isVar() || isUFApplication(); };
         
         // check Boolean operations
-        bool isAnd() 				const { return (kind == NODE_KIND::NT_AND); };
-        bool isOr() 				const { return (kind == NODE_KIND::NT_OR); };
-        bool isNot() 				const { return (kind == NODE_KIND::NT_NOT); };
-        bool isImplies() 				const { return (kind == NODE_KIND::NT_IMPLIES); };
-        bool isXor() 				const { return (kind == NODE_KIND::NT_XOR); };
+        bool isAnd() 				const { return arenaKind() == somtarena::Kind::And; };
+        bool isOr() 				const { return arenaKind() == somtarena::Kind::Or; };
+        bool isNot() 				const { return arenaKind() == somtarena::Kind::Not; };
+        bool isImplies() 				const { return arenaKind() == somtarena::Kind::Implies; };
+        bool isXor() 				const { return arenaKind() == somtarena::Kind::Xor; };
         
         // check comparison
         bool isEqBool()             const { return (kind == NODE_KIND::NT_EQ_BOOL); };
@@ -468,25 +469,25 @@ namespace SOMTParser{
         };
 
         // check arithmetic operations
-        bool isAdd() 				const { return (kind == NODE_KIND::NT_ADD); };
-        bool isSub() 				const { return (kind == NODE_KIND::NT_SUB); };
-        bool isMul() 				const { return (kind == NODE_KIND::NT_MUL); };
-        bool isNeg() 				const { return (kind == NODE_KIND::NT_NEG); };
-        bool isDivInt() 			const { return (kind == NODE_KIND::NT_DIV_INT); };
-        bool isDivReal() 			const { return (kind == NODE_KIND::NT_DIV_REAL); };
-        bool isMod() 				const { return (kind == NODE_KIND::NT_MOD); };
-        bool isAbs() 				const { return (kind == NODE_KIND::NT_ABS); };
-        bool isCeil() 				const { return (kind == NODE_KIND::NT_CEIL); };
-        bool isFloor() 				const { return (kind == NODE_KIND::NT_FLOOR); };
-        bool isRound() 				const { return (kind == NODE_KIND::NT_ROUND); };
+        bool isAdd() 				const { return arenaKind() == somtarena::Kind::Add; };
+        bool isSub() 				const { return arenaKind() == somtarena::Kind::Sub; };
+        bool isMul() 				const { return arenaKind() == somtarena::Kind::Mul; };
+        bool isNeg() 				const { return arenaKind() == somtarena::Kind::Neg; };
+        bool isDivInt() 			const { return arenaKind() == somtarena::Kind::IntDiv; };
+        bool isDivReal() 			const { return arenaKind() == somtarena::Kind::RealDiv; };
+        bool isMod() 				const { return arenaKind() == somtarena::Kind::Mod; };
+        bool isAbs() 				const { return arenaKind() == somtarena::Kind::Abs; };
+        bool isCeil() 				const { return arenaKind() == somtarena::Kind::Ceil; };
+        bool isFloor() 				const { return arenaKind() == somtarena::Kind::Floor; };
+        bool isRound() 				const { return arenaKind() == somtarena::Kind::Round; };
         bool isArithOp() 			const { return (isAdd() || isSub() || isMul() || isNeg() || isDivInt() || isDivReal() || isMod() || isAbs() || isCeil() || isFloor() || isRound()); };
         
         // check transcendental operations
-        bool isIAnd() 				const { return (kind == NODE_KIND::NT_IAND); };
-        bool isPow2() 				const { return (kind == NODE_KIND::NT_POW2); };
-        bool isPow() 				const { return (kind == NODE_KIND::NT_POW); };
-        bool isSqrt() 				const { return (kind == NODE_KIND::NT_SQRT); };
-        bool isSafeSqrt() 			const { return (kind == NODE_KIND::NT_SAFESQRT); };
+        bool isIAnd() 				const { return arenaKind() == somtarena::Kind::IntAnd; };
+        bool isPow2() 				const { return arenaKind() == somtarena::Kind::Pow2; };
+        bool isPow() 				const { return arenaKind() == somtarena::Kind::Pow; };
+        bool isSqrt() 				const { return arenaKind() == somtarena::Kind::Sqrt; };
+        bool isSafeSqrt() 			const { return arenaKind() == somtarena::Kind::SafeSqrt; };
         bool isRealNonlinearOp() 	const { return (isIAnd() || isPow2() || isPow() || isSqrt() || isSafeSqrt()); };
         bool isExp() 				const { return (kind == NODE_KIND::NT_EXP); };
         bool isLog() 				const { return (kind == NODE_KIND::NT_LOG); };
@@ -521,10 +522,10 @@ namespace SOMTParser{
         bool isTranscendentalOp() 	const { return (isExp() || isLog() || isLn() || isLb() || isLg() || isSin() || isCos() || isSec() || isCsc() || isTan() || isCot() || isAsin() || isAcos() || isAsec() || isAcsc() || isAtan() || isAcot() || isSinh() || isCosh() || isTanh() || isSech() || isCsch() || isCoth() || isAsinh() || isAcosh() || isAtanh() || isAsech() || isAcsch() || isAcoth() || isAtan2()); };
 
         // check arithmetic comparison
-        bool isLe() 				const { return (kind == NODE_KIND::NT_LE); };
-        bool isLt() 				const { return (kind == NODE_KIND::NT_LT); };
-        bool isGe() 				const { return (kind == NODE_KIND::NT_GE); };
-        bool isGt() 				const { return (kind == NODE_KIND::NT_GT); };
+        bool isLe() 				const { return arenaKind() == somtarena::Kind::Le; };
+        bool isLt() 				const { return arenaKind() == somtarena::Kind::Lt; };
+        bool isGe() 				const { return arenaKind() == somtarena::Kind::Ge; };
+        bool isGt() 				const { return arenaKind() == somtarena::Kind::Gt; };
         bool isArithTerm() 			const { return (isArithOp() || isArithConv() || isRealNonlinearOp() || isTranscendentalOp() || 
                                                     (isVar() && (isVInt() || isVReal())) ||
                                                     (isConst() && (isCInt() || isCReal())) ||
@@ -534,8 +535,8 @@ namespace SOMTParser{
                                                     isLe() || isLt() || isGe() || isGt()); };
 
         // check arithmetic covertion
-        bool isToReal() 			const { return (kind == NODE_KIND::NT_TO_REAL); };
-        bool isToInt() 				const { return (kind == NODE_KIND::NT_TO_INT); };
+        bool isToReal() 			const { return arenaKind() == somtarena::Kind::ToReal; };
+        bool isToInt() 				const { return arenaKind() == somtarena::Kind::ToInt; };
         bool isArithConv() 			const { return (isToReal() || isToInt()); };
 
         // check arithmetic properties
@@ -697,8 +698,8 @@ namespace SOMTParser{
         bool isFPAtom() 				const { return isFPComp() || isFPProp(); }
 
         // check array
-        bool isSelect() 			const { return (kind == NODE_KIND::NT_SELECT); };
-        bool isStore() 				const { return (kind == NODE_KIND::NT_STORE); };
+        bool isSelect() 			const { return arenaKind() == somtarena::Kind::Select; };
+        bool isStore() 				const { return arenaKind() == somtarena::Kind::Store; };
         bool isArrayOp() 			const { return (isSelect() || isStore() || (isUFApplication() && sort->isArray())); };
 
         // check strings common operators
@@ -773,7 +774,7 @@ namespace SOMTParser{
         bool isLetBindVarList()		const { return kind == NODE_KIND::NT_LET_BIND_VAR_LIST; };
 
         // check ite
-        bool isIte()				const { return kind == NODE_KIND::NT_ITE; };
+        bool isIte()				const { return arenaKind() == somtarena::Kind::Ite; };
 
         // check function
         bool isFuncDec()            const { return (kind == NODE_KIND::NT_FUNC_DEC); };
@@ -909,6 +910,7 @@ namespace SOMTParser{
         // own — so finalized_ ends up meaning "owns its arena node", which arenaKind()'s assert checks.
         void setArenaHandle(const somtarena::Arena* a, std::uint64_t id, bool finalized = false) {
             arenaPtr_ = a; arenaExprId_ = id; finalized_ = finalized;
+            g_liveArena = a;
         }
         std::uint64_t arenaExprId() const { return arenaExprId_; }
         const somtarena::Arena* arenaPtr() const { return arenaPtr_; }
@@ -930,12 +932,17 @@ namespace SOMTParser{
         somtarena::Kind arenaKind() const {
             static const bool useArena = [](){ const char* e = std::getenv("SOMTP_DAGNODE_ARENA_READS");
                                                return e && *e && *e != '0'; }();
-            if (useArena && !g_frontendPhase && arenaExprId_ != 0 && arenaPtr_) {
-                assert(finalized_ && "arenaKind() on a non-final/forwarded (let) handle");
-                return arenaPtr_->kind(arenaExprId_);
+            // II-2b-3 (reader-side): deref the shared arena's Kind ONLY when this node owns a FINALIZED
+            // handle (finalized_ — not a let-forward alias whose arena Kind is the forwarded child's) AND
+            // that handle points into the CURRENTLY-LIVE arena (arenaPtr_ == g_liveArena). A stale handle
+            // into a discarded arena (NRA discard path) or a non-final let alias falls through to the field
+            // mapKind — verdict-identical, no deref of freed memory. O(1) pointer compare.
+            if (useArena && arenaExprId_ != 0 && arenaPtr_) {
+                static const bool unguarded = [](){ const char* e = std::getenv("XOLVER_ARENAKIND_UNGUARDED");
+                                                    return e && *e && *e != '0'; }();
+                if (unguarded) return arenaPtr_->kind(arenaExprId_);
+                if (finalized_ && arenaPtr_ == g_liveArena) return arenaPtr_->kind(arenaExprId_);
             }
-            // field-net: front-end phase (let nodes may be present) or handle-less -> derive from the
-            // NODE_KIND field via the forward mapKind — verdict-identical to a future arena read.
             bool mapped = false; return xarena_cov::mapKind(kind, mapped);
         }
 #endif
