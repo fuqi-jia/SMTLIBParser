@@ -34,7 +34,8 @@ bool isApply(NK k) {
 // Quantifiers (arena de Bruijn single-binder [paramSort, body] vs DAGNode [body, vars...]) and empty
 // leaves stay field-backed — childrenOf returns null there so the reader uses its field.
 void registerArenaNode(somtarena::Arena& a, somtarena::ExprId id,
-                       const std::shared_ptr<SOMTParser::DAGNode>& node) {
+                       const std::shared_ptr<SOMTParser::DAGNode>& node,
+                       const std::string* nameOverride = nullptr) {
     auto& reg = SOMTParser::ArenaReadRegistry::instance();
     reg.registerNode(&a, id, node);
     // II-2b-3 (P3.e): register this node's OWN (field) name, owner-tagged. Done for EVERY structural
@@ -42,7 +43,10 @@ void registerArenaNode(somtarena::Arena& a, somtarena::ExprId id,
     // quantifier/leaf early-returns below. registerArenaNode is only called at the 4 structural-owner
     // sites; let scaffolding returns early and never calls it, so a let node never registers a name →
     // the owner-tag rejects its forwarded-ExprId query → field fallback. Correct by construction.
-    reg.registerName(&a, id, node.get(), node->getNameRaw());
+    // II-2b-3 (big-field-drop): the NRA pass-2 registry path passes `nameOverride` (the pass-1 arg-
+    // captured name) so this registration does NOT read node->getNameRaw(); every other caller passes
+    // nullptr => the authoritative field (unchanged). Verdict-neutral (override == field by construction).
+    reg.registerName(&a, id, node.get(), nameOverride ? *nameOverride : node->getNameRaw());
     somtarena::Kind k = a.kind(id);
     if (somtarena::isQuantifier(k)) return;  // field-backed: child normal form differs
     std::span<const somtarena::ExprId> cs =
@@ -160,12 +164,27 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     // the same via buildCoreNode; populating it is verdict-neutral (cmp_native.sh is the gate).
     if (id != somtarena::NullExpr) {
         node->setArenaHandle(&a, id, /*finalized=*/true);
-        // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
-        SOMTParser::ArenaReadRegistry::instance().registerSort(&a, id, node->getSortRaw());
-        // P3.b: register this node's own (field) value beside the sort (authoritative field).
-        SOMTParser::ArenaReadRegistry::instance().registerValue(&a, id, node->getValueRaw());
-        // P3.c: register the node + its (Apply-remapped) child ExprId list for arena-served reads.
-        registerArenaNode(a, id, node);
+        // II-2b-3 (big-field-drop): on the NRA pass-2 path (st.metaMap set), source this node's
+        // sort/value/name for the read registry from the pass-1 arg-captured meta (createNode args)
+        // instead of RE-READING the DAGNode FIELDS. A node absent from the map — a reused parse-built
+        // node NOT re-created during pass-1's Stage-A rewrite — falls back to the field below.
+        // Verdict-neutral either way (meta == field by construction). Non-NRA paths leave metaMap null
+        // => the field path exactly as before.
+        const ArenaBuildMeta* m = nullptr;
+        if (st.metaMap) {
+            if (auto it = st.metaMap->find(node.get()); it != st.metaMap->end()) m = &it->second;
+        }
+        auto& reg = SOMTParser::ArenaReadRegistry::instance();
+        if (m) {
+            reg.registerSort(&a, id, m->sort);            // pass-1 arg, not node->getSortRaw()
+            reg.registerValue(&a, id, m->value);          // pass-1 arg, not node->getValueRaw()
+            registerArenaNode(a, id, node, &m->name);     // pass-1 arg name, not node->getNameRaw()
+        } else {
+            // P3.a/b/c: authoritative FIELD path (non-NRA walk, or an uncaptured reused parse node).
+            reg.registerSort(&a, id, node->getSortRaw());
+            reg.registerValue(&a, id, node->getValueRaw());
+            registerArenaNode(a, id, node);
+        }
     }
     st.memo[key] = id;
     return id;
@@ -439,7 +458,7 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
 
 void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& arena,
                                  std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
-                                 GapSink& gaps, bool& aborted) {
+                                 GapSink& gaps, bool& aborted, ArenaBuildMetaMap* metaOut) {
     // II-2b-3 (endgame step1): install ONLY the arena-builder hook — build each NEW DAGNode into
     // `arena` as it is created — WITHOUT installInlineArenaBuilder's parse-time setup (registry clear
     // / g_frontendPhase / true-false prebuild). Used to build the Stage-A Rewriter/expandLet-CREATED
@@ -449,7 +468,7 @@ void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& 
     // nm.setArenaBuilderHook({}). Same lambda installInlineArenaBuilder uses, so nodes are emitted
     // byte-identically whether built at parse or during the rewrite.
     nm.setArenaBuilderHook(
-        [&arena, &funcDecls, &gaps, &aborted](const std::shared_ptr<SOMTParser::DAGNode>& node,
+        [&arena, &funcDecls, &gaps, &aborted, metaOut](const std::shared_ptr<SOMTParser::DAGNode>& node,
                                               SOMTParser::NODE_KIND nk_param,
                                               const std::shared_ptr<SOMTParser::Sort>& sort_param,
                                               const std::string& name_param,
@@ -510,6 +529,12 @@ void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& 
                               sort_param, name_param, value_param, /*liveInline=*/nullptr);
             if (id == somtarena::NullExpr) { aborted = true; return; }  // unmapped kind / gap -> bail
             node->setArenaHandle(&arena, id, /*finalized=*/true);
+            // II-2b-3 (big-field-drop): capture this created node's createNode {sort,name,value} ARGS
+            // (== node->getSortRaw()/getNameRaw()/getValueRaw() today — the same equality this hook's
+            // buildCoreNode threaded field path already relies on) keyed by the DAGNode pointer, so the
+            // NRA pass-2 read-registry population can source them WITHOUT re-reading the DAGNode field.
+            // Only when the caller (importNativeArenaSharedRewritten) asked for meta; null otherwise.
+            if (metaOut) (*metaOut)[node.get()] = ArenaBuildMeta{sort_param, name_param, value_param};
             // P3.a: register this node's own (field) sort under its arena handle (own-handle site).
             SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, node->getSortRaw());
             // P3.b: register this node's own (field) value beside the sort (authoritative field).

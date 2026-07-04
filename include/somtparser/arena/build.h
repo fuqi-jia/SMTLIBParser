@@ -14,6 +14,21 @@
 
 namespace xarena_cov {
 
+// II-2b-3 (big-field-drop): {sort,name,value} captured from a DAGNode's createNode ARGS by the arena-
+// builder hook (installArenaBuilderHookOnly), keyed by the DAGNode pointer (SOMTParser hash-conses, so
+// pointer identity == canonical node). Lets the NRA rewritten import's pass-2 read-registry population
+// source sort/name/value from the pass-1 createNode args instead of RE-READING the DAGNode
+// sort/name/value FIELDS (getSortRaw/getNameRaw/getValueRaw). Verdict-neutral: the createNode args ==
+// what those fields hold today (the same equality buildCoreNode's threaded field path already relies
+// on, gate-proven). The shared_ptrs alias the interned parser Sort/Value objects (identical to the
+// fields); the whole map is transient — freed after the rewritten import returns.
+struct ArenaBuildMeta {
+    std::shared_ptr<SOMTParser::Sort>  sort;
+    std::string                        name;
+    std::shared_ptr<SOMTParser::Value> value;
+};
+using ArenaBuildMetaMap = std::unordered_map<const SOMTParser::DAGNode*, ArenaBuildMeta>;
+
 // Per-corpus-file build state (reset per file; the Arena + funcDecls persist across roots
 // in a file so shared function symbols dedup).
 struct BuildState {
@@ -40,6 +55,12 @@ struct BuildState {
     // was built from the same DAGNode, so its k/s/payload == the field's, and traversal (children)
     // is unchanged. Null => every node uses the field path (== prior behavior).
     const somtarena::Arena* inlineArena = nullptr;
+    // II-2b-3 (big-field-drop): pass-2 READ source for the read-registry population — when non-null
+    // (NRA rewritten path), a node's sort/value/name are registered from its pass-1 arg-captured meta
+    // (ArenaBuildMetaMap, keyed by DAGNode*) instead of the DAGNode sort/name/value FIELD. A node
+    // absent from the map (a reused parse-built node not re-created during pass-1's Stage-A rewrite)
+    // falls back to the field — verdict-neutral either way. Null (every other path) => the field.
+    const ArenaBuildMetaMap* metaMap = nullptr;
 };
 
 // Build the native arena term for a DAGNode root (recursive + memoized). Records gaps in g.
@@ -79,8 +100,12 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
 // DAGNodes into the held live inline arena during the NRA rewritten import, so buildArena's arena->
 // arena copy covers those nodes too. `arena`, `funcDecls`, `gaps`, `aborted` must OUTLIVE the install
 // window; clear with nm.setArenaBuilderHook({}) afterwards.
+// II-2b-3 (big-field-drop): optional `metaOut` — when non-null, the hook ALSO records each core node's
+// {sort,name,value} createNode args into it (keyed by DAGNode*) so the NRA pass-2 read-registry
+// population can source them from here instead of the DAGNode field. Must OUTLIVE the install window +
+// the pass-2 consumption. Null (the parse-time inline install) => no meta capture (== prior behavior).
 void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& arena,
                                  std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
-                                 GapSink& gaps, bool& aborted);
+                                 GapSink& gaps, bool& aborted, ArenaBuildMetaMap* metaOut = nullptr);
 
 }  // namespace xarena_cov
