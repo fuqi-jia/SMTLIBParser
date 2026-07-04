@@ -377,8 +377,8 @@ namespace SOMTParser{
             return (sort != elem.sort || kind != elem.kind || name != elem.name || children_hash != elem.children_hash);
         }
         
-        bool isLeaf() 				const { return children.empty(); };
-        bool isInternal() 			const { return !children.empty(); };
+        bool isLeaf() 				const { return getChildrenSize() == 0; };
+        bool isInternal() 			const { return getChildrenSize() != 0; };
 
         // check null
         bool isNull() 				const { return kind == NODE_KIND::NT_NULL; };
@@ -792,7 +792,9 @@ namespace SOMTParser{
 
         // get pure variable name for let bind var
         std::string getPureName()   const {
-            return name;
+            // II-2b-3 (reader tier): route through getName() (P3.e arena-read registry, ==field w/
+            // fallback) rather than the raw name field. Verdict-neutral; the builder uses getNameRaw().
+            return getName();
         }
 
         std::string toString()      const { return getPureName(); };
@@ -1111,8 +1113,8 @@ namespace SOMTParser{
          * 
          * @return The body of the function
          */
-        std::shared_ptr<DAGNode> getFuncBody() 
-                                    const { return children[0]; };
+        std::shared_ptr<DAGNode> getFuncBody()
+                                    const { return getChild(0); };
 
         /**
          * @brief Get the parameters of the function
@@ -1142,7 +1144,7 @@ namespace SOMTParser{
          * 
          * @return The body of the quantifier
          */
-        std::shared_ptr<DAGNode> getQuantBody() const { return children[0]; };
+        std::shared_ptr<DAGNode> getQuantBody() const { return getChild(0); };
 
         /**
          * @brief Get the variables of the quantifier
