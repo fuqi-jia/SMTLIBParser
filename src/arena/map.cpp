@@ -7,8 +7,13 @@
 
 namespace xarena_cov {
 
-somtarena::Payload mapValue(const SOMTParser::DAGNode& n, GapSink& g) {
-    auto val = n.getValueRaw();  // II-2b-3 (P3.b): builder reads the authoritative field, not the registry
+// II-2b-3 (endgame step3): value+name overload — maps a THREADED value (+ the node's name, needed
+// only to recover the BV literal) so the inline arena builder can produce a Const payload WITHOUT
+// reading the DAGNode value/name fields. The DAGNode-taking overload below delegates here, sourcing
+// value+name from its fields (used by the deferred non-NRA walk); the inline hook threads them in and
+// calls this overload directly (field-free). Verdict-neutral: threaded value/name == the fields.
+somtarena::Payload mapValue(const std::shared_ptr<SOMTParser::Value>& val,
+                            const std::string& name, GapSink& g) {
     if (!val) return somtarena::payloadNone();
     switch (val->getType()) {
         case SOMTParser::BOOLEAN:
@@ -38,7 +43,7 @@ somtarena::Payload mapValue(const SOMTParser::DAGNode& n, GapSink& g) {
             // The BV literal lives in the node name (#b../#x../decimal). Best-effort parse
             // to u64 for coverage; exact >64-bit BV fidelity is II-2b's concern.
             unsigned long long bits = 0;
-            const std::string nm = n.getNameRaw();  // II-2b-3 (P3.e): builder reads the field, not the registry
+            const std::string& nm = name;  // II-2b-3 (step3): threaded name, not the DAGNode field
             try {
                 if (nm.size() > 2 && nm[0] == '#' && nm[1] == 'b')
                     bits = std::stoull(nm.substr(2), nullptr, 2);
@@ -57,6 +62,13 @@ somtarena::Payload mapValue(const SOMTParser::DAGNode& n, GapSink& g) {
             g.hardGap("unmapped value type");
             return somtarena::payloadNone();
     }
+}
+
+somtarena::Payload mapValue(const SOMTParser::DAGNode& n, GapSink& g) {
+    // II-2b-3 (endgame step3): delegate to the value+name overload, sourcing both from this node's
+    // authoritative fields. This DAGNode-taking form is the deferred non-NRA walk's path; the inline
+    // builder threads value+name and calls the overload above directly (field-free).
+    return mapValue(n.getValueRaw(), n.getNameRaw(), g);  // II-2b-3 (P3.b/P3.e): fields, not the registry
 }
 
 somtarena::SortId mapSort(const std::shared_ptr<SOMTParser::Sort>& s,

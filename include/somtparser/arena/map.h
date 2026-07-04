@@ -53,4 +53,10 @@ SOMTParser::NODE_KIND arenaKindToNodeKind(const somtarena::Arena& a, somtarena::
 // so it should never carry an exact-path value) -> payloadNone.
 somtarena::Payload mapValue(const SOMTParser::DAGNode& n, GapSink& g);
 
+// II-2b-3 (endgame step3): value+name overload — maps a THREADED value (the node's `name` recovers
+// only the BV literal) so the inline arena builder emits a Const payload WITHOUT reading the DAGNode
+// value/name fields. The DAGNode-taking overload delegates here. Verdict-neutral (threaded == field).
+somtarena::Payload mapValue(const std::shared_ptr<SOMTParser::Value>& val,
+                            const std::string& name, GapSink& g);
+
 }  // namespace xarena_cov

@@ -62,11 +62,17 @@ somtarena::ExprId buildQuantifier(const std::shared_ptr<SOMTParser::DAGNode>& no
 // explicitly) so a future caller can't silently inherit the wrong kind.
 // II-2b-3 (E5): last param `liveInline` — the LIVE inline arena to source k/s/payload FROM (an
 // arena->arena copy) when the node owns a known-live handle into it; null => field path. See below.
+// II-2b-3 (endgame step3): the candidate sort/name/value are THREADED in (like `nk`) so the FIELD
+// path no longer reads node.getSortRaw()/getNameRaw()/getValueRaw(). Callers pass what those fields
+// hold today (walk/prebuild: the node's own Raw fields; inline hook: the threaded createNode values),
+// so this is verdict-neutral by construction. The liveInline path ignores them (it copies the arena).
 somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
                                 const std::vector<somtarena::ExprId>& kids,
                                 somtarena::Arena& a, GapSink& g,
                                 std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
-                                bool flipGtGe, NK nk, const somtarena::Arena* liveInline);
+                                bool flipGtGe, NK nk, const std::shared_ptr<SOMTParser::Sort>& sort,
+                                const std::string& name, const std::shared_ptr<SOMTParser::Value>& value,
+                                const somtarena::Arena* liveInline);
 }  // namespace
 
 somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
@@ -142,8 +148,12 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     // the buildCoreNode `nk` argument (subject of step4b.2 — can the walk be made kind-field-free?).
     // II-2b-3 (E5): pass st.inlineArena — when set (NRA keep-live), buildCoreNode sources k/s/payload
     // from that live inline arena for a known-live-handle node instead of node's kind/sort/value field.
+    // II-2b-3 (endgame step3): this WALK (the deferred non-NRA path — not corpus-exercised) still reads
+    // the node's OWN sort/name/value FIELDS here and threads them to buildCoreNode's field path; the
+    // inline hook (the default, corpus-exercised path) threads the createNode values instead.
     somtarena::ExprId id =
-        buildCoreNode(*node, kids, a, g, st.funcDecls, st.flipGtGe, node->getKind(), st.inlineArena);
+        buildCoreNode(*node, kids, a, g, st.funcDecls, st.flipGtGe, node->getKind(),
+                      node->getSortRaw(), node->getNameRaw(), node->getValueRaw(), st.inlineArena);
 
     // II-2b-3 (P0): record this core node's arena handle on the DAGNode. The inline hook (P1.1) does
     // the same via buildCoreNode; populating it is verdict-neutral (cmp_native.sh is the gate).
@@ -235,7 +245,9 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
                                 const std::vector<somtarena::ExprId>& kids,
                                 somtarena::Arena& a, GapSink& g,
                                 std::unordered_map<std::string, somtarena::ExprId>& funcDecls,
-                                bool flipGtGe, NK nk, const somtarena::Arena* liveInline) {
+                                bool flipGtGe, NK nk, const std::shared_ptr<SOMTParser::Sort>& sort_,
+                                const std::string& name_, const std::shared_ptr<SOMTParser::Value>& value_,
+                                const somtarena::Arena* liveInline) {
     // II-2b-3 (E5, "drop DAGNode fields" CRUX): when `liveInline` is the EXACT arena this node's
     // handle points into (a known-live inline handle we are holding alive), do an arena->arena COPY —
     // read kind/sort/payload straight from the inline arena instead of the node's kind/sort/value
@@ -289,11 +301,15 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
         return a.mkExpr(ak, sort, std::span<const somtarena::ExprId>(kids.data(), kids.size()),
                         ia.payloadOf(iid));
     }
-    // ---- FIELD path (unchanged): no live inline handle -> read the DAGNode's own fields ----
+    // ---- FIELD path: no live inline handle -> use the THREADED sort/name/value ----
     // II-2b-3 (E4 step4b.1): `nk` is the THREADED candidate kind (see fwd-decl comment) — the shared
-    // core builder no longer reads node.getKind(). Other field reads below (getSortRaw/getNameRaw/
-    // getValueRaw) are the node's OWN sort/name/value fields, not the kind field being dropped.
-    somtarena::SortId sort = mapSort(node.getSortRaw(), a, g);  // P3.a: field, not registry
+    // core builder no longer reads node.getKind().
+    // II-2b-3 (endgame step3): sort/name/value are ALSO threaded now (sort_/name_/value_) — this field
+    // path no longer reads node.getSortRaw()/getNameRaw()/getValueRaw(). The threaded values == the
+    // node's createNode args == what those fields hold today, so this is verdict-neutral. The DAGNode
+    // `node` is still used only for its handle/arena identity in the liveInline guard above; children
+    // travel via `kids` (built by the caller from the Raw children — not dropped this step).
+    somtarena::SortId sort = mapSort(sort_, a, g);  // II-2b-3 (step3): threaded sort, not the field
     // II-2b-3 (P4.c): >/>= -> </<= child-swap flip, mirroring FrontendAdapter::importNode
     // (adapter.cpp:171-177). Swap the first two child handles and retarget the Kind so the emitted
     // native node is Lt/Le(swapped) — nativeToXolverKind(Lt/Le)=Kind::Lt/Leq, giving byte-parity with
@@ -303,15 +319,15 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
         std::swap(sw[0], sw[1]);
         somtarena::Kind fk = (nk == NK::NT_GT) ? somtarena::Kind::Lt : somtarena::Kind::Le;
         return a.mkExpr(fk, sort, std::span<const somtarena::ExprId>(sw.data(), sw.size()),
-                        node.getValueRaw() ? mapValue(node, g) : somtarena::payloadNone());
+                        value_ ? mapValue(value_, name_, g) : somtarena::payloadNone());  // step3: threaded
     }
     if (isVarLeaf(nk)) {
         // Variable identity carried by its name (so x != y structurally).
-        return a.mkExpr(somtarena::Kind::Var, sort, {}, somtarena::payloadString(node.getNameRaw()));  // P3.e: field
+        return a.mkExpr(somtarena::Kind::Var, sort, {}, somtarena::payloadString(name_));  // step3: threaded name
     }
     if (isApply(nk)) {
         // UF apply: FuncDecl(name, [argSorts..., resultSort]) + Apply(funcDecl, args).
-        std::string fname = node.getNameRaw();  // P3.e: field, not registry (builder is the source)
+        std::string fname = name_;  // II-2b-3 (step3): threaded name, not the field
         somtarena::ExprId fd;
         if (auto fdIt = funcDecls.find(fname); fdIt != funcDecls.end()) {
             fd = fdIt->second;
@@ -329,7 +345,7 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
     somtarena::Kind k = mapKind(nk, mapped);
     if (!mapped) {
         g.hardGap("unmapped kind=" + std::to_string(static_cast<int>(nk)) +
-                  " name='" + node.getNameRaw() + "'");  // P3.e: field, not registry
+                  " name='" + name_ + "'");  // II-2b-3 (step3): threaded name, not the field
         return somtarena::NullExpr;
     }
     // Datatype operators carry their operator NAME (constructor/selector/tester symbol) in the
@@ -337,9 +353,9 @@ somtarena::ExprId buildCoreNode(const SOMTParser::DAGNode& node,
     // no getValue(), so mapValue would drop the name.
     somtarena::Payload pl;
     if (nk == NK::NT_DT_CONSTRUCTOR || nk == NK::NT_DT_SELECTOR || nk == NK::NT_DT_TESTER) {
-        pl = somtarena::payloadString(node.getNameRaw());  // P3.e: field, not registry (builder is source)
+        pl = somtarena::payloadString(name_);  // II-2b-3 (step3): threaded name, not the field
     } else {
-        pl = node.getValueRaw() ? mapValue(node, g) : somtarena::payloadNone();  // P3.b: field, not registry
+        pl = value_ ? mapValue(value_, name_, g) : somtarena::payloadNone();  // II-2b-3 (step3): threaded
     }
     return a.mkExpr(k, sort, std::span<const somtarena::ExprId>(kids.data(), kids.size()), pl);
 }
@@ -392,8 +408,12 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
     // Rarely-used transcendental/infinity singletons stay unhandled (a formula using one bails).
     auto prebuild = [&](const std::shared_ptr<SOMTParser::DAGNode>& n) {
         if (n && n->arenaExprId() == somtarena::NullExpr) {
+            // II-2b-3 (step3): this true/false singleton prebuild reads the node's OWN sort/name/value
+            // FIELDS here (a static-registration site, outside the dedup/hook fast path — only 2 nodes)
+            // and threads them into buildCoreNode's field path.
             somtarena::ExprId id =
                 buildCoreNode(*n, {}, arena, gaps, funcDecls, /*flipGtGe=*/false, n->getKind(),
+                              n->getSortRaw(), n->getNameRaw(), n->getValueRaw(),
                               /*liveInline=*/nullptr);  // building the inline arena -> field source
             if (id != somtarena::NullExpr) {
                 n->setArenaHandle(&arena, id, /*finalized=*/true);
@@ -429,12 +449,18 @@ void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& 
     // byte-identically whether built at parse or during the rewrite.
     nm.setArenaBuilderHook(
         [&arena, &funcDecls, &gaps, &aborted](const std::shared_ptr<SOMTParser::DAGNode>& node,
-                                              SOMTParser::NODE_KIND nk_param) {
+                                              SOMTParser::NODE_KIND nk_param,
+                                              const std::shared_ptr<SOMTParser::Sort>& sort_param,
+                                              const std::string& name_param,
+                                              const std::shared_ptr<SOMTParser::Value>& value_param) {
             using NK = SOMTParser::NODE_KIND;
             if (aborted || !node) return;
             // II-2b-3 (E3 step4a): use the threaded candidate kind, not node->getKind() — the candidate
             // has no arena handle yet (this hook is what sets it), so its kind field is the wrong source
             // once the field is dropped. nk_param == candidateKind == what getKind() returns today.
+            // II-2b-3 (endgame step3): sort/name/value are threaded in too (sort_param/name_param/
+            // value_param == the candidate's createNode sort/name/value) so buildCoreNode's field path
+            // reads NONE of node.getSortRaw()/getNameRaw()/getValueRaw() for this default inline path.
             NK nk = nk_param;
             // Quantifiers + bound vars: de Bruijn needs top-down binder context which bottom-up
             // inline construction can't provide -> bail; the caller falls back to the walk.
@@ -474,11 +500,13 @@ void installArenaBuilderHookOnly(SOMTParser::NodeManager& nm, somtarena::Arena& 
             }
             // II-2b-3 (E4 step4b.1): pass the THREADED nk (== nk_param) — this inline path is now fully
             // field-free for the candidate kind (buildCoreNode no longer reads node.getKind()).
-            // II-2b-3 (E5): liveInline=nullptr — this hook IS what builds the inline arena, so the node
-            // has no inline handle yet; it must read its own field (there is no arena source to copy).
+            // II-2b-3 (endgame step3): pass the THREADED sort/name/value (== the candidate's createNode
+            // sort/name/value) — buildCoreNode's field path reads NONE of the node's sort/name/value
+            // fields on this default inline path. liveInline=nullptr (this hook IS what builds the inline
+            // arena, so the node has no inline handle yet; there is no arena source to copy).
             somtarena::ExprId id =
                 buildCoreNode(*node, kids, arena, gaps, funcDecls, /*flipGtGe=*/false, nk,
-                              /*liveInline=*/nullptr);
+                              sort_param, name_param, value_param, /*liveInline=*/nullptr);
             if (id == somtarena::NullExpr) { aborted = true; return; }  // unmapped kind / gap -> bail
             node->setArenaHandle(&arena, id, /*finalized=*/true);
             // P3.a: register this node's own (field) sort under its arena handle (own-handle site).

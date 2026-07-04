@@ -1447,14 +1447,21 @@ namespace SOMTParser{
             // II-2b-3 (E3 step4a): the candidate's NODE_KIND is threaded in as the 2nd arg so the hook
             // need not read the handle-less candidate's kind field (arenaExprId_==0 at hook time — the
             // hook is what sets the handle). insertNodeToBucket forwards its candidateKind param.
-            std::function<void(const std::shared_ptr<DAGNode>&, NODE_KIND)> arenaBuilderHook_;
+            // II-2b-3 (endgame step3): the candidate's sort/name/value are threaded too (args 3/4/5 ==
+            // its createNode sort/name/value) so the builder's field path reads none of the candidate's
+            // sort/name/value FIELDS. insertNodeToBucket forwards candidateSort/candidateName/candidateValue.
+            std::function<void(const std::shared_ptr<DAGNode>&, NODE_KIND,
+                               const std::shared_ptr<Sort>&, const std::string&,
+                               const std::shared_ptr<Value>&)> arenaBuilderHook_;
 #endif
         public:
             NodeManager();
 #ifdef SOMTPARSER_WITH_ARENA
             // II-2b-3 (P1): register/clear the inline arena-builder hook. The bridge calls this once an
             // arena is set up; an empty function disables inline building (back to the default path).
-            void setArenaBuilderHook(std::function<void(const std::shared_ptr<DAGNode>&, NODE_KIND)> h) { arenaBuilderHook_ = std::move(h); }
+            void setArenaBuilderHook(std::function<void(const std::shared_ptr<DAGNode>&, NODE_KIND,
+                                                        const std::shared_ptr<Sort>&, const std::string&,
+                                                        const std::shared_ptr<Value>&)> h) { arenaBuilderHook_ = std::move(h); }
             bool hasArenaBuilderHook() const { return static_cast<bool>(arenaBuilderHook_); }
 #endif
             ~NodeManager();
@@ -1533,8 +1540,12 @@ namespace SOMTParser{
             // II-2b-3 (E3-dedup / step2): candidateKind + candidateSort + candidateName are threaded from
             // createNode so the hash-cons dedup never reads the freshly-built candidate's kind/sort/name
             // fields (it has no arena handle yet).
+            // II-2b-3 (endgame step3): candidateValue is threaded too — the dedup does NOT hash value, but
+            // the arena-builder hook needs it (Const payload) so buildCoreNode's field path stays value-
+            // field-free; insertNodeToBucket only forwards it to the hook.
             std::shared_ptr<DAGNode> insertNodeToBucket(const std::shared_ptr<DAGNode>& node, NODE_KIND candidateKind,
-                const std::shared_ptr<Sort>& candidateSort, const std::string& candidateName);
+                const std::shared_ptr<Sort>& candidateSort, const std::string& candidateName,
+                const std::shared_ptr<Value>& candidateValue);
     };
 
 }
