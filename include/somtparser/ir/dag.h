@@ -1368,10 +1368,20 @@ namespace SOMTParser{
         // II-2b-3 (E3-dedup / step2): recursive equivalence where THIS node's (top-level) kind + sort +
         // name are threaded in via `thisKind`/`thisSort`/`thisName` instead of read from the this->
         // kind/sort/name fields. Mirrors the body above exactly, save for the threaded structural
-        // checks (`thisKind != other.kind`, `thisSort.get() != other.sort.get()`, `thisName != other.name`).
+        // checks (`thisKind != other.kind`, `thisSort.get() != other.getSort().get()`, `thisName != other.getName()`).
         // Children recurse through the normal (field-sourced) 2-arg path — they are pre-existing nodes
         // whose fields are valid. For the candidate, thisKind/thisSort/thisName == this->kind/sort/name,
         // so the result is byte-identical to the 2-arg form.
+        //
+        // II-2b-3 (big-field-drop / dedup): this is the SOLE dedup comparator — called only from
+        // NodeManager::insertNodeToBucket as node->isEquivalentTo(*pair.first, candidateKind,
+        // candidateSort, candidateName), where `other` (== pair.first) is the PRE-EXISTING bucket node.
+        // At dedup time the bucket node already carries an arena handle + registry entry, so its
+        // sort/name are sourced via other.getSort()/other.getName() (arena-read registry when
+        // SOMTP_DAGNODE_ARENA_READS is on, ==field fallback otherwise) rather than the other.sort/
+        // other.name FIELDS — removing the last hot-path reader of the existing node's sort/name field.
+        // Verdict-neutral: the registry holds the SAME interned shared_ptr<Sort> / string the fields
+        // hold. `kind` and `children_hash` stay as member reads (out of scope for this step).
         bool isEquivalentTo(const DAGNode& other, NODE_KIND thisKind,
                 const std::shared_ptr<Sort>& thisSort, const std::string& thisName,
                 std::unordered_set<std::pair<const DAGNode*, const DAGNode*>, PairNodePtrHash, PairNodePtrEqual>& visited) const {
@@ -1385,12 +1395,12 @@ namespace SOMTParser{
             // fast structure check (avoid the expensive subsequent comparison)
             if (thisKind != other.kind ||
                 children.size() != other.children.size() ||
-                thisSort.get() != other.sort.get()) {
+                thisSort.get() != other.getSort().get()) {
                 return false;
             }
 
             // name check
-            if (thisName != other.name) {
+            if (thisName != other.getName()) {
                 return false;
             }
 
