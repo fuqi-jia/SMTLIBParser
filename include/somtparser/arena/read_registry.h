@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace somtarena { class Arena; }
@@ -121,6 +122,17 @@ namespace SOMTParser {
                                    const DAGNode* owner) const;
 
         void clear();  // clears ALL FIVE maps (sort_, value_, node_, children_, name_)
+
+        // II-2b-3 (big-field-drop): enumerate every NAME entry tagged with `a` as (ExprId, owner DAGNode*)
+        // — the structural owners the parse-time inline hook registered (registerArenaNode → registerName
+        // for every core node). The NRA rewritten import calls this ONCE, right before the pass-1 registry
+        // clear, to SNAPSHOT each REUSED parse-built node's arg-sourced sort/name/value (via sortOf/valueOf/
+        // nameFor over the returned ids) into the pass-2 metaMap — so pass-2 registers them WITHOUT reading
+        // the DAGNode field, while the registry is STILL cleared before pass 1 (keeping the Stage-A Rewriter
+        // on the fast field path). Read-only; the returned owners are compared/keys only, never dereferenced
+        // here. Empty when `a` has no entries.
+        std::vector<std::pair<std::uint64_t, const DAGNode*>> ownedEntries(
+            const somtarena::Arena* a) const;
     };
 }  // namespace SOMTParser
 #endif  // SOMTPARSER_WITH_ARENA

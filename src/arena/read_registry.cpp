@@ -106,5 +106,20 @@ void ArenaReadRegistry::clear() {
     g_liveArena = nullptr;  // II-2b-3: arena-discard seam — stale handles now fall to field
 }
 
+// II-2b-3 (big-field-drop): enumerate the (ExprId, owner) of every NAME entry tagged with `a`. The
+// name map has one entry per structural core node the inline hook registered (registerName owner ==
+// the node's own DAGNode), so this yields exactly the parse-built nodes' arena ids paired with their
+// owning DAGNode — the seam the NRA rewritten import snapshots (sort/name/value via sortOf/valueOf/
+// nameFor over these ids) into its pass-2 metaMap before clearing the registry. Owners are copied out
+// as raw pointers (keys/comparison only), never dereferenced here.
+std::vector<std::pair<std::uint64_t, const DAGNode*>> ArenaReadRegistry::ownedEntries(
+    const somtarena::Arena* a) const {
+    std::vector<std::pair<std::uint64_t, const DAGNode*>> out;
+    out.reserve(name_.size());
+    for (const auto& [id, e] : name_)
+        if (e.arena == a) out.emplace_back(id, e.owner);
+    return out;
+}
+
 }  // namespace SOMTParser
 #endif  // SOMTPARSER_WITH_ARENA
