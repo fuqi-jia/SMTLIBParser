@@ -153,12 +153,21 @@ somtarena::ExprId buildArena(const std::shared_ptr<SOMTParser::DAGNode>& node,
     // the buildCoreNode `nk` argument (subject of step4b.2 — can the walk be made kind-field-free?).
     // II-2b-3 (E5): pass st.inlineArena — when set (NRA keep-live), buildCoreNode sources k/s/payload
     // from that live inline arena for a known-live-handle node instead of node's kind/sort/value field.
-    // II-2b-3 (endgame step3): this WALK (the deferred non-NRA path — not corpus-exercised) still reads
-    // the node's OWN sort/name/value FIELDS here and threads them to buildCoreNode's field path; the
-    // inline hook (the default, corpus-exercised path) threads the createNode values instead.
+    // II-2b-3 (endgame step3): this WALK threads the node's OWN sort/name/value FIELDS to buildCoreNode's
+    // field path. II-2b-3 (big-field-drop): guard those field reads behind `liveH` — the EXACT condition
+    // (mirroring buildCoreNode's liveInline guard below) under which buildCoreNode does the arena->arena
+    // COPY and IGNORES sort_/name_/value_. On the NRA keep-live path EVERY node owns a live inline handle
+    // (native_import comment: "buildArena finds a live inline handle on EVERY node"), so liveH is true and
+    // getSortRaw()/getNameRaw()/getValueRaw() are NOT evaluated — the walk is field-read-free on the live
+    // NRA path. A genuinely handle-less node (or the non-NRA walk, st.inlineArena==null) falls to the
+    // field path exactly as before. Verdict-neutral: buildCoreNode discards these args when liveH holds.
+    const bool liveH = st.inlineArena && node->arenaPtr() == st.inlineArena &&
+                       node->arenaExprId() != somtarena::NullExpr;
     somtarena::ExprId id =
         buildCoreNode(*node, kids, a, g, st.funcDecls, st.flipGtGe, node->getKind(),
-                      node->getSortRaw(), node->getNameRaw(), node->getValueRaw(), st.inlineArena);
+                      liveH ? std::shared_ptr<SOMTParser::Sort>{} : node->getSortRaw(),
+                      liveH ? std::string() : node->getNameRaw(),
+                      liveH ? std::shared_ptr<SOMTParser::Value>{} : node->getValueRaw(), st.inlineArena);
 
     // II-2b-3 (P0): record this core node's arena handle on the DAGNode. The inline hook (P1.1) does
     // the same via buildCoreNode; populating it is verdict-neutral (cmp_native.sh is the gate).
@@ -426,35 +435,36 @@ void installInlineArenaBuilder(SOMTParser::NodeManager& nm, somtarena::Arena& ar
     // Pre-build the common static singletons (true/false), inserted at NodeManager init BEFORE any
     // hook, so formulas referencing them don't bail. They are leaves -> buildCoreNode over no kids.
     // Rarely-used transcendental/infinity singletons stay unhandled (a formula using one bails).
-    auto prebuild = [&](const std::shared_ptr<SOMTParser::DAGNode>& n) {
+    // II-2b-3 (big-field-drop): this true/false singleton prebuild has no createNode-arg hook to thread
+    // from (a static-registration site, outside the dedup/hook fast path — only 2 nodes), so the caller
+    // passes each singleton's KNOWN construction args (Bool sort, its name, null value — true/false are
+    // NT_CONST_TRUE/FALSE, not NT_CONST, so value is nullptr) rather than reading getSortRaw()/getName
+    // Raw()/getValueRaw(). BOTH buildCoreNode AND the read-registry source from those args. getKind()
+    // stays a field read (KIND out of scope). Verdict-neutral (args == the fields at static-init).
+    auto prebuild = [&](const std::shared_ptr<SOMTParser::DAGNode>& n,
+                        const std::shared_ptr<SOMTParser::Sort>& pSort, const std::string& pName,
+                        const std::shared_ptr<SOMTParser::Value>& pValue) {
         if (n && n->arenaExprId() == somtarena::NullExpr) {
-            // II-2b-3 (big-field-drop): this true/false singleton prebuild has no createNode-arg hook to
-            // thread from (a static-registration site, outside the dedup/hook fast path — only 2 nodes),
-            // so capture the singleton's OWN sort/name/value ONCE and source BOTH buildCoreNode AND the
-            // read-registry from those captured values — the registry no longer INDEPENDENTLY re-reads
-            // getSortRaw()/getValueRaw()/getNameRaw(). Verdict-neutral (the captured values are exactly
-            // what the fields hold at this static-init point), mirroring the hook's arg-sourced path.
-            std::shared_ptr<SOMTParser::Sort> pSort = n->getSortRaw();
-            std::string pName = n->getNameRaw();
-            std::shared_ptr<SOMTParser::Value> pValue = n->getValueRaw();
             somtarena::ExprId id =
                 buildCoreNode(*n, {}, arena, gaps, funcDecls, /*flipGtGe=*/false, n->getKind(),
                               pSort, pName, pValue,
-                              /*liveInline=*/nullptr);  // building the inline arena -> field source
+                              /*liveInline=*/nullptr);  // building the inline arena -> arg source
             if (id != somtarena::NullExpr) {
                 n->setArenaHandle(&arena, id, /*finalized=*/true);
-                // P3.a: register the singleton's (captured) sort under its handle (own-handle site).
+                // P3.a: register the singleton's (arg) sort under its handle (own-handle site).
                 SOMTParser::ArenaReadRegistry::instance().registerSort(&arena, id, pSort);
-                // P3.b: register the singleton's (captured) value beside the sort.
+                // P3.b: register the singleton's (arg) value beside the sort.
                 SOMTParser::ArenaReadRegistry::instance().registerValue(&arena, id, pValue);
                 // P3.c: register the singleton node (leaf — children skipped, field-backed); OWN name
-                // sourced from the captured value via nameOverride (no getNameRaw() re-read).
+                // sourced from the arg via nameOverride (no getNameRaw() re-read).
                 registerArenaNode(arena, id, n, &pName);
             }
         }
     };
-    prebuild(SOMTParser::NodeManager::getTrue());
-    prebuild(SOMTParser::NodeManager::getFalse());
+    prebuild(SOMTParser::NodeManager::getTrue(),  SOMTParser::SortManager::BOOL_SORT, "true",
+             std::shared_ptr<SOMTParser::Value>{});
+    prebuild(SOMTParser::NodeManager::getFalse(), SOMTParser::SortManager::BOOL_SORT, "false",
+             std::shared_ptr<SOMTParser::Value>{});
 
     // II-2b-3 (endgame step1): the hook install itself is now a lean, side-effect-free helper so it
     // can be re-installed mid-flow onto an ALREADY-LIVE arena (the NRA keep-live Stage-A rewrite —
