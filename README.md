@@ -65,6 +65,7 @@ Using [Homebrew](https://brew.sh/):
 ```bash
 brew install \
   cmake \
+  ninja \
   gmp \
   mpfr
 ```
@@ -103,17 +104,12 @@ vcpkg install gmp:x64-windows mpfr:x64-windows
 git clone https://github.com/fuqi-jia/SOMTParser.git
 cd SOMTParser
 
-# Create and enter build directory
-mkdir build && cd build
+# Configure and build out of tree
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 
-# Configure the build
-cmake ..
-
-# Compile the library (utilizing all available cores)
-make -j$(nproc)
-
-# Install the library (may require administrative privileges)
-sudo make install
+# Install to a selected prefix
+cmake --install build --prefix "$HOME/.local"
 ```
 
 ### Integration as Git Submodule
@@ -136,44 +132,29 @@ git submodule update --remote --merge
 To build and run the tests:
 
 ```bash
-# Create and enter build directory
-mkdir -p build && cd build
-
-# Configure with tests enabled
-cmake .. -DBUILD_TESTS=ON
-
-# Build the project and tests
-make -j$(nproc)
-
-# Run all tests
-cd test
-for test in test_*; do ./$test; done
-
-# Alternatively, run individual tests
-./test_parser
-./test_string_handling
+cmake -S . -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DSOMTPARSER_BUILD_TESTS=ON
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
 ```
 
 You can also use the provided test script from the project root:
 
 ```bash
-./test/run_tests.sh
+./test/run_all_tests.sh
 ```
 
 ### Build Configuration Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `BUILD_SHARED_LIBS` | Build shared libraries (.so/.dll) | OFF |
-| `BUILD_BOTH_LIBS` | Build both static (.a/.lib) and shared libraries | ON |
-| `BUILD_TESTS` | Build test executables | OFF |
-| `ENABLE_DEBUG_SYMBOLS` | Enable debug symbols in the build for debugging purposes | OFF |
+| `BUILD_SHARED_LIBS` | Build a shared rather than static library | OFF |
+| `SOMTPARSER_BUILD_TESTS` | Build and register test executables with CTest | OFF |
+| `SOMTPARSER_WARNINGS_AS_ERRORS` | Treat warnings in SOMTParser sources as errors | OFF |
+| `SOMTPARSER_ENABLE_TIMING` | Enable the timing profiler | OFF |
 
-To customize the build configuration:
-
-```bash
-cmake -DBUILD_SHARED_LIBS=ON -DBUILD_BOTH_LIBS=OFF ..
-```
+Third-party Homebrew headers are exposed through imported CMake targets and are not affected by `SOMTPARSER_WARNINGS_AS_ERRORS`.
 
 ### Compiling Client Applications
 
@@ -192,34 +173,16 @@ project(your_application)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Find required dependencies
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GMP REQUIRED gmp)
-pkg_check_modules(MPFR REQUIRED mpfr)
-
 # Method 1: Using as Git submodule (recommended)
 add_subdirectory(SOMTParser)
 
-# Method 2: If SOMTParser is installed system-wide (alternative)
-# find_library(SOMTPARSER_LIB somtparser REQUIRED)
-# find_path(SOMTPARSER_INCLUDE_DIR parser.h PATH_SUFFIXES somtparser)
+# Method 2: Use an installed package
+# find_package(SOMTParser 1.0 CONFIG REQUIRED)
 
 # Create your executable
 add_executable(your_application main.cpp)
 
-# Link libraries and set include directories
-target_link_libraries(your_application 
-    somtparser               # SOMTParser target from submodule
-    ${GMP_LIBRARIES} 
-    ${MPFR_LIBRARIES}
-)
-
-target_include_directories(your_application PRIVATE 
-    ${GMP_INCLUDE_DIRS} 
-    ${MPFR_INCLUDE_DIRS}
-)
-
-# Note: SOMTParser headers are automatically included when using add_subdirectory
+target_link_libraries(your_application PRIVATE SOMTParser::somtparser)
 ```
 
 ## Configuration Options
