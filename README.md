@@ -202,6 +202,10 @@ int main() {
     parser->getOptions()->setLogic("QF_LIA");
     parser->getOptions()->setKeepLet(false);
     parser->getOptions()->setEvaluatePrecision(256);
+    parser->getOptions()->preserveOperators({
+        SOMTParser::NT_STR_REPLACE,
+        SOMTParser::NT_STR_REPLACE_ALL
+    });
 
     // Or via string interface
     parser->getOptions()->setOption("keep_let", "false");
@@ -223,6 +227,7 @@ int main() {
 | **keep_division** | bool | `true` | Preserve division if not exact (e.g., `(/ 5 2)` stays as-is) |
 | **keep_let** | bool | `true` | Preserve let-bindings instead of expanding inline |
 | **expand_functions** | bool | `false` | When true, inline function calls with definitions; when false (default), preserve as function applications |
+| **preserved_operators** | set of `NODE_KIND` | empty | Keep selected operators explicit in the DAG even when their arguments are ground; configure with `preserveOperator(s)` rather than the string option interface |
 | **Command Flags** | bool | `false` | Tracks encountered SMT-LIB2 commands: `check_sat`, `get_model`, `get_assertions`, `get_proof`, `get_unsat_core`, `get_objectives`, etc. |
 
 <!-- 

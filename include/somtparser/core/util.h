@@ -324,7 +324,12 @@ namespace SOMTParser{
         static std::string toString(const bool& b);
         static std::string parseScientificNotation(const std::string& str);
         static std::string escapeString(const std::string& s);
-        static std::string unescapeString(const std::string& s); 
+        static std::string unescapeString(const std::string& s);
+        static size_t utf8Length(const std::string& s);
+        static std::optional<std::vector<std::string>> utf8CodePoints(
+            const std::string& s);
+        static std::optional<size_t> utf8CodePointCount(const std::string& s);
+        static size_t utf8CodePointWidth(const std::string& s, size_t index);
     };
 
     // ─── UF (Uninterpreted Function) utilities ──────────────────────────────
