@@ -40,6 +40,20 @@ namespace SOMTParser {
 // Forward declaration from parser.h
 enum class CMD_TYPE;
 
+/** Return the canonical SMT-LIB spelling for a command type. */
+const char* commandTypeName(CMD_TYPE type) noexcept;
+
+struct SourcePosition {
+    size_t offset = 0;
+    size_t line = 1;
+    size_t column = 1;
+};
+
+struct SourceRange {
+    SourcePosition begin;
+    SourcePosition end;
+};
+
 /**
  * @brief Unified struct capturing the effect of a parsed SMT-LIB command.
  *
@@ -47,7 +61,10 @@ enum class CMD_TYPE;
  */
 struct Command {
     CMD_TYPE type;
+    size_t index = 0;
     size_t line_number = 0;
+    SourceRange range;
+    std::string original;
 
     // Fields populated depending on type:
     std::shared_ptr<DAGNode> expr;                           // assert, maximize, minimize, etc.
@@ -71,6 +88,9 @@ struct Command {
     bool isPop() const;
     bool isReset() const;
     bool isResetAssertions() const;
+    bool isCheckSat() const;
+    bool isCheckSatAssuming() const;
+    const char* kindName() const noexcept;
 };
 
 /**
