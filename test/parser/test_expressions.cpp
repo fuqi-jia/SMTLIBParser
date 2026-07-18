@@ -304,7 +304,7 @@ void test_substitution(SOMTParser::ParserPtr& parser) {
         std::shared_ptr<SOMTParser::DAGNode> substituted2 = parser->substitute(substituted, subst_map2);
         assert(substituted2);
         std::cout << "After substitution {z->0}: " << parser->toString(substituted2) << std::endl;
-        assert(parser->toString(substituted2).find("0") != std::string::npos || parser->toString(substituted2).find("15") != std::string::npos);
+    assert(substituted2->isTrue());
         
         // Create a more complex formula with let
         std::string expr2 = "(let ((a (+ x y))) (> a z))";
@@ -424,4 +424,4 @@ int main() {
     test_collectvars_let_binding(parser);
     
     return 0;
-} 
+}

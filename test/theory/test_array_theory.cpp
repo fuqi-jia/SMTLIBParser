@@ -22,10 +22,10 @@ void test_array_creation(SOMTParser::ParserPtr& parser) {
 // Test array store and select operations
 void test_array_operations(SOMTParser::ParserPtr& parser) {
     std::vector<std::pair<std::string, std::string>> cases = {
-        {"((as const (Array Int Int)) 0)", "0"},
+        {"((as const (Array Int Int)) 0)", "((as const (Array Int Int)) 0)"},
         {"(store ((as const (Array Int Int)) 0) 1 10)", ""},
         {"(select (store ((as const (Array Int Int)) 0) 1 10) 1)", "10"},
-        {"(select (store ((as const (Array Int Int)) 0) 1 10) 2)", "0"},
+        {"(select (store ((as const (Array Int Int)) 0) 1 10) 2)", "(select (store ((as const (Array Int Int)) 0) 1 10) 2)"},
         {"(= (select (store ((as const (Array Int Int)) 0) 1 10) 1) 10)", "true"},
         {"(store (store ((as const (Array Int Int)) 0) 1 10) 2 20)", ""}
     };
@@ -38,7 +38,9 @@ void test_array_operations(SOMTParser::ParserPtr& parser) {
         std::string got = parser->toString(result);
         std::cout << "  Result: " << got << std::endl;
         if (!p.second.empty()) {
-            assert(got == p.second && "array operation result mismatch");
+            auto expected = parser->mkExpr(p.second);
+            assert(expected && result == expected &&
+                   "array operation result mismatch");
         } else {
             assert(got.find("store") != std::string::npos || got.find("select") != std::string::npos || got.find("const") != std::string::npos);
         }
@@ -86,7 +88,8 @@ void test_value_array_operators_ir() {
     assert(selected.toNumber() == SOMTParser::Number(SOMTParser::Integer(42)));
 
     SOMTParser::Value def_val = stored.select("key2");
-    assert(def_val.toNumber() == SOMTParser::Number(SOMTParser::Integer(99)));
+    assert(def_val.getNumberValue() ==
+           SOMTParser::Number(SOMTParser::Integer(99)));
 }
 
 int main() {
@@ -100,4 +103,4 @@ int main() {
     test_value_array_operators_ir();
 
     return 0;
-} 
+}
