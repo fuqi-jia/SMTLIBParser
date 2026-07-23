@@ -1225,8 +1225,15 @@ Number::Number(const std::string& s, bool asInteger) {
         type = INT_TYPE;
         intValue = HighPrecisionInteger(s);
     } else {
-        type = RATIONAL_TYPE;
-        ratValue = HighPrecisionRational(s);
+        HighPrecisionRational rational(s);
+        if (rational.isInteger()) {
+            type = INT_TYPE;
+            intValue = HighPrecisionInteger(
+                rational.getMPQ().get_num().get_str());
+        } else {
+            type = RATIONAL_TYPE;
+            ratValue = std::move(rational);
+        }
     }
 }
 

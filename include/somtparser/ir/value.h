@@ -186,6 +186,18 @@ namespace SOMTParser{
             // all the array operators are defined in the array
             Value select(const Value& index) const;
             Value store(const Value& index, const Value& value) const;
+            Value select(const std::string& index) const {
+                return select(Value(index));
+            }
+            Value select(const char* index) const {
+                return select(std::string(index));
+            }
+            Value store(const std::string& index, const Value& value) const {
+                return store(Value(index), value);
+            }
+            Value store(const char* index, const Value& value) const {
+                return store(std::string(index), value);
+            }
 
             // all the string operators are defined in the string
             Value concatStr(const Value& other) const;  // renamed from 'concat'

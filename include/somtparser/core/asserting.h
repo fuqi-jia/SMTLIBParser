@@ -29,17 +29,15 @@
 #define ASSERTING_HEADER
 
 #include <iostream>
+#include <stdexcept>
+#include <string>
 
-#ifndef NDEBUG
 #define condAssert(cond, msg) \
     do { \
         if (!(cond)) { \
-            std::cerr << "[" << __FILE__ << ":" << __LINE__ << "] " << msg << std::endl; \
-            std::abort(); \
+            throw std::runtime_error(std::string(__FILE__) + ":" + \
+                std::to_string(__LINE__) + ": " + (msg)); \
         } \
     } while(0)
-#else
-#define condAssert(cond, msg) ((void)0)
-#endif
 
 #endif

@@ -88,7 +88,7 @@ namespace SOMTParser{
             && isRationalFormat(name)) {
             return formatRationalDivision(name);
         }
-        if(sort->isReal() || sort->isIntOrReal()){
+        if(sort->isReal() || sort->isInt() || sort->isIntOrReal()){
             if(name[0] == '-'){
                 return "(- " + name.substr(1) + ")";
             }
@@ -307,8 +307,7 @@ namespace SOMTParser{
             case NODE_KIND::NT_AND:
             case NODE_KIND::NT_OR:
             case NODE_KIND::NT_DISTINCT: {
-                const char* op = kind_cache[kind];
-                if (!op) op = kindToString(kind).c_str();
+                const std::string op = kind_cache[kind] ? kind_cache[kind] : kindToString(kind);
 
                 out << "(" << op;
                 const auto& children = node->getChildren();

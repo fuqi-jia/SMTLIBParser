@@ -28,8 +28,11 @@
 #define _OPTIONS_H
 
 #include "somtparser/core/asserting.h"
+#include "somtparser/core/kind.h"
 #include <mpfr.h>
+#include <initializer_list>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace SOMTParser{
     class GlobalOptions {
@@ -78,6 +81,11 @@ namespace SOMTParser{
         // fp.roundToIntegral without RM; non-standard operator spellings like fp.=;
         // flat (to_fp eb sb x) without indexed head). Default false keeps backward compatibility.
         bool strict_smtlib_fp = false;
+
+        // Selected operators that must remain explicit in the DAG even when
+        // their arguments are ground. This supports source-structure analyses
+        // without globally disabling canonical simplification.
+        std::unordered_set<NODE_KIND> preserved_operators;
 
     public:
         GlobalOptions() = default;
@@ -275,6 +283,15 @@ namespace SOMTParser{
 
         void setStrictSmtlib(bool strict) { strict_smtlib_fp = strict; }
         bool getStrictSmtlib() const { return strict_smtlib_fp; }
+
+        void preserveOperator(NODE_KIND kind) { preserved_operators.insert(kind); }
+        void preserveOperators(std::initializer_list<NODE_KIND> kinds) {
+            preserved_operators.insert(kinds.begin(), kinds.end());
+        }
+        void clearPreservedOperators() { preserved_operators.clear(); }
+        bool shouldPreserveOperator(NODE_KIND kind) const {
+            return preserved_operators.find(kind) != preserved_operators.end();
+        }
         
         /**
          * @brief Generate a detailed configuration report

@@ -1,161 +1,88 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16)
 project(SOMTParser VERSION 1.0.0 LANGUAGES CXX)
 
-# set C++ standard
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(CTest)
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wall -Wextra -Werror")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-variable -Wno-unused-value")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# set build type
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
+option(SOMTPARSER_BUILD_TESTS "Build SOMTParser tests" OFF)
+option(SOMTPARSER_WARNINGS_AS_ERRORS "Treat SOMTParser warnings as errors" OFF)
+option(SOMTPARSER_ENABLE_TIMING "Enable the timing profiler" OFF)
+
+if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release RelWithDebInfo MinSizeRel)
 endif()
 
-# add options
-option(BUILD_SHARED_LIBS "Build shared libraries (.so/.dll)" OFF)
-option(BUILD_BOTH_LIBS "Build both static and shared libraries" ON)
-option(BUILD_TESTS "Build the tests" OFF)
-option(ENABLE_DEBUG_SYMBOLS "Enable debug symbols for GDB support" OFF)
-option(ENABLE_TIMING "Enable timing profiler" OFF)
+find_package(GMP REQUIRED)
+find_package(MPFR REQUIRED)
 
-# enable time functions
-if(ENABLE_TIMING)
-    add_compile_definitions(ENABLE_TIMING)
+file(GLOB_RECURSE SOMTPARSER_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
+file(GLOB_RECURSE SOMTPARSER_HEADERS CONFIGURE_DEPENDS "include/somtparser/*.h")
+
+add_library(somtparser ${SOMTPARSER_SOURCES} ${SOMTPARSER_HEADERS})
+add_library(SOMTParser::somtparser ALIAS somtparser)
+set_target_properties(somtparser PROPERTIES
+    EXPORT_NAME somtparser
+    POSITION_INDEPENDENT_CODE ON)
+target_compile_features(somtparser PUBLIC cxx_std_17)
+target_include_directories(somtparser PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_link_libraries(somtparser PUBLIC GMP::GMPXX MPFR::MPFR)
+
+if(SOMTPARSER_ENABLE_TIMING)
+    target_compile_definitions(somtparser PUBLIC ENABLE_TIMING)
 endif()
 
-# use pkg-config to find GMP and MPFR
-find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
-    pkg_check_modules(GMP QUIET gmp)
-    pkg_check_modules(MPFR QUIET mpfr)
-endif()
-
-# if pkg-config doesn't find the libraries, try manually finding them
-if(NOT GMP_FOUND)
-    # try searching for library files directly
-    find_library(GMP_LIBRARIES NAMES gmp libgmp)
-    find_path(GMP_INCLUDE_DIRS NAMES gmp.h)
-    if(GMP_LIBRARIES AND GMP_INCLUDE_DIRS)
-        set(GMP_FOUND TRUE)
-    else()
-        message(FATAL_ERROR "GMP library not found. Please install GMP development package.")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(somtparser PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wno-unused-function
+        -Wno-unused-but-set-variable
+        -Wno-unused-value
+        -Wno-unused-local-typedefs)
+    if(SOMTPARSER_WARNINGS_AS_ERRORS)
+        target_compile_options(somtparser PRIVATE -Werror)
     endif()
 endif()
 
-if(NOT MPFR_FOUND)
-    # try searching for library files directly
-    find_library(MPFR_LIBRARIES NAMES mpfr libmpfr)
-    find_path(MPFR_INCLUDE_DIRS NAMES mpfr.h)
-    if(MPFR_LIBRARIES AND MPFR_INCLUDE_DIRS)
-        set(MPFR_FOUND TRUE)
-    else()
-        message(FATAL_ERROR "MPFR library not found. Please install MPFR development package.")
-    endif()
-endif()
-
-# collect all source files under src/ (mirrors include/somtparser/)
-file(GLOB_RECURSE SOURCES "src/*.cpp")
-
-# collect all header files under include/somtparser/
-file(GLOB_RECURSE HEADERS "include/somtparser/*.h")
-
-# create library
-if(BUILD_BOTH_LIBS)
-    # create static library
-    add_library(somtparser_static STATIC ${SOURCES} ${HEADERS})
-    set_target_properties(somtparser_static PROPERTIES 
-        OUTPUT_NAME somtparser
-        POSITION_INDEPENDENT_CODE ON
-    )
-    
-    if(ENABLE_DEBUG_SYMBOLS)
-        target_compile_options(somtparser_static PRIVATE -g -O0)
-    endif()
-    
-    # set static library include directories (include root so that #include <somtparser/...> works)
-    target_include_directories(somtparser_static PUBLIC 
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${GMP_INCLUDE_DIRS}
-        ${MPFR_INCLUDE_DIRS}
-    )
-    
-    # link static library dependencies
-    target_link_libraries(somtparser_static PUBLIC
-        ${GMP_LIBRARIES}
-        ${MPFR_LIBRARIES}
-    )
-    
-    # create shared library
-    add_library(somtparser_shared SHARED ${SOURCES} ${HEADERS})
-    set_target_properties(somtparser_shared PROPERTIES 
-        OUTPUT_NAME somtparser
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR}
-    )
-    
-    if(ENABLE_DEBUG_SYMBOLS)
-        target_compile_options(somtparser_shared PRIVATE -g -O0)
-    endif()
-    
-    # set shared library include directories
-    target_include_directories(somtparser_shared PUBLIC 
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${GMP_INCLUDE_DIRS}
-        ${MPFR_INCLUDE_DIRS}
-    )
-    
-    # link shared library dependencies
-    target_link_libraries(somtparser_shared PUBLIC
-        ${GMP_LIBRARIES}
-        ${MPFR_LIBRARIES}
-    )
-    
-    # create alias target for compatibility
-    add_library(somtparser ALIAS somtparser_static)
-    
-    # install configuration
-    install(TARGETS somtparser_static somtparser_shared
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
-else()
-    # create single library (static or shared, depending on BUILD_SHARED_LIBS)
-    add_library(somtparser ${SOURCES} ${HEADERS})
-    
-    if(ENABLE_DEBUG_SYMBOLS)
-        target_compile_options(somtparser PRIVATE -g -O0)
-    endif()
-    
-    # set library include directories
-    target_include_directories(somtparser PUBLIC 
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${GMP_INCLUDE_DIRS}
-        ${MPFR_INCLUDE_DIRS}
-    )
-    
-    # link library dependencies
-    target_link_libraries(somtparser PUBLIC
-        ${GMP_LIBRARIES}
-        ${MPFR_LIBRARIES}
-    )
-    
-    # install configuration
-    install(TARGETS somtparser
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
-endif()
-
-# install header files only (no .cpp)
-install(DIRECTORY include/somtparser DESTINATION include FILES_MATCHING PATTERN "*.h")
-
-# if needed, add test subdirectory
-if(BUILD_TESTS)
+if(SOMTPARSER_BUILD_TESTS)
+    enable_testing()
     add_subdirectory(test)
-endif() 
+endif()
+
+install(TARGETS somtparser
+    EXPORT SOMTParserTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/somtparser
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.h")
+install(EXPORT SOMTParserTargets
+    FILE SOMTParserTargets.cmake
+    NAMESPACE SOMTParser::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SOMTParser)
+
+configure_package_config_file(
+    cmake/SOMTParserConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/SOMTParserConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SOMTParser)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/SOMTParserConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/SOMTParserConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/SOMTParserConfigVersion.cmake
+    cmake/FindGMP.cmake
+    cmake/FindMPFR.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SOMTParser)

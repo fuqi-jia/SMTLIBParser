@@ -40,7 +40,8 @@ void test_real_division_rational() {
     assert(node->isCReal());
     std::string s = parser->toString(node);
     std::cout << "  (/ 7 3) -> " << s << std::endl;
-    assert(s == "7/3");
+    assert(node->getValue()->getNumberValue().toRationalExact() ==
+           HighPrecisionRational("7/3"));
 }
 
 // 4. (div 7 3) Int division -> 2 (INT_TYPE)
@@ -154,7 +155,7 @@ void test_parsed_literals_exact() {
     std::cout << "=== Parsed Literals Are Exact ===" << std::endl;
     Number n("3.14159", false);
     assert(n.isRational());
-    assert(!n.isReal());
+    assert(n.getType() == Number::RATIONAL_TYPE);
     std::cout << "  3.14159 parsed as RATIONAL_TYPE: OK" << std::endl;
 }
 

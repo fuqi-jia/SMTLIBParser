@@ -254,17 +254,20 @@ namespace SOMTParser{
 
     bool TypeChecker::isInt(const std::string& str){
         if (str.empty()) return false;
+        bool has_digit = false;
         for (size_t i = 0; i < str.size(); i++){
             if (i == 0 && (str[i] == '-' || str[i] == '+')) continue;
             if (!isdigit(str[i])) return false;
+            has_digit = true;
         }
-        return true;
+        return has_digit;
 
     }
     bool TypeChecker::isReal(const std::string& str){
         if (str.empty()) return false;
         bool has_dot = false;
         bool has_slash = false;
+        bool has_digit = false;
         for (size_t i = 0; i < str.size(); i++){
             if (i == 0 && (str[i] == '-' || str[i] == '+')) continue;
             if (str[i] == '.' && !has_dot && !has_slash){
@@ -276,7 +279,9 @@ namespace SOMTParser{
                 continue;
             }
             if (!isdigit(str[i])) return false;
+            has_digit = true;
         }
+        if (!has_digit) return false;
         if (has_slash) {
             size_t sl = str.find('/');
             if (sl == std::string::npos || sl == 0 || sl == str.size() - 1) return false;
@@ -1319,6 +1324,9 @@ namespace SOMTParser{
         std::string s_clean = (s[0] == '"' && s[s.length()-1] == '"') ? s.substr(1, s.length()-2) : s;
         std::string t_clean = (t[0] == '"' && t[t.length()-1] == '"') ? t.substr(1, t.length()-2) : t;
         std::string u_clean = (u[0] == '"' && u[u.length()-1] == '"') ? u.substr(1, u.length()-2) : u;
+
+        // SMT-LIB defines replacement by the empty string as a no-op.
+        if (t_clean.empty()) return s;
         
         std::string res = s_clean;
         size_t pos = res.find(t_clean);
@@ -1389,7 +1397,7 @@ namespace SOMTParser{
 
     std::string ConversionUtils::escapeString(const std::string& s){
         std::string result = "";
-        for(char c : s){
+        for(unsigned char c : s){
             // SMT-LIB2 string escaping rules:
             //   - double quote is escaped as "" (two consecutive double-quotes)
             //   - backslash is escaped as two backslashes
@@ -1406,8 +1414,10 @@ namespace SOMTParser{
                     break;
                 default:
                     // printable ASCII: no escaping needed
-                    if(c >= 32 && c <= 126) {
-                        result += c;
+                    if(c >= 32) {
+                        // SMT-LIB strings are Unicode strings. Preserve UTF-8 bytes
+                        // instead of escaping each byte as a separate code point.
+                        result += static_cast<char>(c);
                     } else {
                         // non-printable: use SMT-LIB2 Unicode escape \u{X}
                         std::ostringstream oss;
@@ -1418,6 +1428,49 @@ namespace SOMTParser{
             }
         }
         return result;
+    }
+
+    size_t ConversionUtils::utf8Length(const std::string& s){
+        size_t length = 0;
+        for (unsigned char c : s) {
+            if ((c & 0xC0) != 0x80) ++length;
+        }
+        return length;
+    }
+
+    size_t ConversionUtils::utf8CodePointWidth(const std::string& s,
+                                               size_t index) {
+        if (index >= s.size()) return 0;
+        const auto lead = static_cast<unsigned char>(s[index]);
+        if (lead < 0x80) return 1;
+        if ((lead & 0xe0) == 0xc0) return 2;
+        if ((lead & 0xf0) == 0xe0) return 3;
+        if ((lead & 0xf8) == 0xf0) return 4;
+        return 0;
+    }
+
+    std::optional<std::vector<std::string>>
+    ConversionUtils::utf8CodePoints(const std::string& s) {
+        std::vector<std::string> result;
+        for (size_t index = 0; index < s.size();) {
+            const size_t width = utf8CodePointWidth(s, index);
+            if (width == 0 || index + width > s.size()) return std::nullopt;
+            for (size_t offset = 1; offset < width; ++offset) {
+                if ((static_cast<unsigned char>(s[index + offset]) & 0xc0) !=
+                    0x80)
+                    return std::nullopt;
+            }
+            result.push_back(s.substr(index, width));
+            index += width;
+        }
+        return result;
+    }
+
+    std::optional<size_t>
+    ConversionUtils::utf8CodePointCount(const std::string& s) {
+        const auto points = utf8CodePoints(s);
+        if (!points) return std::nullopt;
+        return points->size();
     }
 
     std::string ConversionUtils::unescapeString(const std::string& s){

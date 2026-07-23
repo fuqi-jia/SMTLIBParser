@@ -1142,7 +1142,7 @@ namespace SOMTParser{
             case NODE_KIND::NT_FP_DIV:
                 return mkFpDiv(oper_params);
             case NODE_KIND::NT_FP_FMA:
-                condAssert(oper_params.size() == 3, "Invalid number of parameters for fp.fma");
+                condAssert(oper_params.size() == 4, "Invalid number of parameters for fp.fma");
                 return mkFpFma(oper_params);
             case NODE_KIND::NT_FP_SQRT:
                 if(oper_params.size() == 1) {
@@ -1302,7 +1302,8 @@ namespace SOMTParser{
                 {
                     auto expr = oper_params[0];
                     auto index_node = oper_params[1];
-                    condAssert(index_node->isConst() && index_node->getSort()->isInt(), "root-obj index must be integer constant");
+                    condAssert(index_node->isConst() && index_node->isCInt(),
+                               "root-obj index must be integer constant");
                     int index = std::stoi(index_node->getName());
                     return mkRootObj(expr, index);
                 }

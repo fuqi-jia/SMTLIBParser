@@ -754,23 +754,12 @@ namespace SOMTParser{
             return (s && s->isBv()) ? s->getBitWidth() : 0;
         }
 
-        /// Extract raw string value from a string constant (strips SMT-LIB quotes, unescapes "").
+        /// Extract the decoded UTF-8 value from an SMT-LIB string constant.
         std::string getStringLiteral() const {
             std::string s = getName();
             if(s.size() >= 2 && s.front() == '"' && s.back() == '"') {
                 s = s.substr(1, s.size() - 2);
-                // Handle SMT-LIB escape: "" → "
-                std::string result;
-                result.reserve(s.size());
-                for(size_t i = 0; i < s.size(); ++i) {
-                    if(i + 1 < s.size() && s[i] == '"' && s[i+1] == '"') {
-                        result += '"';
-                        ++i;
-                    } else {
-                        result += s[i];
-                    }
-                }
-                return result;
+                return ConversionUtils::unescapeString(s);
             }
             return s;
         }
