@@ -236,6 +236,7 @@ pip install .
 ```
 
 This builds a wheel via scikit-build-core with the static C++ core compiled in.
+(A prebuilt package on PyPI — `pip install somtparser` — is planned.)
 
 ### Quick Start
 
