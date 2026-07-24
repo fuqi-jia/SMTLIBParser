@@ -222,10 +222,18 @@ namespace SOMTParser{
          *  the start of each nextCommand(). */
         std::vector<std::shared_ptr<DAGNode>>         pending_value_terms_;
         std::string                                   pending_keyword_;
-        std::shared_ptr<DAGNode>                      pending_expr_;   // assert
-        std::string                                   pending_name_;   // declare-const/declare-fun
-        std::shared_ptr<Sort>                         pending_sort_;   // declare-const/declare-fun
-        std::string                                   pending_logic_;  // set-logic
+        std::shared_ptr<DAGNode>                      pending_command_expr_;
+        std::string                                   pending_command_name_;
+        std::shared_ptr<Sort>                         pending_command_sort_;
+        std::vector<std::shared_ptr<DAGNode>>         pending_command_params_;
+        std::string                                   pending_command_logic_;
+        std::string                                   source_text_;
+        std::string                                   source_name_ = "<memory>";
+        size_t                                        next_command_index_ = 0;
+
+        SourcePosition sourcePosition(size_t offset) const;
+        Command makeCommand(CMD_TYPE type, size_t begin_offset,
+                            size_t end_offset, size_t begin_line);
 
     public:
         
@@ -270,7 +278,15 @@ namespace SOMTParser{
          * @param constraint Constraint to parse
          * @return True if parsing was successful, false otherwise
          */
-        bool parseStr(const std::string& constraint);
+        bool parseStr(const std::string& constraint,
+                      const std::string& source_name = "<memory>");
+
+        /** Load SMT-LIB text for command-at-a-time parsing with nextCommand(). */
+        bool loadStr(const std::string& constraint,
+                     const std::string& source_name = "<memory>");
+
+        const std::string& getSourceText() const { return source_text_; }
+        const std::string& getSourceName() const { return source_name_; }
         
         /**
          * @brief Assert a constraint
@@ -342,6 +358,9 @@ namespace SOMTParser{
          * @return Map from group names to sets of assertion indices
          */
         std::unordered_map<std::string, std::unordered_set<size_t>> getGroupedAssertions() const;
+
+        /** Get assertions indexed by their SMT-LIB :named attribute. */
+        std::unordered_map<std::string, std::shared_ptr<DAGNode>> getNamedAssertions() const;
 
         /**
          * @brief Get assumptions
@@ -3339,6 +3358,9 @@ namespace SOMTParser{
          * @return true on success, false on error.
          */
         bool pop(size_t n = 1);
+
+        /** Get the current incremental push/pop depth. */
+        size_t getScopeDepth() const { return context_.scope_stack_.size(); }
 
         /**
          * @brief Reset assertions (keep declarations and options).

@@ -35,9 +35,8 @@ test = ["pytest>=7.0"]
 [tool.scikit-build]
 cmake.args = [
     "-DBUILD_PYTHON=ON",
-    "-DBUILD_BOTH_LIBS=OFF",
     "-DBUILD_SHARED_LIBS=OFF",
-    "-DBUILD_TESTS=OFF",
+    "-DSOMTPARSER_BUILD_TESTS=OFF",
 ]
 wheel.packages = ["python/somtparser"]
 wheel.install-dir = "somtparser"

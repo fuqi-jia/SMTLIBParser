@@ -1,0 +1,9 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+find_dependency(GMP REQUIRED)
+find_dependency(MPFR REQUIRED)
+include("${CMAKE_CURRENT_LIST_DIR}/SOMTParserTargets.cmake")
+
+check_required_components(SOMTParser)

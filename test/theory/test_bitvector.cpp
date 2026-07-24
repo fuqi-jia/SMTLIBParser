@@ -116,16 +116,16 @@ void test_value_bv_operators_ir() {
 
     SOMTParser::Value r_and = a.andOp(b);
     assert(r_and.getType() == SOMTParser::BV);
-    assert(r_and.toNumber() == SOMTParser::Number(SOMTParser::Integer(0x0)));
+    assert(r_and.toString() == "0");
 
     SOMTParser::Value r_or = a.orOp(b);
-    assert(r_or.toNumber() == SOMTParser::Number(SOMTParser::Integer(0xF)));
+    assert(r_or.toString() == "15");
 
     SOMTParser::Value r_xor = a.xorOp(b);
-    assert(r_xor.toNumber() == SOMTParser::Number(SOMTParser::Integer(0xF)));
+    assert(r_xor.toString() == "15");
 
     SOMTParser::Value r_shl = a.shift_left(SOMTParser::Number(SOMTParser::Integer(1)));
-    assert(r_shl.toNumber() == SOMTParser::Number(SOMTParser::Integer(20)));
+    assert(r_shl.toString() == "20");
 }
 
 // ─── Issue #3: BV arithmetic correctness (constant-folding path) ─────────────

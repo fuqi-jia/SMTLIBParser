@@ -84,10 +84,8 @@ namespace SOMTParser{
                     );
                 }
                 else if(p->isCReal()){
-                    // p is a real number
-                    return mkConstReal(
-                        -toReal(p)
-                    );
+                    ensureNumberValue(p);
+                    return mkConstReal(-p->getValue()->getNumberValue());
                 }
                 else{
                     return mkUnknown();
@@ -104,14 +102,9 @@ namespace SOMTParser{
                     }
                 }
                 else if(p->isCReal()){
-                    // p is a real number
-                    Real r = toReal(p);
-                    if(r < 0){
-                        return mkConstReal(-r);
-                    }
-                    else{
-                        return p;
-                    }
+                    ensureNumberValue(p);
+                    const Number number = p->getValue()->getNumberValue();
+                    return number < Number(0) ? mkConstReal(number.abs()) : p;
                 }
                 else{
                     return mkUnknown();
@@ -715,13 +708,8 @@ namespace SOMTParser{
             }
             case NODE_KIND::NT_STR_LEN:{
                 if(p->isCStr()){
-                    // Use getStringLiteral() to strip SMT-LIB quotes before counting.
-                    // toString() returns the raw name which includes quotes, making
-                    // str.len("abc") evaluate to 5 instead of 3.
-                    // getStringLiteral() correctly handles empty strings (returns ""),
-                    // so we always use lit.size() — the empty fallback was a bug.
-                    auto lit = p->getStringLiteral();
-                    return mkConstInt(static_cast<int>(lit.size()));
+                    return mkConstInt(static_cast<int>(
+                        ConversionUtils::utf8Length(p->getStringLiteral())));
                 }
                 return mkUnknown();
             }

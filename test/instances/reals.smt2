@@ -50,6 +50,7 @@
 ; Very close numbers
 (declare-const close1 Real)
 (declare-const close2 Real)
+(declare-const x Real)
 (assert (= close1 1.000000000000001))
 (assert (= close2 1.000000000000002))
 (assert (not (= close1 close2)))

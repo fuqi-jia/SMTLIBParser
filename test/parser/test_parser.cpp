@@ -37,7 +37,8 @@ int main() {
     {
         SOMTParser::ParserPtr parser = SOMTParser::newParser();
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr("3.14");
-        assert(result && parser->toString(result) == "3.14");
+        assert(result && result->isCReal() &&
+               parser->toString(result) == "(/ 157 50)");
         std::cout << "Input: 3.14" << std::endl;
         std::cout << "Result: " << parser->toString(result) << std::endl;
     }
@@ -52,4 +53,4 @@ int main() {
     }
 
     return 0;
-} 
+}

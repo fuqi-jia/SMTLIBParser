@@ -104,6 +104,7 @@ namespace SOMTParser{
     }
 
     bool Model::isEmpty() const{
+        if (!uf_tables_.empty() || !array_values_.empty()) return false;
         if(model_vars.size() == 0){
             return true;
         }
@@ -119,6 +120,8 @@ namespace SOMTParser{
         model_vars.clear();
         model_values.clear();
         model_name_index.clear();
+        uf_tables_.clear();
+        array_values_.clear();
     }
 
     void Model::clearValues(){

@@ -175,6 +175,8 @@ namespace SOMTParser{
         return params;
     }
     std::shared_ptr<DAGNode> Parser::mkOper(const std::shared_ptr<Sort>& sort, const NODE_KIND& t, std::shared_ptr<DAGNode> p){
+        if (getOptions()->shouldPreserveOperator(t))
+            return mkInternalOper(sort, t, {p});
         // simplify
         auto res = simp_oper(t, p);
         if(!res->isUnknown()){
@@ -185,6 +187,8 @@ namespace SOMTParser{
         return mkOper(sort, t, params);
     }
     std::shared_ptr<DAGNode> Parser::mkOper(const std::shared_ptr<Sort>& sort, const NODE_KIND& t, std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> r){
+        if (getOptions()->shouldPreserveOperator(t))
+            return mkInternalOper(sort, t, {l, r});
         auto res = simp_oper(t, l, r);
         if(!res->isUnknown()){
             return res;
@@ -195,6 +199,8 @@ namespace SOMTParser{
         return mkOper(sort, t, params);
     }
     std::shared_ptr<DAGNode> Parser::mkOper(const std::shared_ptr<Sort>& sort, const NODE_KIND& t, std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> m, std::shared_ptr<DAGNode> r){
+        if (getOptions()->shouldPreserveOperator(t))
+            return mkInternalOper(sort, t, {l, m, r});
         auto res = simp_oper(t, l, m, r);
         if(!res->isUnknown()){
             return res;
@@ -210,6 +216,8 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_PARAM_MIS, "No parameters for operation", line_number);
             return mkUnknown();
         }
+        if (getOptions()->shouldPreserveOperator(t))
+            return mkInternalOper(sort, t, p);
         std::shared_ptr<DAGNode> res = nullptr;
         if(p.size() == 1){
             res = simp_oper(t, p[0]);
@@ -649,12 +657,10 @@ namespace SOMTParser{
         return getNodeManager()->createNode(SortManager::REAL_SORT, NODE_KIND::NT_CONST, v);
     }
     std::shared_ptr<DAGNode> Parser::mkConstReal(const Real &v){
-        std::string v_str = ConversionUtils::toString(v);
-        return getNodeManager()->createNode(SortManager::REAL_SORT, NODE_KIND::NT_CONST, v_str);
+        return getNodeManager()->createNode(SortManager::REAL_SORT, v);
     }
     std::shared_ptr<DAGNode> Parser::mkConstReal(const double &v){
-        std::string v_str = std::to_string(v);
-        return getNodeManager()->createNode(SortManager::REAL_SORT, NODE_KIND::NT_CONST, v_str);
+        return getNodeManager()->createNode(SortManager::REAL_SORT, Real(v));
     }
     std::shared_ptr<DAGNode> Parser::mkConstReal(const Integer &v){
         std::string v_str = ConversionUtils::toString(v);
@@ -1432,7 +1438,11 @@ namespace SOMTParser{
                 return mkUnknown();
             }
         }
-        return mkOper(SortManager::INT_SORT, NODE_KIND::NT_DIV_INT, l, r);
+        auto result = mkOper(SortManager::INT_SORT, NODE_KIND::NT_DIV_INT, l, r);
+        if (result->isConst() && !result->getSort()->isInt())
+            return getNodeManager()->createNode(
+                SortManager::INT_SORT, NODE_KIND::NT_CONST, result->getName());
+        return result;
     }
     std::shared_ptr<DAGNode> Parser::mkDivInt(const std::vector<std::shared_ptr<DAGNode>> &params){
         if(params.size() < 2) {
@@ -1442,9 +1452,7 @@ namespace SOMTParser{
         if(params.size() == 1){
             return params[0];
         }
-        if(params.size() == 2){
-            return mkDivInt(params[0], params[1]);
-        }
+        if(params.size() == 2) return mkDivInt(params[0], params[1]);
         return mkOper(SortManager::INT_SORT, NODE_KIND::NT_DIV_INT, params);
     }
     /*

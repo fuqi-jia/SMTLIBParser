@@ -12,7 +12,7 @@ void test_high_precision_rational_basic() {
 
     // Decimal parsing
     Rational r1("59.01938237");
-    assert(r1.toString() == "5901938237/1000000000");
+    assert(r1.toString() == "5901938237/100000000");
     std::cout << "  59.01938237 -> " << r1.toString() << std::endl;
 
     Rational r2("0.5");
@@ -68,8 +68,6 @@ void test_number_rational_type() {
 
     Number n1("0.5", false);
     assert(n1.isRational());
-    assert(!n1.isReal());  // isReal now returns true for RATIONAL too... wait
-    // Actually isReal() returns true for RATIONAL_TYPE as well
     assert(n1.isReal());
     assert(n1.toString() == "1/2");
     std::cout << "  Number(0.5) type=" << n1.getType() << " str=" << n1.toString() << std::endl;
@@ -130,7 +128,7 @@ void test_number_mixed_arithmetic() {
     std::cout << "  5 - 1/2 = " << diff.toString() << std::endl;
 
     Number quot = i / r;
-    assert(quot.isRational());
+    assert(quot.isInteger());
     assert(quot.toString() == "10");
     std::cout << "  5 / 1/2 = " << quot.toString() << std::endl;
 
@@ -155,7 +153,8 @@ void test_parser_constant_folding() {
     assert(node1->isCReal());
     std::string s1 = parser->toString(node1);
     std::cout << "  (/ 1 10) -> " << s1 << std::endl;
-    assert(s1 == "1/10");
+    assert(node1->getValue()->getNumberValue().toRationalExact() ==
+           HighPrecisionRational("1/10"));
 
     // (/ 7 3)
     auto node2 = parser->mkExpr("(/ 7 3)");
@@ -163,7 +162,8 @@ void test_parser_constant_folding() {
     assert(node2->isCReal());
     std::string s2 = parser->toString(node2);
     std::cout << "  (/ 7 3) -> " << s2 << std::endl;
-    assert(s2 == "7/3");
+    assert(node2->getValue()->getNumberValue().toRationalExact() ==
+           HighPrecisionRational("7/3"));
 
     // (/ 10 2) -> 5
     auto node3 = parser->mkExpr("(/ 10 2)");
@@ -171,7 +171,7 @@ void test_parser_constant_folding() {
     assert(node3->isCReal());
     std::string s3 = parser->toString(node3);
     std::cout << "  (/ 10 2) -> " << s3 << std::endl;
-    assert(s3 == "5");
+    assert(node3->getValue()->getNumberValue().asIntegerExact() == Integer(5));
 
     // (/ -1 10)
     auto node4 = parser->mkExpr("(/ -1 10)");
@@ -179,7 +179,8 @@ void test_parser_constant_folding() {
     assert(node4->isCReal());
     std::string s4 = parser->toString(node4);
     std::cout << "  (/ -1 10) -> " << s4 << std::endl;
-    assert(s4 == "-1/10");
+    assert(node4->getValue()->getNumberValue().toRationalExact() ==
+           HighPrecisionRational("-1/10"));
 
     // (/ 0 10) -> 0
     auto node5 = parser->mkExpr("(/ 0 10)");
@@ -194,7 +195,8 @@ void test_parser_constant_folding() {
     assert(node6 != nullptr);
     std::string s6 = parser->toString(node6);
     std::cout << "  (+ (/ 1 10) (/ 2 10)) -> " << s6 << std::endl;
-    assert(s6 == "3/10");
+    assert(node6->getValue()->getNumberValue().toRationalExact() ==
+           HighPrecisionRational("3/10"));
 
     std::cout << "  Parser constant folding OK" << std::endl;
 }
@@ -209,19 +211,22 @@ void test_parser_decimal_to_rational() {
     assert(node1->isCReal());
     std::string s1 = parser->toString(node1);
     std::cout << "  59.01938237 -> " << s1 << std::endl;
-    assert(s1 == "5901938237/1000000000");
+    assert(node1->getValue()->getNumberValue().toRationalExact() ==
+           HighPrecisionRational("5901938237/100000000"));
 
     auto node2 = parser->mkExpr("0.125");
     assert(node2 != nullptr);
     std::string s2 = parser->toString(node2);
     std::cout << "  0.125 -> " << s2 << std::endl;
-    assert(s2 == "1/8");
+    assert(node2->getValue()->getNumberValue().toRationalExact() ==
+           HighPrecisionRational("1/8"));
 
     auto node3 = parser->mkExpr("-2.5");
     assert(node3 != nullptr);
     std::string s3 = parser->toString(node3);
     std::cout << "  -2.5 -> " << s3 << std::endl;
-    assert(s3 == "-5/2");
+    assert(node3->getValue()->getNumberValue().toRationalExact() ==
+           HighPrecisionRational("-5/2"));
 
     std::cout << "  Decimal to rational OK" << std::endl;
 }
@@ -263,17 +268,17 @@ void test_dump_smtlib2_rational() {
     std::cout << "  (/ -1 10) -> " << s3 << std::endl;
     assert(s3 == "(- (/ 1 10))");
 
-    // Decimal literals should remain unchanged
+    // Decimal literals are emitted as exact SMT-LIB rational terms.
     auto n4 = parser->mkExpr("0.125");
     std::string s4 = dumpSMTLIB2(n4);
     std::cout << "  0.125 -> " << s4 << std::endl;
-    assert(s4 == "0.125");
+    assert(s4 == "(/ 1 8)");
 
     // Negative decimal literal
     auto n5 = parser->mkExpr("-2.5");
     std::string s5 = dumpSMTLIB2(n5);
     std::cout << "  -2.5 -> " << s5 << std::endl;
-    assert(s5 == "(- 2.5)");
+    assert(s5 == "(- (/ 5 2))");
 
     std::cout << "  dumpSMTLIB2 rational output OK" << std::endl;
 }

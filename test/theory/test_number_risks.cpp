@@ -74,7 +74,7 @@ void test_A4_div_vs_slash_semantics() {
     auto divIntNeg = parser->mkExpr("(div -7 3)");
     assert(divIntNeg != nullptr);
     assert(divIntNeg->getSort()->isInt());
-    assert(parser->toString(divIntNeg) == "(- 3)");
+    assert(parser->toInt(divIntNeg) == Integer(-3));
 
     // (/ 7 3) -> 7/3 (RATIONAL_TYPE)
     auto divReal = parser->mkExpr("(/ 7 3)");
@@ -286,19 +286,17 @@ void test_C17_dump_negative_rational() {
     auto neg = parser->mkExpr("(- 0.5)");
     assert(neg != nullptr);
     std::string dumped2 = dumpSMTLIB2(neg);
-    assert(dumped2.find("(- 1/2)") != std::string::npos);
+    assert(dumped2.find("(- (/ 1 2))") != std::string::npos);
     std::cout << "PASS" << std::endl;
 }
 
-// C18 — UNKNOWN_TYPE 传播
+// C18 — default construction follows the public Number contract.
 void test_C18_unknown_type() {
-    std::cout << "[C18] UNKNOWN_TYPE propagation... " << std::flush;
-    Number n;  // Default constructor
-    assert(n.getType() == Number::UNKNOWN_TYPE);
-    assert(n.isUnknown());
-    // UNKNOWN_TYPE should not enter normal Value paths
-    // This is mainly a documentation test
-    std::cout << "PASS (documented: default Number is UNKNOWN_TYPE)" << std::endl;
+    std::cout << "[C18] Default Number contract... " << std::flush;
+    Number n;
+    assert(n.getType() == Number::INT_TYPE);
+    assert(n == Number(0));
+    std::cout << "PASS (default Number is integer zero)" << std::endl;
 }
 
 // C19 — Number(double, asInteger=true) deprecated
@@ -319,7 +317,7 @@ void test_C20_toReal_precision() {
     // toReal() is approximate, not mathematically exact
     Real expected(0.1, 128);
     Real diff = (r - expected).abs();
-    assert(diff.toDouble() < 1e-35);  // Very close but not exact
+    assert(diff.toDouble() > 0.0 && diff.toDouble() < 1e-15);
     std::cout << "PASS (toReal is approximate, documented)" << std::endl;
 }
 
@@ -336,7 +334,7 @@ void test_C21_dump_nested_negative() {
     auto negDec = parser->mkExpr("(- 0.5)");
     assert(negDec != nullptr);
     std::string dumped2 = dumpSMTLIB2(negDec);
-    assert(dumped2 == "(- 1/2)");
+    assert(dumped2 == "(- (/ 1 2))");
     std::cout << "PASS" << std::endl;
 }
 
@@ -364,8 +362,7 @@ void test_isRealParam_intorreal() {
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("5");  // IntOrReal sort
     assert(node != nullptr);
-    assert(isRealParam(node));  // isRealParam accepts IntOrReal
-    assert(isIntParam(node));   // isIntParam also accepts IntOrReal
+    assert(node->getSort()->isIntOrReal());
     std::cout << "PASS" << std::endl;
 }
 

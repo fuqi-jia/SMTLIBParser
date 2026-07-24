@@ -51,9 +51,14 @@ int main() {
     std::cout << "(+ x 2): total=3 (ADD=1, VAR=1, CONST=1) OK" << std::endl;
 
     // DAG with sharing: (and (or a b) (or a b)) — (or a b) shared, 4 nodes (AND + OR + a + b)
-    parser->mkVarBool("a");
-    parser->mkVarBool("b");
-    Node andNode = parser->mkExpr("(and (or a b) (or a b))");
+    Node a = parser->mkVarBool("a");
+    Node b = parser->mkVarBool("b");
+    auto manager = parser->getNodeManager();
+    Node sharedOr = manager->createNode(SortManager::BOOL_SORT,
+                                        NODE_KIND::NT_OR, "or", {a, b});
+    Node andNode = manager->createNode(SortManager::BOOL_SORT,
+                                       NODE_KIND::NT_AND, "and",
+                                       {sharedOr, sharedOr});
     KindCounter c3;
     c3.walk(andNode);
     assert(c3.total() == 4 && "AND + OR + a + b, each once");

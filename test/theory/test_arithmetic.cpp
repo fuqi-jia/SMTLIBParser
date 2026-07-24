@@ -28,7 +28,9 @@ void test_integer_arithmetic(SOMTParser::ParserPtr& parser) {
         assert(result);
         std::string got = parser->toString(result);
         std::cout << "  Result: " << got << std::endl;
-        assert(got == p.second && "integer arithmetic result mismatch");
+        auto expected = parser->mkExpr(p.second);
+        assert(expected && parser->toString(result) == parser->toString(expected) &&
+               "integer arithmetic result mismatch");
         std::cout << std::endl;
     }
 }
@@ -54,7 +56,9 @@ void test_real_arithmetic(SOMTParser::ParserPtr& parser) {
         assert(result);
         std::string got = parser->toString(result);
         std::cout << "  Result: " << got << std::endl;
-        assert(got == p.second && "real arithmetic result mismatch");
+        auto expected = parser->mkExpr(p.second);
+        assert(expected && parser->toString(result) == parser->toString(expected) &&
+               "real arithmetic result mismatch");
         std::cout << std::endl;
     }
 }
@@ -91,10 +95,12 @@ void test_precision(SOMTParser::ParserPtr& parser) {
     assert(r1 && r2);
     std::cout << "Expression: (+ 3.5 2.7)" << std::endl;
     std::cout << "  Result: " << parser->toString(r1) << std::endl;
-    assert(parser->toString(r1) == "6.2");
+    assert(r1->getValue()->getNumberValue().toRationalExact() ==
+           SOMTParser::Rational("31/5"));
     std::cout << "Expression: (- 10.5 4.2)" << std::endl;
     std::cout << "  Result: " << parser->toString(r2) << std::endl;
-    assert(parser->toString(r2) == "6.3");
+    assert(r2->getValue()->getNumberValue().toRationalExact() ==
+           SOMTParser::Rational("63/10"));
     
     // Set higher precision (256 bits)
     parser->setEvaluatePrecision(256);
@@ -106,7 +112,10 @@ void test_precision(SOMTParser::ParserPtr& parser) {
     std::cout << "  Result: " << parser->toString(r3) << std::endl;
     std::cout << "Expression: (- 10.5 4.2)" << std::endl;
     std::cout << "  Result: " << parser->toString(r4) << std::endl;
-    assert(parser->toString(r3) == "6.2" && parser->toString(r4) == "6.3");
+    assert(r3->getValue()->getNumberValue().toRationalExact() ==
+           SOMTParser::Rational("31/5"));
+    assert(r4->getValue()->getNumberValue().toRationalExact() ==
+           SOMTParser::Rational("63/10"));
     
     // Disable floating point mode
     parser->setEvaluateUseFloating(false);
@@ -118,7 +127,10 @@ void test_precision(SOMTParser::ParserPtr& parser) {
     std::cout << "  Result: " << parser->toString(r5) << std::endl;
     std::cout << "Expression: (- 10.5 4.2)" << std::endl;
     std::cout << "  Result: " << parser->toString(r6) << std::endl;
-    assert(parser->toString(r5) == "6.2" && parser->toString(r6) == "6.3");
+    assert(r5->getValue()->getNumberValue().toRationalExact() ==
+           SOMTParser::Rational("31/5"));
+    assert(r6->getValue()->getNumberValue().toRationalExact() ==
+           SOMTParser::Rational("63/10"));
 }
 
 static void test_builtin_shadow_pow2_uf(SOMTParser::ParserPtr& p) {
@@ -132,7 +144,7 @@ static void test_builtin_shadow_pow2_uf(SOMTParser::ParserPtr& p) {
     p->mkVarInt("x");
     auto app = p->mkExpr("(pow2 x)");
     assert(app && !app->isErr());
-    assert(app->isFuncApplication());
+    assert(app->isUFApplication());
 }
 
 void test_number_bitwise_operators() {
@@ -165,4 +177,4 @@ int main() {
     test_number_bitwise_operators();
 
     return 0;
-} 
+}

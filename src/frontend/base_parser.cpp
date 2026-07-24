@@ -117,7 +117,9 @@ namespace SOMTParser{
 		parseSmtlib2File(filename);
 	}
 
-	Parser::~Parser() {	}
+	Parser::~Parser() {
+		delete[] buffer;
+	}
 
 	RESULT_TYPE Parser::getResultType(){
 		return result_type;
@@ -141,7 +143,8 @@ namespace SOMTParser{
 			}
 			else if(assertion->isFalse()){
 				all_true = false;
-				return RESULT_TYPE::RT_UNSAT;
+				result_type = RESULT_TYPE::RT_UNSAT;
+				return result_type;
 			}
 			else if(assertion->isTrue()){
 				continue;
@@ -222,6 +225,9 @@ namespace SOMTParser{
 	}
 	std::unordered_map<std::string, std::unordered_set<size_t>> Parser::getGroupedAssertions() const{
 		return context_.getGroupedAssertions();
+	}
+	std::unordered_map<std::string, std::shared_ptr<DAGNode>> Parser::getNamedAssertions() const{
+		return context_.getNamedAssertions();
 	}
 	std::vector<std::vector<std::shared_ptr<DAGNode>>> Parser::getAssumptions() const{
 		return context_.getAssumptions();
@@ -775,6 +781,9 @@ namespace SOMTParser{
 		buffer = new char[buflen + 1];
 		fin.read(buffer, buflen);
 		buffer[buflen] = 0;
+		source_text_.assign(buffer, static_cast<size_t>(buflen));
+		source_name_ = filename;
+		next_command_index_ = 0;
 
 		fin.close();
 
@@ -789,23 +798,21 @@ namespace SOMTParser{
 
 		try {
 			while (*bufptr) {
+				const size_t begin_offset = static_cast<size_t>(bufptr - buffer);
+				const size_t begin_line = line_number;
 				parseLpar();
 				CMD_TYPE type = parseCommand();
-				if (command_logging_ || isResponseCommand(type)) {
-					Command cmd(type);
-					cmd.line_number = line_number;
-					if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
-					if (!pending_keyword_.empty()) cmd.keyword = std::move(pending_keyword_);
-					if (pending_expr_) cmd.expr = std::move(pending_expr_);
-					if (!pending_name_.empty()) cmd.name = std::move(pending_name_);
-					if (pending_sort_) cmd.sort = std::move(pending_sort_);
-					if (!pending_logic_.empty()) cmd.logic = std::move(pending_logic_);
-					script_.addCommand(cmd);
-				}
-				if (type == CMD_TYPE::CT_EXIT) break;
+				const size_t end_offset = static_cast<size_t>(bufptr - buffer) +
+				    (*bufptr == ')' ? 1U : 0U);
 				parseRpar();
+				if (command_logging_ || isResponseCommand(type)) {
+					script_.addCommand(makeCommand(type, begin_offset, end_offset,
+					                               begin_line));
+				}
+				else ++next_command_index_;
+				if (type == CMD_TYPE::CT_EXIT) break;
 			}
-		} catch (const ParseErrorException&) {
+		} catch (const std::exception&) {
 			bufptr = nullptr;
 			if (buffer) { delete[] buffer; buffer = nullptr; }
 			buflen = 0;
@@ -827,8 +834,12 @@ namespace SOMTParser{
 		return new_str;
 	}
 
-	bool Parser::parseStr(const std::string& constraint) {
+	bool Parser::parseStr(const std::string& constraint,
+	                     const std::string& source_name) {
 		if (constraint.empty()) return true;
+		source_text_ = constraint;
+		source_name_ = source_name;
+		next_command_index_ = 0;
 		buffer = safe_strdup(constraint);
 		if (!buffer) return false;
 		buflen = constraint.length();
@@ -837,23 +848,21 @@ namespace SOMTParser{
 		scanToNextSymbol();
 		try {
 			while (*bufptr) {
+				const size_t begin_offset = static_cast<size_t>(bufptr - buffer);
+				const size_t begin_line = line_number;
 				parseLpar();
 				CMD_TYPE type = parseCommand();
-				if (command_logging_ || isResponseCommand(type)) {
-					Command cmd(type);
-					cmd.line_number = line_number;
-					if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
-					if (!pending_keyword_.empty()) cmd.keyword = std::move(pending_keyword_);
-					if (pending_expr_) cmd.expr = std::move(pending_expr_);
-					if (!pending_name_.empty()) cmd.name = std::move(pending_name_);
-					if (pending_sort_) cmd.sort = std::move(pending_sort_);
-					if (!pending_logic_.empty()) cmd.logic = std::move(pending_logic_);
-					script_.addCommand(cmd);
-				}
-				if (type == CMD_TYPE::CT_EXIT) break;
+				const size_t end_offset = static_cast<size_t>(bufptr - buffer) +
+				    (*bufptr == ')' ? 1U : 0U);
 				parseRpar();
+				if (command_logging_ || isResponseCommand(type)) {
+					script_.addCommand(makeCommand(type, begin_offset, end_offset,
+					                               begin_line));
+				}
+				else ++next_command_index_;
+				if (type == CMD_TYPE::CT_EXIT) break;
 			}
-		} catch (const ParseErrorException&) {
+		} catch (const std::exception&) {
 			bufptr = nullptr;
 			if (buffer) { delete[] buffer; buffer = nullptr; }
 			buflen = 0;
@@ -863,6 +872,58 @@ namespace SOMTParser{
 		delete[] buffer;
 		buffer = nullptr;
 		return true;
+	}
+
+	bool Parser::loadStr(const std::string& constraint,
+	                    const std::string& source_name) {
+		delete[] buffer;
+		buffer = nullptr;
+		bufptr = nullptr;
+		buflen = 0;
+		if (constraint.empty()) return true;
+		source_text_ = constraint;
+		source_name_ = source_name;
+		next_command_index_ = 0;
+
+		buffer = safe_strdup(constraint);
+		if (!buffer) return false;
+		buflen = constraint.length();
+		bufptr = buffer;
+		line_number = 1;
+		scanToNextSymbol();
+		return true;
+	}
+
+	SourcePosition Parser::sourcePosition(size_t offset) const {
+		SourcePosition position;
+		position.offset = std::min(offset, source_text_.size());
+		for (size_t i = 0; i < position.offset; ++i) {
+			if (source_text_[i] == '\n') {
+				++position.line;
+				position.column = 1;
+			} else {
+				++position.column;
+			}
+		}
+		return position;
+	}
+
+	Command Parser::makeCommand(CMD_TYPE type, size_t begin_offset,
+	                            size_t end_offset, size_t begin_line) {
+		Command cmd(type);
+		cmd.index = next_command_index_++;
+		cmd.line_number = begin_line;
+		cmd.range = {sourcePosition(begin_offset), sourcePosition(end_offset)};
+		if (end_offset >= begin_offset && end_offset <= source_text_.size())
+			cmd.original = source_text_.substr(begin_offset, end_offset - begin_offset);
+		cmd.expr = pending_command_expr_;
+		cmd.name = pending_command_name_;
+		cmd.sort = pending_command_sort_;
+		cmd.params = pending_command_params_;
+		cmd.logic = pending_command_logic_;
+		if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
+		if (!pending_keyword_.empty()) cmd.keyword = std::move(pending_keyword_);
+		return cmd;
 	}
 
 	bool Parser::assert(const std::string& constraint) {
@@ -934,10 +995,11 @@ namespace SOMTParser{
 		// Reset the per-command interactive payload before parsing this command.
 		pending_value_terms_.clear();
 		pending_keyword_.clear();
-		pending_expr_ = nullptr;
-		pending_name_.clear();
-		pending_sort_ = nullptr;
-		pending_logic_.clear();
+		pending_command_expr_.reset();
+		pending_command_name_.clear();
+		pending_command_sort_.reset();
+		pending_command_params_.clear();
+		pending_command_logic_.clear();
 
 		size_t command_ln = line_number;
 		std::string command = getSymbol();
@@ -953,7 +1015,7 @@ namespace SOMTParser{
 				grp_id = getSymbol();
 			}
 			std::shared_ptr<DAGNode> assert_expr = parseExpr();
-			pending_expr_ = assert_expr;
+			pending_command_expr_ = assert_expr;
 			size_t index = context_.assertions.size();
 			context_.assertions.emplace_back(assert_expr);
 			// 
@@ -1014,8 +1076,8 @@ namespace SOMTParser{
 				std::shared_ptr<DAGNode> assump = parseExpr();
 				cur_assumptions.emplace_back(assump);
 			}
+			parseRpar();
 			context_.assumptions.emplace_back(cur_assumptions);
-			skipToRpar();
 			return CMD_TYPE::CT_CHECK_SAT_ASSUMING;
 		}
 
@@ -1034,8 +1096,9 @@ namespace SOMTParser{
 				err_all(ERROR_TYPE::ERR_PARAM_MIS, "declare-const requires a sort", name_ln);
 			}
 			res = mkVar(sort, name);
-			pending_name_ = name;
-			pending_sort_ = sort;
+			pending_command_name_ = name;
+			pending_command_sort_ = sort;
+			pending_command_expr_ = res;
 
 			// multiple declarations
 			if (res->isErr()) err_all(res, name, name_ln);
@@ -1066,8 +1129,6 @@ namespace SOMTParser{
 					err_all(ERROR_TYPE::ERR_PARAM_MIS, "declare-fun requires a return sort", name_ln);
 				}
 				res = mkVar(out_sort, name);
-				pending_name_ = name;
-				pending_sort_ = out_sort;
 				if(!res->isErr()) context_.registerVarInScope(name);
 			}
 			else{
@@ -1079,8 +1140,6 @@ namespace SOMTParser{
 				parseRpar();
 				std::shared_ptr<Sort> out_sort = parseSort();
 				res = mkFuncDec(name, params, out_sort);
-				pending_name_ = name;
-				pending_sort_ = out_sort;
 				if(!res->isErr()){
 					getSymbolManager()->addFunctionName(name);
 					context_.registerFunInScope(name);
@@ -1088,6 +1147,9 @@ namespace SOMTParser{
 			}
 
 			//multiple declarations
+			pending_command_name_ = name;
+			pending_command_sort_ = res ? res->getSort() : nullptr;
+			pending_command_expr_ = res;
 			if (res->isErr()) err_all(res, name, name_ln);
 			skipToRpar();
 
@@ -1105,6 +1167,8 @@ namespace SOMTParser{
 
 			// make sort
 			std::shared_ptr<Sort> sort = mkSortDec(name, num);
+			pending_command_name_ = name;
+			pending_command_sort_ = sort;
 			getSymbolManager()->registerSort(name, sort);
 			context_.registerSortInScope(name);
 			skipToRpar();
@@ -1188,6 +1252,9 @@ namespace SOMTParser{
 			std::shared_ptr<DAGNode> func_body = parseExpr();
 			std::vector<std::shared_ptr<DAGNode>> params; // empty params for constant
 			std::shared_ptr<DAGNode> res = mkFuncDef(name, params, out_sort, func_body);
+			pending_command_name_ = name;
+			pending_command_sort_ = out_sort;
+			pending_command_expr_ = res;
 			skipToRpar();
 			
 			return CMD_TYPE::CT_DEFINE_FUN;
@@ -1246,6 +1313,10 @@ namespace SOMTParser{
 			std::shared_ptr<Sort> out_sort = parseSort();
 			std::shared_ptr<DAGNode> func_body = parseExpr();
 			std::shared_ptr<DAGNode> res = mkFuncDef(name, params, out_sort, func_body);
+			pending_command_name_ = name;
+			pending_command_sort_ = out_sort;
+			pending_command_params_ = params;
+			pending_command_expr_ = res;
 			skipToRpar();
 
 			//remove key bindings: for let uses local variables. 
@@ -1318,6 +1389,10 @@ namespace SOMTParser{
 			// Now parse the function body (which can reference the function itself)
 			std::shared_ptr<DAGNode> func_body = parseExpr();
 			std::shared_ptr<DAGNode> res = mkFuncRec(name, params, out_sort, func_body);
+			pending_command_name_ = name;
+			pending_command_sort_ = out_sort;
+			pending_command_params_ = params;
+			pending_command_expr_ = res;
 			skipToRpar();
 
 			//remove key bindings: for let uses local variables. 
@@ -1571,6 +1646,11 @@ namespace SOMTParser{
 
 		if (command == "reset") {
 			context_.resetAll();
+			result_type = RESULT_TYPE::RT_UNKNOWN;
+			result_node.reset();
+			result_model.reset();
+			context_.setSymbolManager(std::make_shared<SymbolManager>());
+			context_.setObjectiveManager(std::make_shared<ObjectiveManager>());
 			skipToRpar();
 			return CMD_TYPE::CT_RESET;
 		}
@@ -1592,8 +1672,8 @@ namespace SOMTParser{
 		if (command == "set-logic") {
 			size_t type_ln = line_number;
 			std::string type = getSymbol();
+			pending_command_logic_ = type;
 			bool is_valid = getOptions()->setLogic(type);
-			pending_logic_ = type;
 			if(!is_valid){
 				err_unkwn_sym(type, type_ln);
 			}
@@ -1729,22 +1809,23 @@ namespace SOMTParser{
 	// --- Incremental / sequential API ---
 
 	Command Parser::nextCommand() {
-		if (!bufptr || !*bufptr) return Command(CMD_TYPE::CT_EOF);
+		if (!bufptr || !*bufptr) {
+			delete[] buffer;
+			buffer = nullptr;
+			bufptr = nullptr;
+			buflen = 0;
+			return Command(CMD_TYPE::CT_EOF);
+		}
 		pending_value_terms_.clear();
 		pending_keyword_.clear();
+		const size_t begin_offset = static_cast<size_t>(bufptr - buffer);
+		const size_t begin_line = line_number;
 		parseLpar();
 		CMD_TYPE type = parseCommand();
-		Command cmd(type);
-		cmd.line_number = line_number;
-		// Attach any interactive-command payload captured during parseCommand
-		// (get-value term list / echo string / get-info keyword).
-		if (!pending_value_terms_.empty()) cmd.value_terms = std::move(pending_value_terms_);
-		if (!pending_keyword_.empty()) cmd.keyword = std::move(pending_keyword_);
-		if (pending_expr_) cmd.expr = std::move(pending_expr_);
-		if (!pending_name_.empty()) cmd.name = std::move(pending_name_);
-		if (pending_sort_) cmd.sort = std::move(pending_sort_);
-		if (!pending_logic_.empty()) cmd.logic = std::move(pending_logic_);
+		const size_t end_offset = static_cast<size_t>(bufptr - buffer) +
+		    (*bufptr == ')' ? 1U : 0U);
 		parseRpar();
+		Command cmd = makeCommand(type, begin_offset, end_offset, begin_line);
 		if (command_logging_ || isResponseCommand(type)) {
 			script_.addCommand(cmd);
 		}
@@ -1784,6 +1865,9 @@ namespace SOMTParser{
 
 	bool Parser::reset() {
 		context_.resetAll();
+		result_type = RESULT_TYPE::RT_UNKNOWN;
+		result_node.reset();
+		result_model.reset();
 		// Reset SymbolManager and ObjectiveManager by creating new instances
 		context_.setSymbolManager(std::make_shared<SymbolManager>());
 		context_.setObjectiveManager(std::make_shared<ObjectiveManager>());

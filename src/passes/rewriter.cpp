@@ -26,7 +26,9 @@ Node RewriteContext::rebuildLike(Node old, const std::vector<Node>& newKids) con
 
 // --- Rewriter ---
 Rewriter::Rewriter(std::shared_ptr<NodeManager> nm) noexcept
-    : node_manager_(std::move(nm)), ctx_(node_manager_) {}
+    : node_manager_(std::move(nm)), ctx_(node_manager_) {
+    rules_.otherwise([](Node node, RewriteContext&) { return node; });
+}
 
 Node Rewriter::rewriteOnce(Node root) {
     if (!root)

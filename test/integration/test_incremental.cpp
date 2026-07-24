@@ -75,7 +75,7 @@ static void test_reset() {
 static void test_nextCommand() {
     std::cout << "--- test_nextCommand ---" << std::endl;
     Parser parser;
-    parser.parseStr("(set-logic QF_LIA) (declare-const x Int) (assert (> x 0))");
+    assert(parser.loadStr("(set-logic QF_LIA) (declare-const x Int) (assert (> x 0))"));
 
     Command cmd1 = parser.nextCommand();
     assert(cmd1.type == CMD_TYPE::CT_SET_LOGIC);
@@ -170,7 +170,7 @@ static void test_stress_deep_nesting() {
     auto ms = duration_cast<milliseconds>(end - start).count();
     std::cout << "  " << DEPTH << " nested scopes parsed in " << ms << " ms" << std::endl;
     assert(parser.getAssertions().empty());
-    assert(parser.context().scope_stack_.empty());
+    assert(parser.getScopeDepth() == 0);
     std::cout << "PASS" << std::endl;
 }
 
@@ -257,8 +257,8 @@ static void test_stress_nextCommand_stream() {
         oss << "(push 1)(pop 1)";
     }
     Parser parser;
-    parser.parseStr(oss.str());
     parser.setCommandLogging(true);
+    assert(parser.loadStr(oss.str()));
 
     // Now walk with nextCommand until EOF
     size_t count = 0;

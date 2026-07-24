@@ -27,7 +27,10 @@
 
 #include "somtparser/ir/dag.h"
 #include "somtparser/core/timing.h"
+#include "somtparser/core/util.h"
+#include "somtparser/ir/value.h"
 #include <stack>
+#include <optional>
 #include <sstream>
 #include <unordered_set>
 
@@ -85,7 +88,7 @@ namespace SOMTParser{
             && isRationalFormat(name)) {
             return formatRationalDivision(name);
         }
-        if(sort->isReal() || sort->isIntOrReal()){
+        if(sort->isReal() || sort->isInt() || sort->isIntOrReal()){
             if(name[0] == '-'){
                 return "(- " + name.substr(1) + ")";
             }
@@ -109,6 +112,43 @@ namespace SOMTParser{
             return name;
         }
         return name;
+    }
+
+    // Evaluate a closed arithmetic subterm to an exact rational, or nullopt if it
+    // is not a constant.  Used to fold ((_ to_fp eb sb) RM <const>) into an
+    // (fp #b..) literal at dump time, so the dumped query stays in the pure FP
+    // theory and strict backends without the Reals theory (e.g. Bitwuzla) accept
+    // it.  Handles the constant forms the parser leaves unfolded: rational
+    // literals (kept as NT_DIV_REAL "(/ a b)") and negations (NT_NEG "(- x)").
+    static std::optional<Number> constToNumber(const std::shared_ptr<DAGNode>& n) {
+        if (!n) return std::nullopt;
+        if (n->isCInt() || n->isCReal()) {
+            try { return Number(n->getName(), false); } catch (...) { return std::nullopt; }
+        }
+        const NODE_KIND k = n->getKind();
+        const size_t sz = n->getChildrenSize();
+        if (k == NODE_KIND::NT_NEG && sz == 1) {
+            auto a = constToNumber(n->getChild(0));
+            if (a) return -*a;
+        } else if ((k == NODE_KIND::NT_DIV_REAL || k == NODE_KIND::NT_DIV_INT) && sz == 2) {
+            auto a = constToNumber(n->getChild(0));
+            auto b = constToNumber(n->getChild(1));
+            if (a && b && !b->isZero()) return *a / *b;
+        } else if (k == NODE_KIND::NT_ADD && sz >= 1) {
+            auto acc = constToNumber(n->getChild(0)); if (!acc) return std::nullopt;
+            for (size_t i = 1; i < sz; ++i) { auto c = constToNumber(n->getChild(i)); if (!c) return std::nullopt; acc = *acc + *c; }
+            return acc;
+        } else if (k == NODE_KIND::NT_SUB && sz >= 1) {
+            auto acc = constToNumber(n->getChild(0)); if (!acc) return std::nullopt;
+            if (sz == 1) return -*acc;
+            for (size_t i = 1; i < sz; ++i) { auto c = constToNumber(n->getChild(i)); if (!c) return std::nullopt; acc = *acc - *c; }
+            return acc;
+        } else if (k == NODE_KIND::NT_MUL && sz >= 1) {
+            auto acc = constToNumber(n->getChild(0)); if (!acc) return std::nullopt;
+            for (size_t i = 1; i < sz; ++i) { auto c = constToNumber(n->getChild(i)); if (!c) return std::nullopt; acc = *acc * *c; }
+            return acc;
+        }
+        return std::nullopt;
     }
 
     // High-performance iterative streaming version to avoid stack overflow
@@ -267,8 +307,7 @@ namespace SOMTParser{
             case NODE_KIND::NT_AND:
             case NODE_KIND::NT_OR:
             case NODE_KIND::NT_DISTINCT: {
-                const char* op = kind_cache[kind];
-                if (!op) op = kindToString(kind).c_str();
+                const std::string op = kind_cache[kind] ? kind_cache[kind] : kindToString(kind);
 
                 out << "(" << op;
                 const auto& children = node->getChildren();
@@ -783,6 +822,25 @@ namespace SOMTParser{
                 auto sb = node->getChild(1).get();
                 
                 if(node->getChildrenSize() == 4) {
+                    // Constant folding for output: ((_ to_fp eb sb) RM <const>) is
+                    // rounded to a concrete value and emitted as an (fp #b..)
+                    // literal, keeping the dumped term in the pure FP theory so
+                    // strict backends without the Reals theory (e.g. Bitwuzla)
+                    // accept it.  realToFpValue rounds the exact rational in one
+                    // correct step, so the literal matches native to_fp (no
+                    // change for lenient backends such as z3/cvc5).
+                    {
+                        auto fpsort = node->getSort();
+                        if (fpsort && fpsort->isFp()) {
+                            auto num = constToNumber(node->getChild(3));
+                            if (num) {
+                                mpfr_rnd_t rnd = FloatingPointUtils::getFPRoundingModeMpfr(node->getChild(2));
+                                auto fv = FloatingPointUtils::realToFpValue(
+                                    *num, fpsort->getExponentWidth(), fpsort->getSignificandWidth(), rnd);
+                                if (fv) { out << fv->toSMTFP(); break; }
+                            }
+                        }
+                    }
                     // 4-parameter version: ((_ to_fp eb sb) rm param)
                     auto rm = node->getChild(2).get();
                     auto param = node->getChild(3).get();

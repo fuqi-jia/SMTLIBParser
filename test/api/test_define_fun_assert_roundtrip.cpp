@@ -29,13 +29,15 @@ int main() {
 
     assert(ok && "parse should succeed");
     std::string dumped = parser->dumpSMT2();
+    std::cout << dumped;
 
     assert(dumped.find("(assert (eq x u))") != std::string::npos &&
            "dumpSMT2 must output (assert (eq x u)) with both arguments");
     assert(dumped.find("(define-fun eq ") != std::string::npos &&
            "dump must contain define-fun eq");
-    assert(dumped.find("(= x y)") != std::string::npos &&
-           "define-fun eq body must be (= x y)");
+    assert((dumped.find("(= x y)") != std::string::npos ||
+            dumped.find("(= y x)") != std::string::npos) &&
+           "define-fun eq body must preserve both parameters");
 
     std::cout << "define_fun_assert_roundtrip: parse + dump preserves (eq x u) and (= x y) OK" << std::endl;
     return 0;
