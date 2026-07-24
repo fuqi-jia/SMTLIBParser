@@ -79,3 +79,8 @@ conaninfo.txt
 # markdown
 *.md
 !README.md
+# python
+__pycache__/
+*.pyc
+dist/
+*.egg-info/

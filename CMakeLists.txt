@@ -19,6 +19,7 @@ endif()
 option(BUILD_SHARED_LIBS "Build shared libraries (.so/.dll)" OFF)
 option(BUILD_BOTH_LIBS "Build both static and shared libraries" ON)
 option(BUILD_TESTS "Build the tests" OFF)
+option(BUILD_PYTHON "Build Python bindings" OFF)
 option(ENABLE_DEBUG_SYMBOLS "Enable debug symbols for GDB support" OFF)
 option(ENABLE_TIMING "Enable timing profiler" OFF)
 
@@ -158,4 +159,25 @@ install(DIRECTORY include/somtparser DESTINATION include FILES_MATCHING PATTERN 
 # if needed, add test subdirectory
 if(BUILD_TESTS)
     add_subdirectory(test)
+endif()
+
+# Python bindings (pybind11); built as a wheel via scikit-build-core (see pyproject.toml)
+if(BUILD_PYTHON)
+    find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
+    find_package(pybind11 CONFIG REQUIRED)
+
+    # Pick whichever core library target exists in this configuration
+    if(TARGET somtparser_static)
+        set(SOMTPARSER_CORE_TARGET somtparser_static)
+    else()
+        set(SOMTPARSER_CORE_TARGET somtparser)
+    endif()
+    # Linking a static archive into a Python shared module requires PIC objects
+    set_target_properties(${SOMTPARSER_CORE_TARGET} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+    pybind11_add_module(_somtparser python/bindings.cpp)
+    target_link_libraries(_somtparser PRIVATE ${SOMTPARSER_CORE_TARGET})
+
+    # Destination is relative to wheel.install-dir in pyproject.toml
+    install(TARGETS _somtparser LIBRARY DESTINATION .)
 endif() 
