@@ -165,8 +165,28 @@ namespace SOMTParser{
             // floating point
             else if(isFp() && other.isFp()){
                 // For floating point types, compare exponent and significand widths
-                return getExponentWidth() == other.getExponentWidth() && 
+                return getExponentWidth() == other.getExponentWidth() &&
                     getSignificandWidth() == other.getSignificandWidth();
+            }
+
+            // bit-vectors: widths live in children, not in name/arity
+            else if(isBv() && other.isBv()){
+                return getBitWidth() == other.getBitWidth();
+            }
+
+            // arrays: compare index and element sorts recursively
+            else if(isArray() && other.isArray()){
+                if(children.size() != other.children.size()){
+                    return false;
+                }
+                for(size_t i = 0; i < children.size(); i++){
+                    if(!children[i] || !other.children[i]){
+                        if(children[i] != other.children[i]) return false;
+                        continue;
+                    }
+                    if(!(*children[i] == *other.children[i])) return false;
+                }
+                return true;
             }
 
             // other sorts

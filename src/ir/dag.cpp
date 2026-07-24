@@ -1063,12 +1063,53 @@ namespace SOMTParser{
     }
 
     void NodeManager::clear() {
-        // Clear non-static nodes only (preserve static constants)
+        // Unlink non-static nodes so that (a) destruction never recurses deeply
+        // through long child chains and (b) recursive-function definitions
+        // (which form reference cycles) cannot leak. Nodes that are still
+        // referenced from outside the manager (API users, language bindings)
+        // are preserved together with their whole subtree, so external holders
+        // never observe a cleared node.
+        //
+        // Internal owners of every managed node are exactly:
+        //   1 x nodes vector + 1 x bucket entry + one per parent child-link.
+        std::unordered_map<const DAGNode*, size_t> internal_refs;
+        internal_refs.reserve(nodes.size());
         for (size_t i = static_node_count; i < nodes.size(); i++) {
-            nodes[i]->clear();
+            internal_refs[nodes[i].get()] += 2; // nodes vector + bucket entry
+        }
+        for (size_t i = static_node_count; i < nodes.size(); i++) {
+            for (const auto& child : nodes[i]->getChildren()) {
+                auto it = internal_refs.find(child.get());
+                if (it != internal_refs.end()) it->second += 1;
+            }
+        }
+
+        // Roots referenced from outside; keep their whole subtrees intact.
+        std::unordered_set<const DAGNode*> keep;
+        std::vector<const DAGNode*> stack;
+        for (size_t i = static_node_count; i < nodes.size(); i++) {
+            const size_t uc = static_cast<size_t>(nodes[i].use_count());
+            auto it = internal_refs.find(nodes[i].get());
+            if (it != internal_refs.end() && uc > it->second) {
+                stack.push_back(nodes[i].get());
+            }
+        }
+        while (!stack.empty()) {
+            const DAGNode* n = stack.back();
+            stack.pop_back();
+            if (!keep.insert(n).second) continue;
+            for (const auto& child : n->getChildren()) {
+                stack.push_back(child.get());
+            }
+        }
+
+        for (size_t i = static_node_count; i < nodes.size(); i++) {
+            if (keep.find(nodes[i].get()) == keep.end()) {
+                nodes[i]->clear();
+            }
         }
         nodes.clear();
-        
+
         // Clear hash buckets and re-insert static nodes
         for (auto& bucket : node_buckets) {
             bucket.clear();
