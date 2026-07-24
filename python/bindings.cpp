@@ -64,6 +64,13 @@ void check_bv_same_width(const NodePtr& a, const NodePtr& b, const char* ctx) {
     }
 }
 
+/** SMT-LIB requires (_ BitVec m) with m >= 1. */
+void check_bv_width_positive(size_t width, const char* ctx) {
+    if (width < 1) {
+        throw py::value_error(std::string(ctx) + ": bit-vector width must be >= 1");
+    }
+}
+
 /** Size of dumpSMTLIB2(root) computed in O(|DAG|) with memoization,
  *  saturating at `cap`. The text expansion of a shared DAG is exponential
  *  in its depth, so __repr__ must know the size BEFORE dumping. */
@@ -652,7 +659,10 @@ PYBIND11_MODULE(_somtparser, m) {
         .def("string_sort", &Parser::mkStrSort)
         .def("regex_sort", &Parser::mkRegSort)
         .def("rounding_mode_sort", &Parser::mkRoundingModeSort)
-        .def("bv_sort", &Parser::mkBVSort, py::arg("width"))
+        .def("bv_sort", [](Parser& p, size_t width) {
+            check_bv_width_positive(width, "bv_sort");
+            return p.mkBVSort(width);
+        }, py::arg("width"))
         .def("fp_sort", &Parser::mkFPSort, py::arg("exponent"), py::arg("significand"))
         .def("array_sort", &Parser::mkArraySort, py::arg("index"), py::arg("elem"))
         .def("declare_sort", &Parser::mkSortDec, py::arg("name"), py::arg("arity"))
@@ -678,6 +688,7 @@ PYBIND11_MODULE(_somtparser, m) {
             return checked(p.mkVarReal(name), "var_real");
         }, py::arg("name"))
         .def("var_bv", [](Parser& p, const std::string& name, size_t width) {
+            check_bv_width_positive(width, "var_bv");
             return checked(p.mkVarBv(name, width), "var_bv");
         }, py::arg("name"), py::arg("width"))
         .def("var_fp", [](Parser& p, const std::string& name, size_t e, size_t s) {
@@ -715,6 +726,7 @@ PYBIND11_MODULE(_somtparser, m) {
         }, py::arg("value"), "String constant; pass raw text WITH surrounding quotes "
            "or an SMT-LIB literal (e.g. '\"abc\"')")
         .def("const_bv", [](Parser& p, const py::object& v, size_t width) {
+            check_bv_width_positive(width, "const_bv");
             return checked(p.mkConstBv(int_like_to_string(v, "const_bv"), width), "const_bv");
         }, py::arg("value"), py::arg("width"),
            "BitVec constant from int/str decimal value and bit width")
@@ -1078,6 +1090,7 @@ PYBIND11_MODULE(_somtparser, m) {
             return checked(p.mkBvToInt(a), "bv_to_int");
         }, py::arg("a"))
         .def("int_to_bv", [amount_node](Parser& p, const NodePtr& a, size_t width) {
+            check_bv_width_positive(width, "int_to_bv");
             return checked(p.mkIntToBv(a, amount_node(p, width)), "int_to_bv");
         }, py::arg("a"), py::arg("width"))
         .def("nat_to_bv", [amount_node](Parser& p, const NodePtr& a, size_t width) {

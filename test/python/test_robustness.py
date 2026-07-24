@@ -24,11 +24,14 @@ class TestMalformedInput:
         "(assert (let ((x)) x))",
     ])
     def test_bad_input_raises_not_crashes(self, text):
+        # NOTE: pytest.fail is used (not a sentinel exception) so that the
+        # failure cannot be swallowed by the pytest.raises block itself.
         p = sp.Parser()
-        with pytest.raises((sp.ParseError, ValueError, RuntimeError)):
+        try:
             p.parse_string(text)
-            # Force an error if parsing silently "succeeded" with garbage:
-            raise RuntimeError("parser accepted malformed input: " + text)
+        except (sp.ParseError, ValueError):
+            return
+        pytest.fail("parser accepted malformed input: " + text)
 
     def test_empty_input_ok(self):
         p = sp.Parser()
@@ -73,11 +76,12 @@ class TestNumericEdgeCases:
 
     def test_zero_width_bv_rejected(self):
         p = sp.Parser()
-        with pytest.raises((ValueError, sp.ParseError)):
-            v = p.var_bv("z", 0)
-            # If construction did not raise, the node must at least be an error
-            if not v.is_err:
-                raise ValueError("zero-width BV accepted")
+        with pytest.raises(ValueError):
+            p.var_bv("z", 0)
+        with pytest.raises(ValueError):
+            p.bv_sort(0)
+        with pytest.raises(ValueError):
+            p.const_bv(0, 0)
 
 
 class TestApiMisuse:

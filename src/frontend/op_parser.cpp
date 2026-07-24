@@ -2200,6 +2200,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_and", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_and", line_number);
+            return mkUnknown();
+        }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_AND, l, r);
     }
     std::shared_ptr<DAGNode> Parser::mkBvAnd(const std::vector<std::shared_ptr<DAGNode>> &params){
@@ -2224,6 +2228,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_and", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_and", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2240,6 +2249,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_or", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_or", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_OR, l, r);
@@ -2269,6 +2282,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_or", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_or", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2283,6 +2301,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_xor", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_xor", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_XOR, l, r);
@@ -2309,6 +2331,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_xor", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_xor", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2325,6 +2352,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_nand", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_nand", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_NAND, l, r);
@@ -2351,6 +2382,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_nand", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_nand", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2367,6 +2403,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_nor", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_nor", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_NOR, l, r);
@@ -2393,6 +2433,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_nor", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_nor", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2409,6 +2454,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_xnor", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_xnor", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_XNOR, l, r);
@@ -2435,6 +2484,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_xnor", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_xnor", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2451,6 +2505,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_comp", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_comp", line_number);
             return mkUnknown();
         }
         std::shared_ptr<Sort> sort = getSortManager()->createBVSort(1);
@@ -2471,6 +2529,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_add", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_add", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_ADD, l, r);
@@ -2496,6 +2558,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_add", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_add", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2512,6 +2579,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_sub", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_sub", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_SUB, l, r);
@@ -2537,6 +2608,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_sub", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_sub", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2553,6 +2629,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_mul", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_mul", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_MUL, l, r);
@@ -2578,6 +2658,11 @@ namespace SOMTParser{
                 err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_mul", line_number);
                 return mkUnknown();
             }
+            if(isBvParam(params[i]) && isBvParam(params[0]) &&
+               params[i]->getSort()->getBitWidth() != params[0]->getSort()->getBitWidth()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_mul", line_number);
+                return mkUnknown();
+            }
             new_params.emplace_back(params[i]);
         }
 
@@ -2596,6 +2681,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_udiv", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_udiv", line_number);
+            return mkUnknown();
+        }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_UDIV, l, r);
     }
     /*
@@ -2605,6 +2694,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_urem", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_urem", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_UREM, l, r);
@@ -2618,6 +2711,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_umod", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_umod", line_number);
+            return mkUnknown();
+        }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_UMOD, l, r);
     }
     /*
@@ -2627,6 +2724,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_sdiv", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_sdiv", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_SDIV, l, r);
@@ -2640,6 +2741,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_srem", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_srem", line_number);
+            return mkUnknown();
+        }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_SREM, l, r);
     }
     /*
@@ -2649,6 +2754,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_smod", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_smod", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_SMOD, l, r);
@@ -2662,6 +2771,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_shl", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_shl", line_number);
+            return mkUnknown();
+        }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_SHL, l, r);
     }
     /*
@@ -2673,6 +2786,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_lshr", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_lshr", line_number);
+            return mkUnknown();
+        }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_LSHR, l, r);
     }
     /*
@@ -2682,6 +2799,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_ashr", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_ashr", line_number);
             return mkUnknown();
         }
         return mkOper(l->getSort(), NODE_KIND::NT_BV_ASHR, l, r);
@@ -2810,6 +2931,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_ult", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_ult", line_number);
+            return mkUnknown();
+        }
         else if(l == r){
             return mkFalse();
         }
@@ -2822,6 +2947,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_ule", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_ule", line_number);
             return mkUnknown();
         }
 
@@ -2844,6 +2973,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_ugt", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_ugt", line_number);
+            return mkUnknown();
+        }
 
         if(l->isCBV() && r->isCBV()){
             return BitVectorUtils::bvComp(l->toString(), r->toString(), NODE_KIND::NT_BV_UGT) ? mkTrue() : mkFalse();
@@ -2862,6 +2995,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_uge", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_uge", line_number);
             return mkUnknown();
         }
 
@@ -2884,6 +3021,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_slt", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_slt", line_number);
+            return mkUnknown();
+        }
 
         if(l->isCBV() && r->isCBV()){
             return BitVectorUtils::bvComp(l->toString(), r->toString(), NODE_KIND::NT_BV_SLT) ? mkTrue() : mkFalse();
@@ -2902,6 +3043,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_sle", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_sle", line_number);
             return mkUnknown();
         }
 
@@ -2924,6 +3069,10 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_sgt", line_number);
             return mkUnknown();
         }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_sgt", line_number);
+            return mkUnknown();
+        }
 
         if(l->isCBV() && r->isCBV()){
             return BitVectorUtils::bvComp(l->toString(), r->toString(), NODE_KIND::NT_BV_SGT) ? mkTrue() : mkFalse();
@@ -2942,6 +3091,10 @@ namespace SOMTParser{
         
         if(!isBvParam(l) || !isBvParam(r)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_sge", line_number);
+            return mkUnknown();
+        }
+        if(l->getSort()->getBitWidth() != r->getSort()->getBitWidth()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Bit-width mismatch in bv_sge", line_number);
             return mkUnknown();
         }
 
