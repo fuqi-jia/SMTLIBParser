@@ -408,7 +408,7 @@ class TestTransformations:
         r = p.replace_nodes(g, {v: w})
         assert r.to_smt2() == "(> w 0)"
 
-    def test_negate_flip_mirror_comp(self):
+    def test_negate_converse_mirror_comp(self):
         p = sp.Parser()
         v = p.var_int("v")
         lt = p.lt(v, p.const_int(3))
@@ -416,8 +416,8 @@ class TestTransformations:
         neg = p.negate_comp(lt)
         assert neg.is_ge
         assert neg[1].value == 3
-        # flip: converse relation, operator unchanged: (v < 3) -> (3 < v)
-        flipped = p.flip_comp(lt)
+        # converse: reversed relation, operator unchanged: (v < 3) -> (3 < v)
+        flipped = p.converse_comp(lt)
         assert flipped.is_lt
         assert flipped[0].value == 3
         # mirror: equivalent rewrite: (v < 3) -> (3 > v)
@@ -426,7 +426,7 @@ class TestTransformations:
         assert mirrored[0].value == 3
         # eq/distinct are symmetric: both leave them unchanged
         eq = p.eq(v, p.const_int(3))
-        assert p.flip_comp(eq) == eq
+        assert p.converse_comp(eq) == eq
         assert p.mirror_comp(eq) == eq
 
     def test_collect_vars(self):

@@ -4513,7 +4513,7 @@ namespace SOMTParser{
         return mkNot(atom);
     }
 
-    std::shared_ptr<DAGNode> Parser::flipComp(std::shared_ptr<DAGNode> atom){
+    std::shared_ptr<DAGNode> Parser::converseComp(std::shared_ptr<DAGNode> atom){
         if(atom->isErr()) return atom;
 
         // symmetric relations: the converse is the relation itself
@@ -4522,7 +4522,7 @@ namespace SOMTParser{
         }
 
         // converse: swap the operands, keep the operator.
-        // flipComp(x < 3) = (3 < x), i.e. x > 3 — NOT equivalent to the input.
+        // converseComp(x < 3) = (3 < x), i.e. x > 3 — NOT equivalent to the input.
         if(atom->isArithComp() || atom->isBVCompOp() || atom->isFPComp() || atom->isStrComp()){
             return mkOper(SortManager::BOOL_SORT, atom->getKind(), {atom->getChild(1), atom->getChild(0)});
         }

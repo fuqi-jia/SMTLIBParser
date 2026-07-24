@@ -1350,8 +1350,8 @@ PYBIND11_MODULE(_somtparser, m) {
         .def("negate_comp", [](Parser& p, const NodePtr& atom) {
             return checked(p.negateComp(atom), "negate_comp");
         }, py::arg("atom"), "Negate a comparison atom (e.g. < becomes >=)")
-        .def("flip_comp", [](Parser& p, const NodePtr& atom) {
-            return checked(p.flipComp(atom), "flip_comp");
+        .def("converse_comp", [](Parser& p, const NodePtr& atom) {
+            return checked(p.converseComp(atom), "converse_comp");
         }, py::arg("atom"),
            "Converse of a comparison atom: swap operands, keep the operator "
            "(a < b becomes b < a, i.e. the reversed relation, NOT equivalent)")
