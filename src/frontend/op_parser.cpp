@@ -550,9 +550,41 @@ namespace SOMTParser{
         }
     }
     // CONST
+    // defined in base_parser.cpp
+    char* safe_strdup(const std::string& str);
+
     std::shared_ptr<DAGNode> Parser::declareVar(const std::string &name, const std::string &sort){
         std::shared_ptr<Sort> s = getSymbolManager()->resolveSort(sort);
-        condAssert(s, "declareVar: sort not found");
+        if(!s){
+            // Builtin and composite sorts (e.g. "Int", "(_ BitVec 8)",
+            // "(Array Int Int)") are not registered in the symbol table.
+            // Parse the sort text with a temporary buffer, mirroring mkExpr.
+            // Never dereference a null sort (previously a crash in release
+            // builds where condAssert is a no-op).
+            if(sort.empty()){
+                return mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
+            }
+            parsing_file = false;
+            buffer = safe_strdup(sort);
+            if(!buffer){
+                return mkErr(ERROR_TYPE::ERR_UNEXP_EOF);
+            }
+            buflen = sort.length();
+            bufptr = buffer;
+            if (buflen > 0) line_number = 1;
+            try {
+                scanToNextSymbol();
+                s = parseSort();
+            } catch (const ParseErrorException&) {
+                s = nullptr;
+            }
+            bufptr = nullptr;
+            delete[] buffer;
+            buffer = nullptr;
+        }
+        if(!s || s->isNull() || s->isUnknown()){
+            return mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
+        }
         return mkVar(s, name);
     }
     std::shared_ptr<DAGNode> Parser::declareVar(const std::string &name, const std::shared_ptr<Sort> &sort){
@@ -2719,7 +2751,8 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_zero_ext", line_number);
             return mkUnknown();
         }
-        size_t width = toInt(r).toULong();
+        // ((_ zero_extend i) x) appends i bits: width = |x| + i (matches evaluateBvZeroExt)
+        size_t width = l->getSort()->getBitWidth() + toInt(r).toULong();
         std::shared_ptr<Sort> new_sort = getSortManager()->createBVSort(width);
         return mkOper(new_sort, NODE_KIND::NT_BV_ZERO_EXT, l, r);
     }
@@ -2732,7 +2765,8 @@ namespace SOMTParser{
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in bv_sign_ext", line_number);
             return mkUnknown();
         }
-        size_t width = toInt(r).toULong();
+        // ((_ sign_extend i) x) appends i bits: width = |x| + i (matches evaluateBvSignExt)
+        size_t width = l->getSort()->getBitWidth() + toInt(r).toULong();
         std::shared_ptr<Sort> new_sort = getSortManager()->createBVSort(width);
 
         return mkOper(new_sort, NODE_KIND::NT_BV_SIGN_EXT, l, r);
@@ -4482,30 +4516,40 @@ namespace SOMTParser{
     std::shared_ptr<DAGNode> Parser::flipComp(std::shared_ptr<DAGNode> atom){
         if(atom->isErr()) return atom;
 
+        // symmetric relations: operand order does not matter
         if(atom->isEq() || atom->isDistinct()){
             return atom;
         }
 
-        // negate an arithmetic atom
-        if(atom->isArithComp()){
-            return mkOper(SortManager::BOOL_SORT, atom->getKind(), {atom->getChild(1), atom->getChild(0)});
+        // mirror the comparison: swap the operands AND flip the operator,
+        // so the result is equivalent to the input, e.g. (< x 3) -> (> 3 x)
+        NODE_KIND flipped = NODE_KIND::NT_UNKNOWN;
+        switch(atom->getKind()){
+            case NODE_KIND::NT_LT:     flipped = NODE_KIND::NT_GT;     break;
+            case NODE_KIND::NT_LE:     flipped = NODE_KIND::NT_GE;     break;
+            case NODE_KIND::NT_GT:     flipped = NODE_KIND::NT_LT;     break;
+            case NODE_KIND::NT_GE:     flipped = NODE_KIND::NT_LE;     break;
+            case NODE_KIND::NT_BV_ULT: flipped = NODE_KIND::NT_BV_UGT; break;
+            case NODE_KIND::NT_BV_ULE: flipped = NODE_KIND::NT_BV_UGE; break;
+            case NODE_KIND::NT_BV_UGT: flipped = NODE_KIND::NT_BV_ULT; break;
+            case NODE_KIND::NT_BV_UGE: flipped = NODE_KIND::NT_BV_ULE; break;
+            case NODE_KIND::NT_BV_SLT: flipped = NODE_KIND::NT_BV_SGT; break;
+            case NODE_KIND::NT_BV_SLE: flipped = NODE_KIND::NT_BV_SGE; break;
+            case NODE_KIND::NT_BV_SGT: flipped = NODE_KIND::NT_BV_SLT; break;
+            case NODE_KIND::NT_BV_SGE: flipped = NODE_KIND::NT_BV_SLE; break;
+            case NODE_KIND::NT_FP_LT:  flipped = NODE_KIND::NT_FP_GT;  break;
+            case NODE_KIND::NT_FP_LE:  flipped = NODE_KIND::NT_FP_GE;  break;
+            case NODE_KIND::NT_FP_GT:  flipped = NODE_KIND::NT_FP_LT;  break;
+            case NODE_KIND::NT_FP_GE:  flipped = NODE_KIND::NT_FP_LE;  break;
+            case NODE_KIND::NT_STR_LT: flipped = NODE_KIND::NT_STR_GT; break;
+            case NODE_KIND::NT_STR_LE: flipped = NODE_KIND::NT_STR_GE; break;
+            case NODE_KIND::NT_STR_GT: flipped = NODE_KIND::NT_STR_LT; break;
+            case NODE_KIND::NT_STR_GE: flipped = NODE_KIND::NT_STR_LE; break;
+            default:
+                // not a mirrorable comparison
+                return atom;
         }
-
-        // negate a bitvector atom
-        if(atom->isBVCompOp()){
-            return mkOper(SortManager::BOOL_SORT, atom->getKind(), {atom->getChild(1), atom->getChild(0)});
-        }
-
-        if(atom->isFPComp()){
-            return mkOper(SortManager::BOOL_SORT, atom->getKind(), {atom->getChild(1), atom->getChild(0)});
-        }
-
-        if(atom->isStrComp()){
-            return mkOper(SortManager::BOOL_SORT, atom->getKind(), {atom->getChild(1), atom->getChild(0)});
-        }
-
-        // for other types of atoms, use the general negation operation
-        return atom;
+        return mkOper(SortManager::BOOL_SORT, flipped, {atom->getChild(1), atom->getChild(0)});
     }
 
     int Parser::getArity(NODE_KIND k) const{
