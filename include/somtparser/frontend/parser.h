@@ -204,7 +204,7 @@ namespace SOMTParser{
                                                         array_canonical_cache;
 
         // result
-        RESULT_TYPE                                   result_type;
+        RESULT_TYPE                                   result_type = RESULT_TYPE::RT_UNKNOWN;
         std::shared_ptr<DAGNode>                      result_node;
         std::shared_ptr<Model>                        result_model;
 
@@ -222,6 +222,10 @@ namespace SOMTParser{
          *  the start of each nextCommand(). */
         std::vector<std::shared_ptr<DAGNode>>         pending_value_terms_;
         std::string                                   pending_keyword_;
+        std::shared_ptr<DAGNode>                      pending_expr_;   // assert
+        std::string                                   pending_name_;   // declare-const/declare-fun
+        std::shared_ptr<Sort>                         pending_sort_;   // declare-const/declare-fun
+        std::string                                   pending_logic_;  // set-logic
 
     public:
         
