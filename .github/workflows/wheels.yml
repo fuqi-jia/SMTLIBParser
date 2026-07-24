@@ -1,0 +1,87 @@
+name: Build Wheels
+
+# Builds distributable wheels for PyPI:
+#  - manylinux x86_64 (GMP/MPFR from yum, vendored by auditwheel)
+#  - macOS x86_64 + arm64 (GMP/MPFR from Homebrew, vendored by delocate)
+#  - Windows AMD64 (GMP/MPFR from vcpkg, vendored by delvewheel)
+# plus the sdist. Runs on demand (workflow_dispatch) and on version tags;
+# a v* tag additionally publishes to PyPI via trusted publishing.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: [ "v*" ]
+
+jobs:
+  build_sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  build_wheels:
+    name: Wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-13, macos-14, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GMP/MPFR (macOS)
+        if: runner.os == 'macOS'
+        run: brew install pkg-config gmp mpfr
+
+      - name: Install GMP/MPFR (Windows, vcpkg)
+        if: runner.os == 'Windows'
+        run: vcpkg install gmp:x64-windows mpfr:x64-windows
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3
+        env:
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "pp* *musllinux*"
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_MACOS: auto
+          CIBW_ARCHS_WINDOWS: AMD64
+          # manylinux containers are yum-based
+          CIBW_BEFORE_ALL_LINUX: yum install -y gmp-devel mpfr-devel
+          CIBW_ENVIRONMENT_MACOS: >-
+            CMAKE_ARGS="-DCMAKE_PREFIX_PATH=/opt/homebrew;/usr/local"
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: delvewheel repair -w {dest_dir} {wheel}
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: pytest {project}/test/python -q
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  publish:
+    name: Publish to PyPI
+    needs: [build_wheels, build_sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # trusted publishing, no API token needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
