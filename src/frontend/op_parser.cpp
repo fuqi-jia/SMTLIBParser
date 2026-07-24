@@ -4516,6 +4516,24 @@ namespace SOMTParser{
     std::shared_ptr<DAGNode> Parser::flipComp(std::shared_ptr<DAGNode> atom){
         if(atom->isErr()) return atom;
 
+        // symmetric relations: the converse is the relation itself
+        if(atom->isEq() || atom->isDistinct()){
+            return atom;
+        }
+
+        // converse: swap the operands, keep the operator.
+        // flipComp(x < 3) = (3 < x), i.e. x > 3 — NOT equivalent to the input.
+        if(atom->isArithComp() || atom->isBVCompOp() || atom->isFPComp() || atom->isStrComp()){
+            return mkOper(SortManager::BOOL_SORT, atom->getKind(), {atom->getChild(1), atom->getChild(0)});
+        }
+
+        // not a comparison atom
+        return atom;
+    }
+
+    std::shared_ptr<DAGNode> Parser::mirrorComp(std::shared_ptr<DAGNode> atom){
+        if(atom->isErr()) return atom;
+
         // symmetric relations: operand order does not matter
         if(atom->isEq() || atom->isDistinct()){
             return atom;

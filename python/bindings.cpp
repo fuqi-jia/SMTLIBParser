@@ -1352,7 +1352,14 @@ PYBIND11_MODULE(_somtparser, m) {
         }, py::arg("atom"), "Negate a comparison atom (e.g. < becomes >=)")
         .def("flip_comp", [](Parser& p, const NodePtr& atom) {
             return checked(p.flipComp(atom), "flip_comp");
-        }, py::arg("atom"), "Flip a comparison atom (e.g. a < b becomes b > a)")
+        }, py::arg("atom"),
+           "Converse of a comparison atom: swap operands, keep the operator "
+           "(a < b becomes b < a, i.e. the reversed relation, NOT equivalent)")
+        .def("mirror_comp", [](Parser& p, const NodePtr& atom) {
+            return checked(p.mirrorComp(atom), "mirror_comp");
+        }, py::arg("atom"),
+           "Equivalent mirrored form of a comparison atom: swap operands AND "
+           "flip the operator (a < b becomes b > a, same meaning)")
         .def("arith_normalize", [](Parser& p, const NodePtr& expr) {
             return checked(p.arithNormalize(expr), "arith_normalize");
         }, py::arg("expr"))

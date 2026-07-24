@@ -276,7 +276,7 @@ top, clauses = p.to_tseitin_cnf(p.assertions)
   quantifiers, uninterpreted/defined functions. Invalid constructions raise
   `ValueError` / `TypeError` instead of returning broken nodes.
 - **Transformations**: `substitute`, `replace_nodes`, `expand_let`,
-  `negate_comp`/`flip_comp`, `binarize_op`, `collect_vars`/`collect_atoms`,
+  `negate_comp`/`flip_comp`/`mirror_comp`, `binarize_op`, `collect_vars`/`collect_atoms`,
   NNF / CNF / DNF / Tseitin CNF with atom-abstraction maps.
 - **Models & evaluation**: dict-like `Model`, `parse_model` for solver output,
   exact big-integer/rational values (`Fraction`), partial-model evaluation.

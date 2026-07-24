@@ -3430,12 +3430,32 @@ namespace SOMTParser{
 
         // flip a comparison atom
         /**
-         * @brief Flip a comparison atom
-         * 
+         * @brief Flip a comparison atom to its converse relation
+         *
+         * @note Swaps the operands while keeping the operator, i.e. the
+         *       result is the CONVERSE of the input, not an equivalent form:
+         *       flipComp(x < 3) = (3 < x), which means x > 3.
+         *       Symmetric relations (=, distinct) are returned unchanged.
+         *       For an equivalence-preserving rewrite use mirrorComp().
+         *
          * @param atom Comparison atom to flip
-         * @return Flipped comparison atom
+         * @return Flipped (converse) comparison atom
          */
         std::shared_ptr<DAGNode>	            flipComp(std::shared_ptr<DAGNode> atom);
+
+        // mirror a comparison atom
+        /**
+         * @brief Rewrite a comparison atom into its mirrored equivalent form
+         *
+         * @note Swaps the operands AND flips the operator, so the result is
+         *       logically EQUIVALENT to the input:
+         *       mirrorComp(x < 3) = (3 > x), which still means x < 3.
+         *       Atoms without a mirrored operator are returned unchanged.
+         *
+         * @param atom Comparison atom to mirror
+         * @return Equivalent mirrored comparison atom
+         */
+        std::shared_ptr<DAGNode>	            mirrorComp(std::shared_ptr<DAGNode> atom);
         
         // evaluate: return true if the evaluation has changed the expression
         /**
