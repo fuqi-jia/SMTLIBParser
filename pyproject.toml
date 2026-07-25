@@ -1,0 +1,45 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "somtparser"
+version = "0.2.0"
+description = "Python bindings for SOMTParser - a solver-independent SMT-LIB/OMT front-end library"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [{name = "Fuqi Jia", email = "jiafq@ios.ac.cn"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+]
+
+[project.urls]
+Homepage = "https://github.com/fuqi-jia/SOMTParser"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[tool.scikit-build]
+cmake.args = [
+    "-DBUILD_PYTHON=ON",
+    "-DBUILD_SHARED_LIBS=OFF",
+    "-DSOMTPARSER_BUILD_TESTS=OFF",
+]
+wheel.packages = ["python/somtparser"]
+wheel.install-dir = "somtparser"
+
+[tool.pytest.ini_options]
+testpaths = ["test/python"]

@@ -10,6 +10,7 @@ list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 option(SOMTPARSER_BUILD_TESTS "Build SOMTParser tests" OFF)
 option(SOMTPARSER_WARNINGS_AS_ERRORS "Treat SOMTParser warnings as errors" OFF)
 option(SOMTPARSER_ENABLE_TIMING "Enable the timing profiler" OFF)
+option(BUILD_PYTHON "Build the Python bindings module" OFF)
 
 if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -86,3 +87,11 @@ install(FILES
     cmake/FindGMP.cmake
     cmake/FindMPFR.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SOMTParser)
+
+if(BUILD_PYTHON)
+    find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(pybind11 CONFIG REQUIRED)
+    pybind11_add_module(_somtparser python/bindings.cpp)
+    target_link_libraries(_somtparser PRIVATE SOMTParser::somtparser)
+    install(TARGETS _somtparser LIBRARY DESTINATION .)
+endif()

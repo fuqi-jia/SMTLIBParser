@@ -1091,6 +1091,10 @@ namespace SOMTParser{
 			// get returned type
 			std::shared_ptr<DAGNode> res = nullptr;
 			std::shared_ptr<Sort> sort = parseSort();
+			if(!sort || sort->isNull()){
+				// (declare-const x) with the sort missing
+				err_all(ERROR_TYPE::ERR_PARAM_MIS, "declare-const requires a sort", name_ln);
+			}
 			res = mkVar(sort, name);
 			pending_command_name_ = name;
 			pending_command_sort_ = sort;
@@ -1121,6 +1125,9 @@ namespace SOMTParser{
 				// (declare-fun <symbol> () <sort>)
 				parseRpar();
 				std::shared_ptr<Sort> out_sort = parseSort();
+				if(!out_sort || out_sort->isNull()){
+					err_all(ERROR_TYPE::ERR_PARAM_MIS, "declare-fun requires a return sort", name_ln);
+				}
 				res = mkVar(out_sort, name);
 				if(!res->isErr()) context_.registerVarInScope(name);
 			}

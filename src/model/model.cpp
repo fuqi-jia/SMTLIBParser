@@ -56,8 +56,19 @@ namespace SOMTParser{
     }
 
     void Model::add(const std::string &name, const std::shared_ptr<DAGNode> &value){
-        condAssert(model_name_index.find(name) != model_name_index.end(), "Model::add: name not found");
-        model_values[model_name_index[name]] = value;
+        // Upsert: create the entry when the name is unknown. The previous
+        // precondition (name already registered) turned into an out-of-bounds
+        // write in release builds where condAssert is a no-op.
+        auto it = model_name_index.find(name);
+        if(it == model_name_index.end()){
+            model_name_index[name] = model_vars.size();
+            model_vars.emplace_back(std::make_shared<DAGNode>(
+                value ? value->getSort() : SortManager::UNKNOWN_SORT,
+                NODE_KIND::NT_VAR, name));
+            model_values.emplace_back(value);
+            return;
+        }
+        model_values[it->second] = value;
     }
 
     std::shared_ptr<DAGNode> Model::get(const std::shared_ptr<DAGNode> &node){

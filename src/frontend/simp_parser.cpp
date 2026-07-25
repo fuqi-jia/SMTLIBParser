@@ -577,7 +577,7 @@ namespace SOMTParser{
                     }
                 }
                 else{
-                    err_all(p, "Prime check on non-integer", line_number);
+                    // symbolic operand: legal, just not foldable
                     return mkUnknown();
                 }
             }
@@ -592,7 +592,7 @@ namespace SOMTParser{
                     }
                 }
                 else{
-                    err_all(p, "Even check on non-integer", line_number);
+                    // symbolic operand: legal, just not foldable
                     return mkUnknown();
                 }
             }
@@ -607,7 +607,7 @@ namespace SOMTParser{
                     }
                 }
                 else{
-                    err_all(p, "Odd check on non-integer", line_number);
+                    // symbolic operand: legal, just not foldable
                     return mkUnknown();
                 }
             }
@@ -626,7 +626,7 @@ namespace SOMTParser{
                     }
                 }
                 else{
-                    err_all(p, "Factorial on non-integer", line_number);
+                    // symbolic operand: legal, just not foldable
                     return mkUnknown();
                 }
             }
@@ -1124,34 +1124,24 @@ namespace SOMTParser{
                 return mkUnknown();
             }
             case NODE_KIND::NT_IS_DIVISIBLE:{
+                // Fold only when both operands are integer constants; symbolic
+                // operands (e.g. variables) are legal and stay unsimplified.
                 if(l->isCInt() && r->isCInt()){
                     return toInt(l) % toInt(r) == 0 ? mkTrue() : mkFalse();
                 }
-                else{
-                    err_all(l, "Is divisible on non-integer", line_number);
-                    err_all(r, "Is divisible on non-integer", line_number);
-                    return mkUnknown();
-                }
+                return mkUnknown();
             }
             case NODE_KIND::NT_GCD:{
                 if(l->isCInt() && r->isCInt()){
                     return mkConstInt(MathUtils::gcd(toInt(l), toInt(r)));
                 }
-                else{
-                    err_all(l, "GCD on non-integer", line_number);
-                    err_all(r, "GCD on non-integer", line_number);
-                    return mkUnknown();
-                }
+                return mkUnknown();
             }
             case NODE_KIND::NT_LCM:{
                 if(l->isCInt() && r->isCInt()){
                     return mkConstInt(MathUtils::lcm(toInt(l), toInt(r)));
                 }
-                else{
-                    err_all(l, "LCM on non-integer", line_number);
-                    err_all(r, "LCM on non-integer", line_number);
-                    return mkUnknown();
-                }
+                return mkUnknown();
             }
             case NODE_KIND::NT_BV_UDIV:{
                 // division by zero evaluates to all ones.

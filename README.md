@@ -185,6 +185,79 @@ add_executable(your_application main.cpp)
 target_link_libraries(your_application PRIVATE SOMTParser::somtparser)
 ```
 
+## Python Bindings
+
+SOMTParser ships first-class Python bindings (pybind11) exposing the full
+parsing, expression-building, transformation, model-evaluation and OMT API.
+
+### Install
+
+```bash
+# from the repository root (requires a C++17 compiler, GMP and MPFR)
+pip install .
+```
+
+This builds a wheel via scikit-build-core with the static C++ core compiled in.
+(A prebuilt package on PyPI — `pip install somtparser` — is planned.)
+
+### Quick Start
+
+```python
+import somtparser as sp
+
+# Parse SMT-LIB2 / OMT input
+p = sp.parse("""
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (> (+ x y) 0))
+(minimize x)
+""")
+print(p.assertions[0].to_smt2())   # (> (+ x y) 0)
+print(p.objectives[0].is_minimize) # True
+
+# Build expressions programmatically
+q = sp.Parser()
+a, b = q.var_int("a"), q.var_int("b")
+q.assert_(q.gt(q.add(a, b), q.const_int(0)))
+
+# Evaluate under a solver model
+m = p.parse_model("(model (define-fun x () Int 3) (define-fun y () Int 4))")
+print(p.evaluate(p.assertions[0], m).value)  # True
+
+# Normal forms
+nnf = p.to_nnf(p.assertions[0])
+top, clauses = p.to_tseitin_cnf(p.assertions)
+```
+
+### Feature Overview
+
+- **Parsing**: `parse`, `parse_file`, incremental `parse_string`, `push`/`pop`,
+  strict-mode and option control; parse errors raise `somtparser.ParseError`.
+- **Expression building**: all SMT-LIB theories — Bool, Int/Real (incl.
+  transcendental functions), BitVec, FloatingPoint, String/RegLan, Array,
+  quantifiers, uninterpreted/defined functions. Invalid constructions raise
+  `ValueError` / `TypeError` instead of returning broken nodes.
+- **Transformations**: `substitute`, `replace_nodes`, `expand_let`,
+  `negate_comp`/`converse_comp`/`mirror_comp`, `binarize_op`,
+  `collect_vars`/`collect_atoms`,
+  NNF / CNF / DNF / Tseitin CNF with atom-abstraction maps.
+- **Models & evaluation**: dict-like `Model`, `parse_model` for solver output,
+  exact big-integer/rational values (`Fraction`), partial-model evaluation.
+- **OMT**: `minimize`/`maximize`/`define-objective`/`lex-optimize`/
+  `pareto-optimize`/`box-optimize`/`maxsat`, soft assertions with weights and
+  groups, exposed via `parser.objectives`.
+- **Safety**: nodes stay valid after their `Parser` is garbage-collected;
+  arbitrary-precision Python ints map to GMP exactly; type stubs
+  (`py.typed`, `.pyi`) included.
+
+### Running the Python Tests
+
+```bash
+pip install pytest
+pytest test/python -q
+```
+
 ## Configuration Options
 
 SOMTParser provides various configuration options through the `GlobalOptions` class to control parsing behavior, evaluation settings, and other aspects.
