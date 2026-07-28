@@ -84,6 +84,67 @@ class TestCNF:
         assert not p.is_cnf(f)
 
 
+class TestCNFAssertedPosition:
+    """Top-level (asserted) structure is encoded directly: conjunctions are
+    split into independently asserted conjuncts, literals become unit clauses,
+    and an asserted or/xor/implies is emitted as its clausal form. No Tseitin
+    definition variable is introduced for the root connective."""
+
+    def test_atomic_conjuncts_become_units(self, p):
+        # (and (xor A B) C) plus D: only the xor needs encoding (2 clauses);
+        # C and D are asserted directly as unit clauses.
+        f1 = p.expr("(and (xor (>= x 1) (>= y 2)) (>= y -5))")
+        f2 = p.expr("(= x y)")
+        cnf = p.to_cnf([f1, f2])
+        assert p.is_cnf(cnf)
+        assert cnf.is_and
+        clauses = cnf.children
+        assert len(clauses) == 4
+        units = [c for c in clauses if not c.is_or]
+        binaries = [c for c in clauses if c.is_or]
+        assert len(units) == 2 and len(binaries) == 2
+        assert all(c.num_children == 2 for c in binaries)
+        # exactly the 4 atom abstractions -- no extra definition variables
+        assert len(p.cnf_bool_vars()) == 4
+
+    def test_asserted_disjunction_is_single_clause(self, p):
+        cnf = p.to_cnf(p.expr("(or (> x 0) (< y 2) (= x y))"))
+        assert cnf.is_or
+        assert cnf.num_children == 3
+        assert len(p.cnf_bool_vars()) == 3
+
+    def test_asserted_implies_is_single_clause(self, p):
+        cnf = p.to_cnf(p.expr("(=> (> x 0) (< y 2))"))
+        assert cnf.is_or
+        assert cnf.num_children == 2
+
+    def test_nested_structure_still_gets_definitions(self, p):
+        # (or (and A B) C): the nested conjunction still needs a definition
+        # variable, so the result is the top clause plus definition clauses.
+        cnf = p.to_cnf(p.expr("(or (and (> x 0) (< x 9)) (= x 100))"))
+        assert p.is_cnf(cnf)
+        assert cnf.is_and
+        assert cnf.num_children > 1
+
+    def test_asserted_xor_semantics_over_booleans(self):
+        # Over Boolean variables no abstraction happens, so the CNF can be
+        # evaluated directly and compared with the original formula.
+        import itertools
+
+        q = sp.parse("(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)")
+        f = q.expr("(and (xor a b) c)")
+        cnf = q.to_cnf(f)
+        assert q.is_cnf(cnf)
+        for va, vb, vc in itertools.product([True, False], repeat=3):
+            m = sp.Model()
+            m.add("a", q.true_() if va else q.false_())
+            m.add("b", q.true_() if vb else q.false_())
+            m.add("c", q.true_() if vc else q.false_())
+            expected = (va != vb) and vc
+            assert q.evaluate(f, m).value == expected, (va, vb, vc)
+            assert q.evaluate(cnf, m).value == expected, (va, vb, vc)
+
+
 class TestTseitin:
     def test_standalone_tseitin(self, p):
         f = p.expr("(or (and (> x 0) (< x 9)) (= x 100))")
