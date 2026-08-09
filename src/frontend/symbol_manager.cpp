@@ -185,6 +185,7 @@ bool SymbolManager::hasFunVar(const std::string& name) const {
 }
 
 void SymbolManager::registerSort(const std::string& name, const std::shared_ptr<Sort>& sort) {
+    if (sort_key_map_.find(name) == sort_key_map_.end()) sort_order_.push_back(name);
     sort_key_map_[name] = sort;
 }
 
@@ -214,6 +215,7 @@ bool SymbolManager::hasQuantVar(const std::string& name) const {
 }
 
 void SymbolManager::registerVar(const std::string& name, const std::shared_ptr<DAGNode>& node) {
+    if (var_names_.find(name) == var_names_.end()) var_order_.push_back(name);
     var_names_[name] = node;
 }
 
@@ -248,6 +250,7 @@ size_t SymbolManager::nextTempVarCounter() {
 }
 
 void SymbolManager::registerTempVar(const std::string& name, const std::shared_ptr<DAGNode>& node) {
+    if (temp_var_names_.find(name) == temp_var_names_.end()) temp_var_order_.push_back(name);
     temp_var_names_[name] = node;
 }
 
@@ -319,6 +322,18 @@ void SymbolManager::addStaticFunction(const std::shared_ptr<DAGNode>& node) {
 
 const std::vector<std::shared_ptr<DAGNode>>& SymbolManager::getStaticFunctions() const {
     return static_functions_;
+}
+
+const std::vector<std::string>& SymbolManager::getSortOrder() const {
+    return sort_order_;
+}
+
+const std::vector<std::string>& SymbolManager::getVarOrder() const {
+    return var_order_;
+}
+
+const std::vector<std::string>& SymbolManager::getTempVarOrder() const {
+    return temp_var_order_;
 }
 
 const std::unordered_map<std::string, std::shared_ptr<Sort>>& SymbolManager::getSortKeyMap() const {
