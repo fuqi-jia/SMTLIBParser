@@ -2,20 +2,20 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
-#include <cassert>
+#include "test_helpers.h"
 
 // Test basic boolean constants
 void test_boolean_constants(SOMTParser::ParserPtr& parser) {
     std::cout << "=== Testing Boolean Constants ===" << std::endl;
     auto t = parser->mkExpr("true");
-    assert(t && t->isTrue() && !t->isFalse());
+    VERIFY(t && t->isTrue() && !t->isFalse());
     std::cout << "Expression: true" << std::endl;
     std::cout << "  Result: " << parser->toString(t) << std::endl;
     std::cout << "  isTrue: yes" << std::endl;
     std::cout << "  isFalse: no" << std::endl << std::endl;
 
     auto f = parser->mkExpr("false");
-    assert(f && f->isFalse() && !f->isTrue());
+    VERIFY(f && f->isFalse() && !f->isTrue());
     std::cout << "Expression: false" << std::endl;
     std::cout << "  Result: " << parser->toString(f) << std::endl;
     std::cout << "  isTrue: no" << std::endl;
@@ -46,8 +46,8 @@ void test_logical_operations(SOMTParser::ParserPtr& parser) {
     for (const auto& p : cases) {
         std::cout << "Expression: " << p.first << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(p.first);
-        assert(result);
-        assert(result->isTrue() == p.second || result->isFalse() == !p.second);
+        VERIFY(result);
+        VERIFY(result->isTrue() == p.second || result->isFalse() == !p.second);
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -68,8 +68,8 @@ void test_complex_expressions(SOMTParser::ParserPtr& parser) {
     for (const auto& p : cases) {
         std::cout << "Expression: " << p.first << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(p.first);
-        assert(result);
-        assert(result->isTrue() == p.second || result->isFalse() == !p.second);
+        VERIFY(result);
+        VERIFY(result->isTrue() == p.second || result->isFalse() == !p.second);
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }

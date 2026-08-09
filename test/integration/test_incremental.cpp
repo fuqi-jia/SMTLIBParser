@@ -3,10 +3,10 @@
  */
 
 #include "somtparser/frontend/parser.h"
-#include <cassert>
 #include <chrono>
 #include <iostream>
 #include <sstream>
+#include "test_helpers.h"
 
 using namespace SOMTParser;
 using namespace std::chrono;
@@ -15,7 +15,7 @@ static void test_push_pop_assertions() {
     std::cout << "--- test_push_pop_assertions ---" << std::endl;
     Parser parser;
     parser.parseStr("(push 1) (assert true) (pop 1)");
-    assert(parser.getAssertions().size() == 0);
+    VERIFY(parser.getAssertions().size() == 0);
     std::cout << "PASS" << std::endl;
 }
 
@@ -23,7 +23,7 @@ static void test_push_pop_symbols() {
     std::cout << "--- test_push_pop_symbols ---" << std::endl;
     Parser parser;
     parser.parseStr("(push 1) (declare-const x Int) (pop 1)");
-    assert(!parser.isDeclaredVariable("x"));
+    VERIFY(!parser.isDeclaredVariable("x"));
     std::cout << "PASS" << std::endl;
 }
 
@@ -31,7 +31,7 @@ static void test_push_pop_objectives() {
     std::cout << "--- test_push_pop_objectives ---" << std::endl;
     Parser parser;
     parser.parseStr("(declare-const x Int) (push 1) (minimize x) (pop 1)");
-    assert(parser.getObjectives().size() == 0);
+    VERIFY(parser.getObjectives().size() == 0);
     std::cout << "PASS" << std::endl;
 }
 
@@ -48,9 +48,9 @@ static void test_nested_push_pop() {
         "  (assert (> x 1))"
         "(pop 1)"
     );
-    assert(!parser.isDeclaredVariable("x"));
-    assert(!parser.isDeclaredVariable("y"));
-    assert(parser.getAssertions().size() == 0);
+    VERIFY(!parser.isDeclaredVariable("x"));
+    VERIFY(!parser.isDeclaredVariable("y"));
+    VERIFY(parser.getAssertions().size() == 0);
     std::cout << "PASS" << std::endl;
 }
 
@@ -58,8 +58,8 @@ static void test_reset_assertions() {
     std::cout << "--- test_reset_assertions ---" << std::endl;
     Parser parser;
     parser.parseStr("(declare-const x Int) (assert (> x 0)) (reset-assertions)");
-    assert(parser.isDeclaredVariable("x"));
-    assert(parser.getAssertions().size() == 0);
+    VERIFY(parser.isDeclaredVariable("x"));
+    VERIFY(parser.getAssertions().size() == 0);
     std::cout << "PASS" << std::endl;
 }
 
@@ -67,27 +67,27 @@ static void test_reset() {
     std::cout << "--- test_reset ---" << std::endl;
     Parser parser;
     parser.parseStr("(declare-const x Int) (assert (> x 0)) (reset)");
-    assert(!parser.isDeclaredVariable("x"));
-    assert(parser.getAssertions().size() == 0);
+    VERIFY(!parser.isDeclaredVariable("x"));
+    VERIFY(parser.getAssertions().size() == 0);
     std::cout << "PASS" << std::endl;
 }
 
 static void test_nextCommand() {
     std::cout << "--- test_nextCommand ---" << std::endl;
     Parser parser;
-    assert(parser.loadStr("(set-logic QF_LIA) (declare-const x Int) (assert (> x 0))"));
+    VERIFY(parser.loadStr("(set-logic QF_LIA) (declare-const x Int) (assert (> x 0))"));
 
     Command cmd1 = parser.nextCommand();
-    assert(cmd1.type == CMD_TYPE::CT_SET_LOGIC);
+    VERIFY(cmd1.type == CMD_TYPE::CT_SET_LOGIC);
 
     Command cmd2 = parser.nextCommand();
-    assert(cmd2.type == CMD_TYPE::CT_DECLARE_CONST);
+    VERIFY(cmd2.type == CMD_TYPE::CT_DECLARE_CONST);
 
     Command cmd3 = parser.nextCommand();
-    assert(cmd3.type == CMD_TYPE::CT_ASSERT);
+    VERIFY(cmd3.type == CMD_TYPE::CT_ASSERT);
 
     Command cmd4 = parser.nextCommand();
-    assert(cmd4.type == CMD_TYPE::CT_EOF);
+    VERIFY(cmd4.type == CMD_TYPE::CT_EOF);
     std::cout << "PASS" << std::endl;
 }
 
@@ -98,10 +98,10 @@ static void test_command_script() {
     parser.parseStr("(set-logic QF_LIA) (declare-const x Int) (assert (> x 0))");
 
     const Script& script = parser.getScript();
-    assert(script.size() == 3);
-    assert(script[0].type == CMD_TYPE::CT_SET_LOGIC);
-    assert(script[1].type == CMD_TYPE::CT_DECLARE_CONST);
-    assert(script[2].type == CMD_TYPE::CT_ASSERT);
+    VERIFY(script.size() == 3);
+    VERIFY(script[0].type == CMD_TYPE::CT_SET_LOGIC);
+    VERIFY(script[1].type == CMD_TYPE::CT_DECLARE_CONST);
+    VERIFY(script[2].type == CMD_TYPE::CT_ASSERT);
     std::cout << "PASS" << std::endl;
 }
 
@@ -109,8 +109,8 @@ static void test_push_pop_levels() {
     std::cout << "--- test_push_pop_levels ---" << std::endl;
     Parser parser;
     parser.parseStr("(push 2) (declare-const x Int) (declare-const y Int) (pop 2)");
-    assert(!parser.isDeclaredVariable("x"));
-    assert(!parser.isDeclaredVariable("y"));
+    VERIFY(!parser.isDeclaredVariable("x"));
+    VERIFY(!parser.isDeclaredVariable("y"));
     std::cout << "PASS" << std::endl;
 }
 
@@ -124,8 +124,8 @@ static void test_push_pop_assertion_groups() {
         "  (assert (> x 1) :id g1)"
         "(pop 1)"
     );
-    assert(parser.getNamedAssertions().find("a1") == parser.getNamedAssertions().end());
-    assert(parser.getGroupedAssertions().find("g1") == parser.getGroupedAssertions().end());
+    VERIFY(parser.getNamedAssertions().find("a1") == parser.getNamedAssertions().end());
+    VERIFY(parser.getGroupedAssertions().find("g1") == parser.getGroupedAssertions().end());
     std::cout << "PASS" << std::endl;
 }
 
@@ -145,7 +145,7 @@ static void test_stress_loop_push_pop() {
     auto end = high_resolution_clock::now();
     auto ms = duration_cast<milliseconds>(end - start).count();
     std::cout << "  " << ITERATIONS << " push/pop cycles in " << ms << " ms" << std::endl;
-    assert(parser.getAssertions().empty());
+    VERIFY(parser.getAssertions().empty());
     std::cout << "PASS" << std::endl;
 }
 
@@ -164,13 +164,13 @@ static void test_stress_deep_nesting() {
         oss << "(pop 1)";
     }
     bool ok = parser.parseStr(oss.str());
-    assert(ok);
+    VERIFY(ok);
 
     auto end = high_resolution_clock::now();
     auto ms = duration_cast<milliseconds>(end - start).count();
     std::cout << "  " << DEPTH << " nested scopes parsed in " << ms << " ms" << std::endl;
-    assert(parser.getAssertions().empty());
-    assert(parser.getScopeDepth() == 0);
+    VERIFY(parser.getAssertions().empty());
+    VERIFY(parser.getScopeDepth() == 0);
     std::cout << "PASS" << std::endl;
 }
 
@@ -190,14 +190,14 @@ static void test_stress_many_symbols_in_scope() {
     for (int i = 0; i < VARS; ++i) {
         std::ostringstream oss;
         oss << "v" << i;
-        assert(parser.isDeclaredVariable(oss.str()));
+        VERIFY(parser.isDeclaredVariable(oss.str()));
     }
     parser.pop(1);
     // After pop, none should exist
     for (int i = 0; i < VARS; ++i) {
         std::ostringstream oss;
         oss << "v" << i;
-        assert(!parser.isDeclaredVariable(oss.str()));
+        VERIFY(!parser.isDeclaredVariable(oss.str()));
     }
 
     auto end = high_resolution_clock::now();
@@ -237,9 +237,9 @@ static void test_stress_mixed_operations() {
         parser.pop(1);
     }
     // After all pops, everything should be gone
-    assert(parser.getAssertions().size() == 0);
-    assert(parser.getSoftAssertions().size() == 0);
-    assert(parser.getObjectives().size() == 0);
+    VERIFY(parser.getAssertions().size() == 0);
+    VERIFY(parser.getSoftAssertions().size() == 0);
+    VERIFY(parser.getObjectives().size() == 0);
 
     auto end = high_resolution_clock::now();
     auto ms = duration_cast<milliseconds>(end - start).count();
@@ -258,7 +258,7 @@ static void test_stress_nextCommand_stream() {
     }
     Parser parser;
     parser.setCommandLogging(true);
-    assert(parser.loadStr(oss.str()));
+    VERIFY(parser.loadStr(oss.str()));
 
     // Now walk with nextCommand until EOF
     size_t count = 0;
@@ -268,7 +268,7 @@ static void test_stress_nextCommand_stream() {
         ++count;
     } while (cmd.type != CMD_TYPE::CT_EOF);
     // -1 because the last is EOF
-    assert(count - 1 == static_cast<size_t>(CMDS * 2));
+    VERIFY(count - 1 == static_cast<size_t>(CMDS * 2));
 
     auto end = high_resolution_clock::now();
     auto ms = duration_cast<milliseconds>(end - start).count();

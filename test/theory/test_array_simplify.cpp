@@ -1,14 +1,13 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <cassert>
 #include "somtparser/frontend/parser.h"
+#include "test_helpers.h"
 
 // Restore assert after parser.h may have undefined it
 #ifdef assert
 #undef assert
 #endif
-#include <cassert>
 
 using namespace SOMTParser;
 
@@ -28,7 +27,7 @@ void test_select_rewrite(ParserPtr& parser) {
     std::cout << "  Input: select(store(array, 1, 10), 1)" << std::endl;
     std::cout << "  Output: " << dumpSMTLIB2(select1) << std::endl;
     std::cout << "  Expected: 10" << std::endl;
-    assert(select1->isConst() && select1->getName() == "10");
+    VERIFY(select1->isConst() && select1->getName() == "10");
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 2: select(store(array, 1, 10), 2) should simplify to select(array, 2)
@@ -37,7 +36,7 @@ void test_select_rewrite(ParserPtr& parser) {
     std::cout << "  Input: select(store(array, 1, 10), 2)" << std::endl;
     std::cout << "  Output: " << dumpSMTLIB2(select2) << std::endl;
     std::cout << "  Expected: (select ((as const (Array Int Int)) 0) 2)" << std::endl;
-    assert(select2->isSelect());
+    VERIFY(select2->isSelect());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 3: select(store(store(array, 1, 10), 1, 20), 1) should simplify to 20 (latest write wins)
@@ -47,7 +46,7 @@ void test_select_rewrite(ParserPtr& parser) {
     std::cout << "  Input: select(store(store(array, 1, 10), 1, 20), 1)" << std::endl;
     std::cout << "  Output: " << dumpSMTLIB2(select3) << std::endl;
     std::cout << "  Expected: 20" << std::endl;
-    assert(select3->isConst() && select3->getName() == "20");
+    VERIFY(select3->isConst() && select3->getName() == "20");
     std::cout << "  ✓ PASSED" << std::endl;
 }
 
@@ -65,7 +64,7 @@ void test_store_normalize(ParserPtr& parser) {
     auto store2 = parser->mkStore(store1, parser->mkConstInt(2), parser->mkConstInt(20));
     std::cout << "  Input: store(store(array, 1, 10), 2, 20)" << std::endl;
     std::cout << "  Output: " << dumpSMTLIB2(store2) << std::endl;
-    assert(store2->isStore());
+    VERIFY(store2->isStore());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 2: store(store(array, 1, 10), 1, 20) should merge duplicate indices
@@ -74,10 +73,10 @@ void test_store_normalize(ParserPtr& parser) {
     std::cout << "  Input: store(store(array, 1, 10), 1, 20)" << std::endl;
     std::cout << "  Output: " << dumpSMTLIB2(store3) << std::endl;
     std::cout << "  Expected: store(array, 1, 20) (duplicate index merged)" << std::endl;
-    assert(store3->isStore());
+    VERIFY(store3->isStore());
     // Verify that select(store3, 1) gives 20
     auto select_test = parser->mkSelect(store3, parser->mkConstInt(1));
-    assert(select_test->isConst() && select_test->getName() == "20");
+    VERIFY(select_test->isConst() && select_test->getName() == "20");
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 3: Complex store chain with multiple updates
@@ -88,7 +87,7 @@ void test_store_normalize(ParserPtr& parser) {
     std::cout << "  Output: " << dumpSMTLIB2(store5) << std::endl;
     // Verify that select(store5, 1) gives 100 (latest write)
     auto select_test2 = parser->mkSelect(store5, parser->mkConstInt(1));
-    assert(select_test2->isConst() && select_test2->getName() == "100");
+    VERIFY(select_test2->isConst() && select_test2->getName() == "100");
     std::cout << "  ✓ PASSED" << std::endl;
 }
 
@@ -111,7 +110,7 @@ void test_array_output_format(ParserPtr& parser) {
     std::cout << "  Expected format: (store (store (store ...) ...) ...)" << std::endl;
     
     // Verify output contains store operations
-    assert(output.find("store") != std::string::npos);
+    VERIFY(output.find("store") != std::string::npos);
     std::cout << "  ✓ PASSED" << std::endl;
 }
 
@@ -135,7 +134,7 @@ void test_integration_with_normalize(ParserPtr& parser) {
     std::cout << "  Expected: 20" << std::endl;
     
     // The select should be simplified to 20
-    assert(normalized->isConst() && normalized->getName() == "20");
+    VERIFY(normalized->isConst() && normalized->getName() == "20");
     std::cout << "  ✓ PASSED" << std::endl;
 }
 
@@ -155,7 +154,7 @@ void test_evaluate_array(ParserPtr& parser) {
     std::cout << "  Input: select((as const (Array Int Int)) 0, 1)" << std::endl;
     std::cout << "  Evaluated: " << dumpSMTLIB2(eval_result1) << std::endl;
     std::cout << "  Expected: (select ((as const (Array Int Int)) 0) 1)" << std::endl;
-    assert(eval_result1->isSelect());
+    VERIFY(eval_result1->isSelect());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 2: Evaluate select(store(...), index) - should use simplification
@@ -166,7 +165,7 @@ void test_evaluate_array(ParserPtr& parser) {
     std::cout << "  Input: select(store(array, 1, 10), 1)" << std::endl;
     std::cout << "  Evaluated: " << dumpSMTLIB2(eval_result2) << std::endl;
     std::cout << "  Expected: 10 (simplified by rewriteSelect)" << std::endl;
-    assert(eval_result2->isConst() && eval_result2->getName() == "10");
+    VERIFY(eval_result2->isConst() && eval_result2->getName() == "10");
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 3: Evaluate store with model containing array variable
@@ -186,7 +185,7 @@ void test_evaluate_array(ParserPtr& parser) {
     std::cout << "  Input: store(arr, 1, 20) where arr = store(array, 0, 5)" << std::endl;
     std::cout << "  Evaluated: " << dumpSMTLIB2(eval_result3) << std::endl;
     // Note: The output may still contain 'arr' if evaluate doesn't replace it, but the store structure should be correct
-    assert(eval_result3->isStore());
+    VERIFY(eval_result3->isStore());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 4: Evaluate select with array variable in model
@@ -202,7 +201,7 @@ void test_evaluate_array(ParserPtr& parser) {
     } else {
         std::cout << "  Note: Variable not replaced in evaluate, but structure is correct" << std::endl;
     }
-    assert(eval_result4->isSelect() || (eval_result4->isConst() && eval_result4->getName() == "5"));
+    VERIFY(eval_result4->isSelect() || (eval_result4->isConst() && eval_result4->getName() == "5"));
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 5: Evaluate select with index variable in model
@@ -214,7 +213,7 @@ void test_evaluate_array(ParserPtr& parser) {
     std::cout << "  Input: select(store(array, 1, 10), idx) where idx = 1" << std::endl;
     std::cout << "  Evaluated: " << dumpSMTLIB2(eval_result5) << std::endl;
     std::cout << "  Expected: 10 (simplified)" << std::endl;
-    assert(eval_result5->isConst() && eval_result5->getName() == "10");
+    VERIFY(eval_result5->isConst() && eval_result5->getName() == "10");
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 6: Evaluate complex store chain with model
@@ -226,7 +225,7 @@ void test_evaluate_array(ParserPtr& parser) {
     std::cout << "  Input: select(store(store(store(array, 1, 10), 2, 30), 1, 100), 1)" << std::endl;
     std::cout << "  Evaluated: " << dumpSMTLIB2(eval_result6) << std::endl;
     std::cout << "  Expected: 100 (latest write wins)" << std::endl;
-    assert(eval_result6->isConst() && eval_result6->getName() == "100");
+    VERIFY(eval_result6->isConst() && eval_result6->getName() == "100");
     std::cout << "  ✓ PASSED" << std::endl;
 }
 
@@ -247,7 +246,7 @@ void test_array_equality(ParserPtr& parser) {
     std::cout << "  Expected: true" << std::endl;
     // After simplification, should be true
     auto eq1_simp = parser->arithNormalize(eq1);
-    assert(eq1_simp->isTrue());
+    VERIFY(eq1_simp->isTrue());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 2: Two different const arrays should not be equal
@@ -258,7 +257,7 @@ void test_array_equality(ParserPtr& parser) {
     std::cout << "  Output: " << dumpSMTLIB2(eq2) << std::endl;
     std::cout << "  Expected: false" << std::endl;
     auto eq2_simp = parser->arithNormalize(eq2);
-    assert(eq2_simp->isFalse());
+    VERIFY(eq2_simp->isFalse());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 3: store(const_array, i, v) = store(const_array, i, v) (same writes)
@@ -270,7 +269,7 @@ void test_array_equality(ParserPtr& parser) {
     std::cout << "  Output: " << dumpSMTLIB2(eq3) << std::endl;
     std::cout << "  Expected: true" << std::endl;
     auto eq3_simp = parser->arithNormalize(eq3);
-    assert(eq3_simp->isTrue());
+    VERIFY(eq3_simp->isTrue());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 4: store(const_array, i, v1) = store(const_array, i, v2) (different values)
@@ -281,7 +280,7 @@ void test_array_equality(ParserPtr& parser) {
     std::cout << "  Output: " << dumpSMTLIB2(eq4) << std::endl;
     std::cout << "  Expected: false" << std::endl;
     auto eq4_simp = parser->arithNormalize(eq4);
-    assert(eq4_simp->isFalse());
+    VERIFY(eq4_simp->isFalse());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 5: store(store(const_array, 1, 10), 1, 20) = store(const_array, 1, 20) (duplicate index merged)
@@ -293,7 +292,7 @@ void test_array_equality(ParserPtr& parser) {
     std::cout << "  Output: " << dumpSMTLIB2(eq5) << std::endl;
     std::cout << "  Expected: true (duplicate index merged in canonical form)" << std::endl;
     auto eq5_simp = parser->arithNormalize(eq5);
-    assert(eq5_simp->isTrue());
+    VERIFY(eq5_simp->isTrue());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 6: store(const_array, i, base_value) = const_array (semantically equal but structurally different)
@@ -302,7 +301,7 @@ void test_array_equality(ParserPtr& parser) {
     auto store6 = parser->mkStore(const_array, parser->mkConstInt(1), parser->mkConstInt(0));
     std::cout << "  store6->isStore(): " << (store6->isStore() ? "true" : "false") << std::endl;
     std::cout << "  store6->isConstArray(): " << (store6->isConstArray() ? "true" : "false") << std::endl;
-    assert(store6->isStore() && !store6->isConstArray());  // Store operation creates a store node, not const array
+    VERIFY(store6->isStore() && !store6->isConstArray());  // Store operation creates a store node, not const array
     
     auto eq6 = parser->mkEq(store6, const_array);
     std::cout << "  Input: (= store(const_array(0), 1, 0) const_array(0))" << std::endl;
@@ -311,16 +310,16 @@ void test_array_equality(ParserPtr& parser) {
     auto eq6_simp = parser->arithNormalize(eq6);
     // According to extensional equality, if all writes equal base, they are equal
     // But structurally, store6 is not a const array (it's a store node)
-    assert(eq6_simp->isTrue());
+    VERIFY(eq6_simp->isTrue());
     std::cout << "  ✓ PASSED (structurally different but semantically equal)" << std::endl;
     
     // Test 6b: Multiple stores with same value as base
     std::cout << "\nTest 6b: store(store(const_array(0), 1, 0), 2, 0) = const_array(0)" << std::endl;
     auto store6b = parser->mkStore(store6, parser->mkConstInt(2), parser->mkConstInt(0));
-    assert(store6b->isStore() && !store6b->isConstArray());
+    VERIFY(store6b->isStore() && !store6b->isConstArray());
     auto eq6b = parser->mkEq(store6b, const_array);
     auto eq6b_simp = parser->arithNormalize(eq6b);
-    assert(eq6b_simp->isTrue());
+    VERIFY(eq6b_simp->isTrue());
     std::cout << "  ✓ PASSED" << std::endl;
     
     // Test 7: Complex store chain equality
@@ -337,7 +336,7 @@ void test_array_equality(ParserPtr& parser) {
     std::cout << "  Output: " << dumpSMTLIB2(eq7) << std::endl;
     std::cout << "  Expected: true (canonical form should be same)" << std::endl;
     auto eq7_simp = parser->arithNormalize(eq7);
-    assert(eq7_simp->isTrue());
+    VERIFY(eq7_simp->isTrue());
     std::cout << "  ✓ PASSED" << std::endl;
 }
 

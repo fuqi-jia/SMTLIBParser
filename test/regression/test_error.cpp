@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include "somtparser/frontend/parser.h"
-#include <cassert>
+#include "test_helpers.h"
 
 int main() {
     std::cout << "======= Parser Error Test =======" << std::endl;
@@ -65,7 +65,7 @@ int main() {
 (check-sat)
 (get-model)
 )");
-        assert(ok && "error_kind_mismatch should parse");
+        VERIFY(ok && "error_kind_mismatch should parse");
         std::cout << "Test 1 passed: error_kind_mismatch\n";
     }
 
@@ -86,7 +86,7 @@ int main() {
 (get-unsat-core)
 (exit)
 )");
-        assert(ok && "error_unknown_symbol should parse");
+        VERIFY(ok && "error_unknown_symbol should parse");
         std::cout << "Test 2 passed: error_unknown_symbol\n";
     }
 
@@ -104,7 +104,7 @@ int main() {
 (check-sat)
 (exit)
 )");
-        assert(ok && "error_unknown_symbol_2 should parse");
+        VERIFY(ok && "error_unknown_symbol_2 should parse");
         std::cout << "Test 3 passed: error_unknown_symbol_2\n";
     }
 

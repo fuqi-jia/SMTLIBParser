@@ -7,7 +7,7 @@
 #include "somtparser/ir/number.h"
 #include "somtparser/ir/sort.h"
 #include "somtparser/ir/value.h"
-#include <cassert>
+#include "test_helpers.h"
 
 using SOMTParser::BitVectorUtils;
 using SOMTParser::fpNodeToFloat32;
@@ -20,53 +20,53 @@ namespace {
 
 void assert_fp32_near(const std::shared_ptr<SOMTParser::DAGNode>& n, float expected,
                       float eps = 1e-3f) {
-    assert(n && !n->isErr() && n->isCFP());
+    VERIFY(n && !n->isErr() && n->isCFP());
     auto v = fpNodeToFloat32(n);
-    assert(v.has_value());
-    assert(std::fabs(*v - expected) < eps);
+    VERIFY(v.has_value());
+    VERIFY(std::fabs(*v - expected) < eps);
 }
 
 void simp_expect_fp32(ParserPtr& p, const char* smt, float expected, float eps = 1e-3f) {
     auto e = p->mkExpr(smt);
-    assert(e && !e->isErr());
+    VERIFY(e && !e->isErr());
     assert_fp32_near(e, expected, eps);
 }
 
 void simp_expect_real_near(ParserPtr& p, const char* smt, double expected, double eps = 1e-6) {
     auto e = p->mkExpr(smt);
-    assert(e && !e->isErr());
-    assert(e->isCReal() || e->isCInt());
+    VERIFY(e && !e->isErr());
+    VERIFY(e->isCReal() || e->isCInt());
     double v;
     if (e->isCInt()) {
         v = static_cast<double>(p->toInt(e).toLong());
     } else {
         v = p->toReal(e).toDouble();
     }
-    assert(std::fabs(v - expected) < eps);
+    VERIFY(std::fabs(v - expected) < eps);
 }
 
 void simp_expect_bool(ParserPtr& p, const char* smt, bool expected) {
     auto e = p->mkExpr(smt);
-    assert(e && !e->isErr());
+    VERIFY(e && !e->isErr());
     if (expected) {
-        assert(e->isTrue());
+        VERIFY(e->isTrue());
     } else {
-        assert(e->isFalse());
+        VERIFY(e->isFalse());
     }
 }
 
 void simp_expect_cbv_nat(ParserPtr& p, const char* smt, const Integer& expected_nat) {
     auto e = p->mkExpr(smt);
-    assert(e && !e->isErr());
-    assert(e->isCBV());
-    assert(BitVectorUtils::bvToNat(e->toString()) == expected_nat);
+    VERIFY(e && !e->isErr());
+    VERIFY(e->isCBV());
+    VERIFY(BitVectorUtils::bvToNat(e->toString()) == expected_nat);
 }
 
 void simp_expect_cbv_int(ParserPtr& p, const char* smt, const Integer& expected_signed) {
     auto e = p->mkExpr(smt);
-    assert(e && !e->isErr());
-    assert(e->isCBV());
-    assert(BitVectorUtils::bvToInt(e->toString()) == expected_signed);
+    VERIFY(e && !e->isErr());
+    VERIFY(e->isCBV());
+    VERIFY(BitVectorUtils::bvToInt(e->toString()) == expected_signed);
 }
 
 // Parse-time constant folding for FP ops (simp)
@@ -133,11 +133,11 @@ void test_value_fp_operators_ir() {
     b.setFpValue("3.0", 8, 24);
 
     Value sum = a.fadd(b);
-    assert(sum.getType() == SOMTParser::FP);
+    VERIFY(sum.getType() == SOMTParser::FP);
     Value diff = a.fsub(b);
-    assert(diff.getType() == SOMTParser::FP);
+    VERIFY(diff.getType() == SOMTParser::FP);
     Value prod = a.fmul(b);
-    assert(prod.getType() == SOMTParser::FP);
+    VERIFY(prod.getType() == SOMTParser::FP);
 }
 
 }  // namespace
@@ -158,7 +158,7 @@ void test_fp_constants(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -183,7 +183,7 @@ void test_fp_arithmetic(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -210,7 +210,7 @@ void test_fp_comparisons(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -220,25 +220,25 @@ void test_fp_comparisons(SOMTParser::ParserPtr& parser) {
 void test_fp_const_get_value_set(SOMTParser::ParserPtr& parser) {
     std::cout << "=== FP const getValue (mkConstFp / to_fp) ===" << std::endl;
     auto n = parser->mkExpr("((_ to_fp 8 24) RNE 1.0)");
-    assert(n && !n->isErr() && n->isCFP());
+    VERIFY(n && !n->isErr() && n->isCFP());
     auto val = n->getValue();
-    assert(val != nullptr);
-    assert(val->getType() == SOMTParser::FP);
+    VERIFY(val != nullptr);
+    VERIFY(val->getType() == SOMTParser::FP);
 }
 
 void test_fp_sort_width_contract(SOMTParser::ParserPtr& parser) {
     std::cout << "=== FP Sort getExponentWidth / getSignificandWidth contract ===" << std::endl;
     auto sm = parser->getSortManager();
     auto custom = sm->createFPSort(11, 53);
-    assert(custom->getExponentWidth() == 11);
-    assert(custom->getSignificandWidth() == 53);
+    VERIFY(custom->getExponentWidth() == 11);
+    VERIFY(custom->getSignificandWidth() == 53);
     auto f32 = SOMTParser::SortManager::getFloat32();
-    assert(f32->getExponentWidth() == 8);
-    assert(f32->getSignificandWidth() == 24);
+    VERIFY(f32->getExponentWidth() == 8);
+    VERIFY(f32->getSignificandWidth() == 24);
     auto n = parser->mkExpr("((_ to_fp 8 24) RNE 1.0)");
-    assert(n && n->getSort() && n->getSort()->isFp());
-    assert(n->getSort()->getExponentWidth() == 8);
-    assert(n->getSort()->getSignificandWidth() == 24);
+    VERIFY(n && n->getSort() && n->getSort()->isFp());
+    VERIFY(n->getSort()->getExponentWidth() == 8);
+    VERIFY(n->getSort()->getSignificandWidth() == 24);
 }
 
 void test_fp_conversions(SOMTParser::ParserPtr& parser) {
@@ -267,7 +267,7 @@ void test_fp_conversions(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }

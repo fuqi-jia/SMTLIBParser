@@ -4,8 +4,8 @@
  */
 #include "somtparser/frontend/parser.h"
 #include "somtparser/passes/rewriter.h"
-#include <cassert>
 #include <iostream>
+#include "test_helpers.h"
 
 using namespace SOMTParser;
 
@@ -26,8 +26,8 @@ int main() {
     installDefaultRewriteRules(rewriter);
 
     Node result = rewriter.rewrite(root);  // default fixpoint true
-    assert(result && "rewrite should return non-null");
-    assert(result == origVar && "fixpoint: (and true (not (not p))) -> p");
+    VERIFY(result && "rewrite should return non-null");
+    VERIFY(result == origVar && "fixpoint: (and true (not (not p))) -> p");
     std::cout << "fixpoint (and true (not (not p))) -> p OK" << std::endl;
 
     // rewriteOnce alone may not reach p (depends on order); one round: (not (not p)) -> p, then (and true p) -> p next round
@@ -42,7 +42,7 @@ int main() {
     Node once1 = rewriter.rewriteOnce(root2);
     (void)once1;
     Node fixed = rewriter.rewrite(root2, true);
-    assert(fixed == expectQ && "fixpoint (and true (not (not q))) -> q");
+    VERIFY(fixed == expectQ && "fixpoint (and true (not (not q))) -> q");
     std::cout << "fixpoint (and true (not (not q))) -> q OK" << std::endl;
 
     // ADD: (+ x 0) -> x
@@ -51,7 +51,7 @@ int main() {
     Node lhs = manager->createNode(SortManager::INT_SORT, NODE_KIND::NT_ADD,
                                    "+", {rhs, zero});
     Node lhsRewritten = rewriter.rewrite(lhs);
-    assert(lhsRewritten == rhs && "(+ x 0) -> x");
+    VERIFY(lhsRewritten == rhs && "(+ x 0) -> x");
     std::cout << "ADD (+ x 0) -> x OK" << std::endl;
 
     std::cout << "======= All Rewriter tests passed =======" << std::endl;
