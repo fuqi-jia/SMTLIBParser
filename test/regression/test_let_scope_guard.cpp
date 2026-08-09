@@ -11,10 +11,36 @@
 #include <stdexcept>
 #include <string>
 
+#include "somtparser/frontend/parser.h"
 #include "somtparser/frontend/symbol_manager.h"
 #include "test_helpers.h"
 
 using namespace SOMTParser;
+
+namespace {
+
+// The invariant the guard protects is maintained by base_parser: each
+// pushLetScope() is undone through the per-frame scope_pushed flag, including
+// on the error exits. Those exits are the interesting ones -- a let that fails
+// mid-binding must still leave the symbol table balanced -- so drive them
+// through the parser rather than only unit-testing SymbolManager.
+void parseErrorLeavesParserUsable(const char* label, const std::string& script) {
+    ParserPtr p = newParser();
+    try {
+        p->parseStr(script);
+    } catch (const std::exception&) {
+        // Reporting the malformed input is fine; leaking a let scope is not.
+    }
+    // A well-formed let afterwards must still bind, print and unbind normally.
+    auto node = p->mkExpr("(let ((y 1)) y)");
+    VERIFY(node && !node->isErr());
+    VERIFY(p->toString(node) == "(let ((y 1)) y)");
+    // And the binding must not have escaped its scope.
+    VERIFY(!p->getSymbolManager()->hasLet("y"));
+    std::cout << "  ok: " << label << "\n";
+}
+
+}  // namespace
 
 int main() {
     std::cout << "======= let scope guard tests =======\n";
@@ -75,6 +101,27 @@ int main() {
         }
         VERIFY(threw);
         std::cout << "  ok: extra pop after a balanced pair throws\n";
+    }
+
+    // The parser-level error exits that pop the scopes they pushed.
+    parseErrorLeavesParserUsable(
+        "duplicate binding in one let leaves the scope balanced",
+        "(declare-fun a () Int)\n(assert (= a (let ((x 1) (x 2)) x)))\n");
+    parseErrorLeavesParserUsable(
+        "failure inside a binding value leaves the scope balanced",
+        "(declare-fun a () Int)\n(assert (= a (let ((x (undefined_fn 1))) x)))\n");
+    parseErrorLeavesParserUsable(
+        "failure inside a nested let leaves both scopes balanced",
+        "(declare-fun a () Int)\n"
+        "(assert (= a (let ((x 1)) (let ((z (undefined_fn x))) z))))\n");
+
+    // The success path still nests correctly after all of the above.
+    {
+        ParserPtr p = newParser();
+        p->parseStr("(declare-fun a () Int)\n(assert (= a (let ((x 1)) (let ((y x)) y))))\n");
+        VERIFY(p->getAssertions().size() == 1);
+        VERIFY(!p->getSymbolManager()->hasLet("x") && !p->getSymbolManager()->hasLet("y"));
+        std::cout << "  ok: nested let parses and unbinds both scopes\n";
     }
 
     std::cout << "All let scope guard tests passed.\n";
