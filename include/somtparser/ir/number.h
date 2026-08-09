@@ -49,6 +49,9 @@ namespace SOMTParser {
             HighPrecisionInteger(int i);
             HighPrecisionInteger(long i);
             HighPrecisionInteger(unsigned long i);
+            // On LLP64 (Windows) unsigned long is 32-bit, so a 64-bit unsigned
+            // value would otherwise narrow. Ported from the SMTStabilizer fork.
+            HighPrecisionInteger(unsigned long long i);
             HighPrecisionInteger(double d);
             HighPrecisionInteger(const std::string& s, int base = 10);
             HighPrecisionInteger(const char* s, int base = 10);
@@ -314,9 +317,12 @@ namespace SOMTParser {
             };
 
             // Constant
-            static Number ZERO;
-            static Number ONE;
-            static Number INFINITY;
+            // NOTE: `static Number ZERO/ONE/INFINITY;` used to be declared here.
+            // None of them had a definition or a single user, so any reference
+            // would have been a link error. INFINITY was worse than dead: it is
+            // a <cmath> macro, so a translation unit including <cmath> first
+            // silently turned the declaration into a function declaration.
+            // Use Number(0), Number(1) and Number::infinity() (below) instead.
             static Number pi(size_t precision = 128);
             static Number e(size_t precision = 128);
             static Number phi(size_t precision = 128);

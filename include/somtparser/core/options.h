@@ -38,7 +38,9 @@ namespace SOMTParser{
     class GlobalOptions {
     public:
         // ENUM_LOGIC logic = UNKNOWN_LOGIC;
-        std::string logic = "UNKNOWN_LOGIC";
+        // Default to ALL: an input without (set-logic ...) should still be
+        // parsed with every theory available rather than under an unknown logic.
+        std::string logic = "ALL";
         bool check_sat = false;
         bool get_assertions = false;
         bool get_assignment = false;
@@ -81,6 +83,12 @@ namespace SOMTParser{
         // fp.roundToIntegral without RM; non-standard operator spellings like fp.=;
         // flat (to_fp eb sb x) without indexed head). Default false keeps backward compatibility.
         bool strict_smtlib_fp = false;
+
+        // When true, term annotations -- (! <term> :pattern (...) :qid q ...) --
+        // are kept as NT_ATTRIBUTE nodes instead of being parsed and dropped, so
+        // printing round-trips quantifier triggers. Off by default because
+        // consumers that walk assertion trees do not expect the extra node.
+        bool preserve_annotations = false;
 
         // Selected operators that must remain explicit in the DAG even when
         // their arguments are ground. This supports source-structure analyses
@@ -197,7 +205,10 @@ namespace SOMTParser{
                     logic = logic_name;
                     return true;
                 } else {
-                    logic = "UNKNOWN_LOGIC";
+                    // An unrecognised logic name (a newer standard logic, or a
+                    // solver-specific one) should not disable theories; fall
+                    // back to ALL and report the name as unrecognised.
+                    logic = "ALL";
                     return false;
                 }
         }
@@ -221,6 +232,9 @@ namespace SOMTParser{
             }
             else if(key == "strict_smtlib_fp"){
                 setStrictSmtlib(value == "true");
+            }
+            else if(key == "preserve_annotations"){
+                setPreserveAnnotations(value == "true");
             }
         }
 
@@ -284,6 +298,9 @@ namespace SOMTParser{
         void setStrictSmtlib(bool strict) { strict_smtlib_fp = strict; }
         bool getStrictSmtlib() const { return strict_smtlib_fp; }
 
+        void setPreserveAnnotations(bool preserve) { preserve_annotations = preserve; }
+        bool getPreserveAnnotations() const { return preserve_annotations; }
+
         void preserveOperator(NODE_KIND kind) { preserved_operators.insert(kind); }
         void preserveOperators(std::initializer_list<NODE_KIND> kinds) {
             preserved_operators.insert(kinds.begin(), kinds.end());
@@ -311,7 +328,7 @@ namespace SOMTParser{
             // Logic setting
             result += "1. Logic\n";
             result += "   Option: logic\n";
-            result += "   Default: UNKNOWN_LOGIC\n";
+            result += "   Default: ALL\n";
             result += "   Current: " + logic + "\n";
             result += "   Description: The SMT-LIB2 logic to use for parsing and reasoning.\n";
             result += "                Determines which theories and quantifiers are allowed.\n\n";
@@ -369,8 +386,18 @@ namespace SOMTParser{
             result += "                (to_fp eb sb x) calls. When false (default), lenient extensions are accepted\n";
             result += "                and unary fp.sqrt is canonicalized to (fp.sqrt RNE x) in the IR.\n\n";
             
+            result += "8. Preserve term annotations\n";
+            result += "   Option: preserve_annotations (set-option / GlobalOptions::setPreserveAnnotations)\n";
+            result += "   Default: false\n";
+            result += "   Current: " + std::string(preserve_annotations ? "true" : "false") + "\n";
+            result += "   Description: When true, (! <term> :pattern (...) :no-pattern t :weight n :qid q)\n";
+            result += "                annotations are kept in the AST and printed back, so quantifier\n";
+            result += "                triggers survive a parse/print round trip. When false (default),\n";
+            result += "                annotations are parsed and discarded as before. :named is recorded\n";
+            result += "                for unsat cores in either mode.\n\n";
+
             // Command flags
-            result += "8. Command Flags\n";
+            result += "9. Command Flags\n";
             result += "   check_sat: " + std::string(check_sat ? "true" : "false") + "\n";
             result += "   get_assertions: " + std::string(get_assertions ? "true" : "false") + "\n";
             result += "   get_assignment: " + std::string(get_assignment ? "true" : "false") + "\n";

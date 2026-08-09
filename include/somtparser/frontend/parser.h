@@ -60,7 +60,10 @@ namespace SOMTParser{
     };
 
     enum class KEYWORD{
-        KW_ID, KW_WEIGHT, KW_COMP, KW_EPSILON, KW_M, KW_OPT_KIND, KW_NAMED , KW_NULL
+        KW_ID, KW_WEIGHT, KW_COMP, KW_EPSILON, KW_M, KW_OPT_KIND, KW_NAMED,
+        // Quantifier annotations — ported from the SMTStabilizer fork.
+        KW_PATTERN, KW_NO_PATTERN, KW_QID, KW_SKOLEMID, KW_LBLPOS, KW_LBLNEG,
+        KW_NULL
     };
 
     enum class CMD_TYPE {
@@ -2512,7 +2515,23 @@ namespace SOMTParser{
          * @return Integer to bitvector conversion node (to_bv(param, width))
          */
         std::shared_ptr<DAGNode> mkIntToBv(std::shared_ptr<DAGNode> param, std::shared_ptr<DAGNode> width); // to_bv(param, width)
-        
+
+        /**
+         * @brief Create an unsigned bitvector-to-integer node (SMT-LIB 2.7 ubv_to_int)
+         *
+         * @param param Bitvector parameter
+         * @return ubv_to_int(param)
+         */
+        std::shared_ptr<DAGNode> mkUbvToInt(std::shared_ptr<DAGNode> param);
+
+        /**
+         * @brief Create a signed bitvector-to-integer node (SMT-LIB 2.7 sbv_to_int)
+         *
+         * @param param Bitvector parameter
+         * @return sbv_to_int(param)
+         */
+        std::shared_ptr<DAGNode> mkSbvToInt(std::shared_ptr<DAGNode> param);
+
         // FLOATING POINT COMMON OPERATORS
         /**
          * @brief Create a floating-point addition node
@@ -2804,7 +2823,44 @@ namespace SOMTParser{
          * @return Array store node (l[r] = v)
          */
         std::shared_ptr<DAGNode> mkStore(std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> r, std::shared_ptr<DAGNode> v); // l[r] = v
-        
+
+        // TERM ANNOTATIONS
+        /** @brief Create a :pattern annotation node holding the trigger terms */
+        std::shared_ptr<DAGNode> mkPattern(const std::vector<std::shared_ptr<DAGNode>> &params);
+        /** @brief Create a :no-pattern annotation node */
+        std::shared_ptr<DAGNode> mkNoPattern(std::shared_ptr<DAGNode> param);
+        /** @brief Create a :weight annotation node */
+        std::shared_ptr<DAGNode> mkWeight(std::shared_ptr<DAGNode> weight);
+        /** @brief Create a :qid annotation node */
+        std::shared_ptr<DAGNode> mkQid(const std::string &qid);
+        /**
+         * @brief Wrap @p term in (! <term> <annotations>...); returns @p term unchanged
+         *        when there are no annotations.
+         */
+        std::shared_ptr<DAGNode> mkAttribute(std::shared_ptr<DAGNode> term, const std::vector<std::shared_ptr<DAGNode>> &annotations);
+
+        // TUPLE OPERATORS
+        /**
+         * @brief Create a tuple constructor node (tuple t1 ... tn); nullary yields tuple.unit
+         */
+        std::shared_ptr<DAGNode> mkTuple(const std::vector<std::shared_ptr<DAGNode>> &params);
+        /**
+         * @brief Create a tuple projection node ((_ tuple.select i) t)
+         */
+        std::shared_ptr<DAGNode> mkTupleSelect(std::shared_ptr<DAGNode> tuple, std::shared_ptr<DAGNode> index);
+        /**
+         * @brief Create a functional tuple update node ((_ tuple.update i) t v)
+         */
+        std::shared_ptr<DAGNode> mkTupleUpdate(std::shared_ptr<DAGNode> tuple, std::shared_ptr<DAGNode> index, std::shared_ptr<DAGNode> value);
+        /**
+         * @brief Create a tuple projection node ((_ tuple.project i1 ... ik) t)
+         */
+        std::shared_ptr<DAGNode> mkTupleProject(std::shared_ptr<DAGNode> tuple, const std::vector<std::shared_ptr<DAGNode>> &indices);
+        /**
+         * @brief Create a datatype update node ((_ update <selector>) t v)
+         */
+        std::shared_ptr<DAGNode> mkDtUpdate(const std::string &selector, std::shared_ptr<DAGNode> dt, std::shared_ptr<DAGNode> value);
+
         // STRINGS COMMON OPERATORS
         /**
          * @brief Create a string length node

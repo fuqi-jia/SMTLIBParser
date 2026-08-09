@@ -387,7 +387,12 @@ namespace SOMTParser{
             case NODE_KIND::NT_BV_ZERO_EXT:
             case NODE_KIND::NT_BV_SIGN_EXT:
             case NODE_KIND::NT_BV_ROTATE_LEFT:
-            case NODE_KIND::NT_BV_ROTATE_RIGHT: {
+            case NODE_KIND::NT_BV_ROTATE_RIGHT:
+            // int2bv/nat2bv are indexed too — without these two they fell to
+            // the generic path and printed as (int2bv x 8) instead of
+            // ((_ int2bv 8) x).  Ported from the SMTStabilizer fork.
+            case NODE_KIND::NT_INT_TO_BV:
+            case NODE_KIND::NT_NAT_TO_BV: {
                 auto child0 = node->getChild(0).get();
                 auto child1 = node->getChild(1).get();
 
@@ -645,17 +650,116 @@ namespace SOMTParser{
                 break;
             }
             case NODE_KIND::NT_DT_TESTER: {
-                // Tester application: (is-CtorName arg); bare symbol if no arg (same as ctor)
+                // Tester application.  SMT-LIB 2.6 spells this ((_ is C) arg);
+                // we used to emit the legacy (is-C arg) form, which standard
+                // solvers reject.  The node name is stored as "is-C", so strip
+                // the prefix here.  Ported from the SMTStabilizer fork.
+                const std::string& tester = node->getName();
+                const std::string ctor = (tester.rfind("is-", 0) == 0) ? tester.substr(3) : tester;
                 const auto& children = node->getChildren();
                 if (children.empty()) {
-                    out << node->getName();
+                    out << "(_ is " << ctor << ")";
                 } else {
-                    out << "(" << node->getName();
+                    out << "((_ is " << ctor << ")";
                     work_stack.emplace_back(nullptr, 2);  // )
                     for (int i = children.size() - 1; i >= 0; i--) {
                         work_stack.emplace_back(children[i].get(), 0);
                         work_stack.emplace_back(nullptr, 1);  // space
                     }
+                }
+                break;
+            }
+            case NODE_KIND::NT_DT_UPDATER: {
+                // ((_ update <selector>) t v) — ported from the SMTStabilizer fork.
+                const auto& children = node->getChildren();
+                out << "((_ update " << node->getName() << ")";
+                work_stack.emplace_back(nullptr, 2);  // )
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    work_stack.emplace_back(children[i].get(), 0);
+                    work_stack.emplace_back(nullptr, 1);  // space
+                }
+                break;
+            }
+            // TERM ANNOTATIONS: (! <term> :pattern (...) :qid q ...).
+            // Ported from the SMTStabilizer fork: these used to be parsed and
+            // then dropped, so quantifier triggers silently vanished from the
+            // printed output.
+            case NODE_KIND::NT_ATTRIBUTE: {
+                const auto& children = node->getChildren();
+                out << "(!";
+                work_stack.emplace_back(nullptr, 2);  // )
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    work_stack.emplace_back(children[i].get(), 0);
+                    work_stack.emplace_back(nullptr, 1);  // space
+                }
+                break;
+            }
+            case NODE_KIND::NT_PATTERN: {
+                const auto& children = node->getChildren();
+                out << ":pattern (";
+                work_stack.emplace_back(nullptr, 2);  // )
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    work_stack.emplace_back(children[i].get(), 0);
+                    if (i) work_stack.emplace_back(nullptr, 1);  // space
+                }
+                break;
+            }
+            case NODE_KIND::NT_NO_PATTERN: {
+                out << ":no-pattern ";
+                if (node->getChildrenSize() > 0) {
+                    work_stack.emplace_back(node->getChild(0).get(), 0);
+                }
+                break;
+            }
+            case NODE_KIND::NT_WEIGHT: {
+                out << ":weight ";
+                if (node->getChildrenSize() > 0) {
+                    work_stack.emplace_back(node->getChild(0).get(), 0);
+                }
+                break;
+            }
+            case NODE_KIND::NT_QID:
+                out << ":qid " << node->getName();
+                break;
+            // TUPLE OPERATORS — ported from the SMTStabilizer fork.
+            case NODE_KIND::NT_TUPLE_UNIT:
+                out << "tuple.unit";
+                break;
+            case NODE_KIND::NT_TUPLE_CONSTRUCTOR: {
+                const auto& children = node->getChildren();
+                out << "(tuple";
+                work_stack.emplace_back(nullptr, 2);  // )
+                for (int i = children.size() - 1; i >= 0; i--) {
+                    work_stack.emplace_back(children[i].get(), 0);
+                    work_stack.emplace_back(nullptr, 1);  // space
+                }
+                break;
+            }
+            case NODE_KIND::NT_TUPLE_SELECT:
+            case NODE_KIND::NT_TUPLE_UPDATE:
+            case NODE_KIND::NT_TUPLE_PROJECT: {
+                // ((_ tuple.select i) t), ((_ tuple.update i) t v),
+                // ((_ tuple.project i ...) t).  The index children are stored
+                // after the tuple term, so emit them into the index list first.
+                const auto& children = node->getChildren();
+                const size_t nidx = (kind == NODE_KIND::NT_TUPLE_UPDATE) ? 1
+                                  : (kind == NODE_KIND::NT_TUPLE_SELECT) ? 1
+                                  : (children.size() >= 1 ? children.size() - 1 : 0);
+                out << "((_ " << kindToString(kind);
+                work_stack.emplace_back(nullptr, 2);  // )
+                // terms: tuple (child 0), then the value for tuple.update
+                if (kind == NODE_KIND::NT_TUPLE_UPDATE && children.size() >= 3) {
+                    work_stack.emplace_back(children[2].get(), 0);
+                    work_stack.emplace_back(nullptr, 1);  // space
+                }
+                if (!children.empty()) {
+                    work_stack.emplace_back(children[0].get(), 0);
+                    work_stack.emplace_back(nullptr, 1);  // space
+                }
+                work_stack.emplace_back(")", 4);
+                for (size_t i = nidx; i >= 1; i--) {
+                    work_stack.emplace_back(children[i].get(), 0);
+                    work_stack.emplace_back(nullptr, 1);  // space
                 }
                 break;
             }
