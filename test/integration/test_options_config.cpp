@@ -8,6 +8,7 @@
  */
 
 #include "somtparser/frontend/parser.h"
+#include "test_helpers.h"
 #include <iostream>
 #include <cassert>
 
@@ -42,6 +43,31 @@ int main() {
     std::string opts2 = parser2->optionToString();
     std::cout << opts2 << std::endl;
     assert(opts2.find("QF_BV") != std::string::npos);
+
+    std::cout << "\n\n=== Test 3b: setOption with a string literal ===" << std::endl;
+    // Regression: a string literal used to bind to the bool overload
+    // (pointer-to-bool is a standard conversion, which outranks the
+    // user-defined conversion to std::string), so passing "false" turned the
+    // option ON. Every spelling below must mean the same thing.
+    // VERIFY, not assert: this file is built with -DNDEBUG in Release, where
+    // assert() compiles away entirely.
+    {
+        auto p = newParser();
+        p->setOption("keep_let", "false");
+        VERIFY(p->getOptions()->getKeepLet() == false);
+        p->setOption("keep_let", "true");
+        VERIFY(p->getOptions()->getKeepLet() == true);
+        p->setOption("keep_let", std::string("false"));
+        VERIFY(p->getOptions()->getKeepLet() == false);
+        p->setOption("keep_let", true);   // genuine bool still works
+        VERIFY(p->getOptions()->getKeepLet() == true);
+        p->setOption("keep_let", false);
+        VERIFY(p->getOptions()->getKeepLet() == false);
+        // Non-boolean options must still see the literal as its text.
+        p->setOption("precision", "512");
+        VERIFY(p->getOptions()->getEvaluatePrecision() == 512);
+        std::cout << "setOption string-literal overload OK" << std::endl;
+    }
 
     std::cout << "\n\n=== Test 4: Parsing file with options ===" << std::endl;
     auto parser3 = newParser();

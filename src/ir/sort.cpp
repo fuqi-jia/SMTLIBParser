@@ -163,6 +163,12 @@ namespace SOMTParser{
         return insertSortToBucket(sort);
     }
 
+    // Ported from the SMTStabilizer fork.
+    std::shared_ptr<Sort> SortManager::createTupleSort(const std::vector<std::shared_ptr<Sort>>& fields) {
+        auto sort = std::make_shared<Sort>(SORT_KIND::SK_TUPLE, "Tuple", 0, fields);
+        return insertSortToBucket(sort);
+    }
+
     std::shared_ptr<Sort> SortManager::createDatatypeSort(const std::string& name,
             const std::vector<Sort::DtConstructor>& constructors) {
         auto sort = std::make_shared<Sort>(SORT_KIND::SK_DATATYPE, name, 0);

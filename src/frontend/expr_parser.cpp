@@ -31,6 +31,12 @@
 
 namespace SOMTParser{
 
+    // Internal marker used to route ((_ update <selector>) t v) through the
+    // regular operator path while carrying the selector name. The leading
+    // control character cannot appear in an SMT-LIB symbol, so this can never
+    // be confused with a user-declared function.
+    static constexpr const char* DT_UPDATE_PREFIX = "\x01update-";
+
     // State of the parser
     enum class FrameState {
         Start,
@@ -113,6 +119,19 @@ namespace SOMTParser{
                                 parseRpar();
                                 frame.headSymbol = "_";
                                 frame.second_symbol = "is-" + ctor;
+                                frame.state = FrameState::ProcessingParams;
+                                break;
+                            }
+                            // ((_ update <selector>) t v): like (_ is C), the
+                            // index is a selector *symbol* rather than a
+                            // numeral, so it cannot go through the generic
+                            // ParamFunc path (which parses indices as terms).
+                            // Ported from the SMTStabilizer fork.
+                            if(idx == "update"){
+                                std::string sel = getSymbol();
+                                parseRpar();
+                                frame.headSymbol = "_";
+                                frame.second_symbol = DT_UPDATE_PREFIX + sel;
                                 frame.state = FrameState::ProcessingParams;
                                 break;
                             }
@@ -402,6 +421,13 @@ namespace SOMTParser{
                         // parenthesised pattern lists.  Previously only :named
                         // was handled, so quantified benchmarks carrying
                         // :pattern (almost all of UFNIA/UFDT/...) failed to parse.
+                        // With preserve_annotations enabled the understood
+                        // annotations are kept as nodes so printing round-trips
+                        // triggers instead of silently dropping them (ported
+                        // from the SMTStabilizer fork); otherwise the original
+                        // skip-everything behaviour is retained.
+                        const bool keep_annots = getOptions()->getPreserveAnnotations();
+                        std::vector<std::shared_ptr<DAGNode>> annotations;
                         std::shared_ptr<DAGNode> formula = parseExpr();
                         scanToNextSymbol();
                         while(*bufptr && *bufptr != ')'){
@@ -416,6 +442,30 @@ namespace SOMTParser{
                                    && *bufptr != ':' && *bufptr != ')'){
                                     std::string name = getSymbol();
                                     context_.named_assertions[name] = formula;
+                                    scanToNextSymbol();
+                                }else if(keep_annots && kw == ":pattern" && *bufptr == '('){
+                                    parseLpar();
+                                    std::vector<std::shared_ptr<DAGNode>> patterns;
+                                    scanToNextSymbol();
+                                    while(*bufptr && *bufptr != ')'){
+                                        patterns.emplace_back(parseExpr());
+                                        scanToNextSymbol();
+                                    }
+                                    parseRpar();
+                                    annotations.emplace_back(mkPattern(patterns));
+                                    scanToNextSymbol();
+                                }else if(keep_annots && kw == ":no-pattern"
+                                         && *bufptr && *bufptr != ':' && *bufptr != ')'){
+                                    annotations.emplace_back(mkNoPattern(parseExpr()));
+                                    scanToNextSymbol();
+                                }else if(keep_annots && kw == ":weight"
+                                         && *bufptr && *bufptr != ':' && *bufptr != ')'){
+                                    annotations.emplace_back(mkWeight(parseExpr()));
+                                    scanToNextSymbol();
+                                }else if(keep_annots && kw == ":qid"
+                                         && *bufptr && *bufptr != ':' && *bufptr != ')'
+                                         && *bufptr != '('){
+                                    annotations.emplace_back(mkQid(getSymbol()));
                                     scanToNextSymbol();
                                 }else if(*bufptr == '('){
                                     // skip a balanced parenthesised value
@@ -434,6 +484,9 @@ namespace SOMTParser{
                                 getSymbol();  // unexpected token; make progress
                                 scanToNextSymbol();
                             }
+                        }
+                        if(!annotations.empty()){
+                            formula = mkAttribute(formula, annotations);
                         }
                         frame.result = formula;
                         parseRpar();
@@ -741,6 +794,11 @@ namespace SOMTParser{
 			return mkConstStr(s);
 		}
 		// no parameters
+		// tuple.unit is the nullary tuple constant, so it appears as a bare
+		// symbol rather than an application. Ported from the SMTStabilizer fork.
+		else if (s == "tuple.unit"){
+			return mkTuple({});
+		}
 		else if (s == "re.none"){
 			return mkRegNone();
 		}
@@ -789,6 +847,12 @@ namespace SOMTParser{
 	std::shared_ptr<DAGNode> Parser::parseOper(const std::string& s, const std::vector<std::shared_ptr<DAGNode>>& func_args, const std::vector<std::shared_ptr<DAGNode>> &oper_params, bool indexed_under_score){
 		TIME_FUNC();
 		auto func = getSymbolManager()->resolveFun(s);
+		// ((_ update <sel>) t v) arrives with the selector folded into the name
+		// under a marker prefix that cannot occur in an SMT-LIB symbol, so this
+		// can never collide with a user-declared function.
+		if(!func && s.rfind(DT_UPDATE_PREFIX, 0) == 0 && oper_params.size() == 2){
+			return mkDtUpdate(s.substr(std::string(DT_UPDATE_PREFIX).size()), oper_params[0], oper_params[1]);
+		}
 		// Datatype tester/constructor/selector applied here: the indexed tester
 		// form (_ is C) registers as a FuncDec named "is-C", and an applied
 		// constructor/selector also resolves as a FuncDec — applyFun would emit a
@@ -1097,8 +1161,20 @@ namespace SOMTParser{
                 condAssert(oper_params.size() == 1, "Invalid number of parameters for bv2nat");
                 return mkBvToNat(oper_params[0]);
             case NODE_KIND::NT_NAT_TO_BV:
+                // Both the indexed SMT-LIB form ((_ nat2bv m) t) — where the
+                // width arrives in func_args — and the flat (nat2bv t m) form.
+                // The indexed form used to abort on the 2-parameter assert.
+                if(func_args.size() == 1 && oper_params.size() == 1){
+                    return mkNatToBv(oper_params[0], func_args[0]);
+                }
                 condAssert(oper_params.size() == 2, "Invalid number of parameters for nat2bv");
                 return mkNatToBv(oper_params[0], oper_params[1]);
+            case NODE_KIND::NT_UBV_TO_INT:
+                condAssert(oper_params.size() == 1, "Invalid number of parameters for ubv_to_int");
+                return mkUbvToInt(oper_params[0]);
+            case NODE_KIND::NT_SBV_TO_INT:
+                condAssert(oper_params.size() == 1, "Invalid number of parameters for sbv_to_int");
+                return mkSbvToInt(oper_params[0]);
             case NODE_KIND::NT_INT_TO_BV:
                 condAssert(func_args.size() == 1, "Invalid number of arguments for int_to_bv");
                 condAssert(oper_params.size() == 1, "Invalid number of parameters for int_to_bv");
@@ -1297,6 +1373,25 @@ namespace SOMTParser{
             case NODE_KIND::NT_STORE:
                 condAssert(oper_params.size() == 3, "Invalid number of parameters for store");
                 return mkStore(oper_params[0], oper_params[1], oper_params[2]);
+            // TUPLE OPERATORS — ported from the SMTStabilizer fork. The
+            // select/update/project indices arrive as func_args because the
+            // operators are indexed: ((_ tuple.select i) t).
+            case NODE_KIND::NT_TUPLE_CONSTRUCTOR:
+                return mkTuple(oper_params);
+            case NODE_KIND::NT_TUPLE_UNIT:
+                condAssert(oper_params.empty(), "tuple.unit takes no parameters");
+                return mkTuple({});
+            case NODE_KIND::NT_TUPLE_SELECT:
+                condAssert(func_args.size() == 1, "Invalid number of arguments for tuple.select");
+                condAssert(oper_params.size() == 1, "Invalid number of parameters for tuple.select");
+                return mkTupleSelect(oper_params[0], func_args[0]);
+            case NODE_KIND::NT_TUPLE_UPDATE:
+                condAssert(func_args.size() == 1, "Invalid number of arguments for tuple.update");
+                condAssert(oper_params.size() == 2, "Invalid number of parameters for tuple.update");
+                return mkTupleUpdate(oper_params[0], func_args[0], oper_params[1]);
+            case NODE_KIND::NT_TUPLE_PROJECT:
+                condAssert(oper_params.size() == 1, "Invalid number of parameters for tuple.project");
+                return mkTupleProject(oper_params[0], func_args);
             case NODE_KIND::NT_ROOT_OBJ:
                 condAssert(oper_params.size() == 2, "root-obj requires exactly 2 parameters");
                 {
