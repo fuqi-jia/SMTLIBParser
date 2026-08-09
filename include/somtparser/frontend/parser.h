@@ -413,6 +413,11 @@ namespace SOMTParser{
         * @return set option value
         */
         void setOption(const std::string& key, const std::string& value);
+        // A string literal must be treated as a string, not as a bool. Without
+        // this overload setOption("keep_let", "false") selects the bool
+        // overload -- pointer-to-bool is a standard conversion and so beats the
+        // user-defined conversion to std::string -- and silently sets true.
+        void setOption(const std::string& key, const char* value);
         void setOption(const std::string& key, const int& value);
         void setOption(const std::string& key, const double& value);
         void setOption(const std::string& key, const bool& value);

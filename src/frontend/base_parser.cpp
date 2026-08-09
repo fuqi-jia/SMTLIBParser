@@ -248,6 +248,9 @@ namespace SOMTParser{
 	void Parser::setOption(const std::string& key, const std::string& value){
 		getOptions()->setOption(key, value);
 	}
+	void Parser::setOption(const std::string& key, const char* value){
+		getOptions()->setOption(key, value ? std::string(value) : std::string());
+	}
 	void Parser::setOption(const std::string& key, const int& value){
 		getOptions()->setOption(key, std::to_string(value));
 	}
