@@ -4238,6 +4238,8 @@ namespace SOMTParser{
         void		err_open_file(const std::string) const;
 
         void 		warn_cmd_nsup(const std::string nm, const size_t ln) const;
+        /** Reports what a `:named` annotation displaced; silent when it displaced nothing. */
+        void        warn_named_displaced(const NameAssertionOutcome& outcome, const std::string& name, const size_t ln) const;
 
         // collect atoms
         void        collectAtoms(std::shared_ptr<DAGNode> expr, std::unordered_set<std::shared_ptr<DAGNode>>& atoms, std::unordered_set<std::shared_ptr<DAGNode>>& visited);
