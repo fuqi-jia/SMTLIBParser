@@ -57,8 +57,24 @@ struct ScopeFrame {
     std::vector<std::string> added_funs;
     std::vector<std::string> added_sorts;
     std::vector<std::string> added_named_assertion_keys;
+    // Bindings this scope displaced. Naming an assertion drops any earlier name
+    // for the same node, and may steal a name from another node; popping has to
+    // put the outer binding back or it would be lost with no way to recover it.
+    std::vector<std::pair<std::string, std::shared_ptr<DAGNode>>> replaced_named_assertions;
     std::vector<std::string> added_assertion_group_keys;
     std::vector<std::string> added_soft_assertion_group_keys;
+};
+
+/**
+ * What naming an assertion displaced. Both flags can be set at once, e.g. when
+ * the assertion already had a name and the new name belonged to another one.
+ */
+struct NameAssertionOutcome {
+    /** The assertion already carried a name; previous_name has been dropped. */
+    bool assertion_was_named = false;
+    std::string previous_name;
+    /** The name already referred to a different assertion, which loses it. */
+    bool name_was_reused = false;
 };
 
 /**
@@ -82,6 +98,11 @@ public:
 public:
     std::vector<std::shared_ptr<DAGNode>> assertions;
     std::unordered_map<std::string, std::unordered_set<size_t>> assertion_groups;
+    // Kept a bijection by nameAssertion(): every name refers to one assertion
+    // and every assertion carries at most one name. Nodes are hash-consed, so
+    // two textually distinct `:named` annotations on equal terms land on the
+    // same node; without the bijection dumpSMT2 could not tell which name to
+    // print for it. Register through nameAssertion(), not by writing here.
     std::unordered_map<std::string, std::shared_ptr<DAGNode>> named_assertions;
     std::vector<std::vector<std::shared_ptr<DAGNode>>> assumptions;
     std::vector<std::shared_ptr<DAGNode>> soft_assertions;
@@ -107,6 +128,16 @@ public:
     void resetAssertions();
     void resetAll();
 
+    // --- Named assertions (:named, for unsat cores and for dumpSMT2) ---
+    /**
+     * Bind `name` to `node`, dropping whatever the bijection forces out, and
+     * record the change in the current scope. The caller reports the returned
+     * displacements as warnings; this class does no I/O.
+     */
+    NameAssertionOutcome nameAssertion(const std::string& name, const std::shared_ptr<DAGNode>& node);
+    /** The name bound to `node`, or nullptr. Valid until named_assertions changes. */
+    const std::string* getAssertionName(const std::shared_ptr<DAGNode>& node) const;
+
     // Helpers to record additions in the current scope (no-op if no scope is active)
     void registerVarInScope(const std::string& name);
     void registerFunInScope(const std::string& name);
@@ -114,6 +145,12 @@ public:
     void registerNamedAssertionInScope(const std::string& name);
     void registerAssertionGroupInScope(const std::string& name);
     void registerSoftAssertionGroupInScope(const std::string& name);
+
+private:
+    // Inverse of named_assertions. Keeps "does this assertion already have a
+    // name?" O(1) on the parse path and lets dumpSMT2 look a name up per
+    // assertion. The shared_ptr key keeps the node alive alongside the forward map.
+    std::unordered_map<std::shared_ptr<DAGNode>, std::string> assertion_names_;
 };
 
 } // namespace SOMTParser

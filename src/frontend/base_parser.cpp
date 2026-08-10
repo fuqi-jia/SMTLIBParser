@@ -1068,18 +1068,22 @@ namespace SOMTParser{
 			size_t index = context_.assertions.size();
 			context_.assertions.emplace_back(assert_expr);
 			// 
-			if(grp_id == ""){
+			// (assert <expr> [:id <symbol>] [:named <symbol>]), in either order.
+			// attemptParseKeywords() consumes the keyword it reads, so the two
+			// separate attempts this replaces did not compose: the one looking
+			// for :id swallowed a trailing :named and discarded it, and the
+			// :named attempt then saw the bare name. Loop over the keywords
+			// instead, the way parseAssertSoft already does.
+			while(true){
 				KEYWORD key_ = attemptParseKeywords();
-				if(key_ == KEYWORD::KW_ID){
-					// (assert <expr> [:id <symbol>])
+				if(key_ == KEYWORD::KW_ID && grp_id == ""){
 					grp_id = getSymbol();
 				}
-			}
-			if (named_name == ""){
-				KEYWORD key_ = attemptParseKeywords();
-				if(key_ == KEYWORD::KW_NAMED){
-					// (assert <expr> (! expr :named <symbol>))
+				else if(key_ == KEYWORD::KW_NAMED && named_name == ""){
 					named_name = getSymbol();
+				}
+				else{
+					break;
 				}
 			}
 			// if grp_id is not empty, insert to assertion_groups
@@ -1093,8 +1097,8 @@ namespace SOMTParser{
 			}
 			//if named_name is not empty, insert to named_assertions
 			if (named_name != ""){
-				context_.named_assertions[named_name] = assert_expr;
-				context_.registerNamedAssertionInScope(named_name);
+				warn_named_displaced(context_.nameAssertion(named_name, assert_expr),
+				                     named_name, command_ln);
 			}
 			if(grp_id != ""){
 				context_.registerAssertionGroupInScope(grp_id);
@@ -3569,9 +3573,21 @@ namespace SOMTParser{
 			ss << dumpFuncDef(func) << std::endl;
 		}
 	}
-		// constraints
+		// constraints. A `:named` annotation is stripped during parsing and kept
+		// aside for unsat cores; dumping it back is what lets a dumped script
+		// still answer (get-unsat-core) with the names the input used.
+		// Hash-consing can put one named node in `assertions` more than once --
+		// (assert (! p :named n)) (assert p) -- and repeating the name would be a
+		// duplicate declaration on re-parse, so only the first occurrence carries it.
+		std::unordered_set<std::string> emitted_names;
 		for(auto& constraint : context_.assertions){
-			ss << "(assert " << dumpSMTLIB2(constraint) << ")" << std::endl;
+			const std::string* name = context_.getAssertionName(constraint);
+			if(name && emitted_names.insert(*name).second){
+				ss << "(assert (! " << dumpSMTLIB2(constraint) << " :named " << *name << "))" << std::endl;
+			}
+			else{
+				ss << "(assert " << dumpSMTLIB2(constraint) << ")" << std::endl;
+			}
 		}
 		ss << "(check-sat)" << std::endl;
 		ss << "(exit)" << std::endl;
@@ -3604,6 +3620,20 @@ namespace SOMTParser{
 	// command not support
 	void Parser::warn_cmd_nsup(const std::string nm, const size_t ln) const {
 		std::cout << "warning: \"" << nm << "\" command is safely ignored in line " << ln << "." << std::endl;
+	}
+
+	// An assertion carries at most one name, so a second ":named" on the same
+	// assertion -- or a name taken from another one -- drops a binding. Say so:
+	// the loss is silent otherwise and only shows up in an unsat core.
+	void Parser::warn_named_displaced(const NameAssertionOutcome& outcome, const std::string& name, const size_t ln) const {
+		if (outcome.assertion_was_named) {
+			std::cout << "warning: assertion was already named \"" << outcome.previous_name
+			          << "\" in line " << ln << "; keeping only the last name \"" << name << "\"." << std::endl;
+		}
+		if (outcome.name_was_reused) {
+			std::cout << "warning: name \"" << name << "\" was already used for another assertion in line "
+			          << ln << "; keeping only the last assertion so named." << std::endl;
+		}
 	}
 
 	ParserPtr newParser(){

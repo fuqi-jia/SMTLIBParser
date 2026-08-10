@@ -440,8 +440,10 @@ namespace SOMTParser{
                                 scanToNextSymbol();
                                 if(kw == ":named" && *bufptr
                                    && *bufptr != ':' && *bufptr != ')'){
+                                    size_t name_ln = line_number;
                                     std::string name = getSymbol();
-                                    context_.named_assertions[name] = formula;
+                                    warn_named_displaced(context_.nameAssertion(name, formula),
+                                                         name, name_ln);
                                     scanToNextSymbol();
                                 }else if(keep_annots && kw == ":pattern" && *bufptr == '('){
                                     parseLpar();

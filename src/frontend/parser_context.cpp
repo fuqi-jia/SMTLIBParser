@@ -80,9 +80,20 @@ void ParserContext::popScope(size_t n) {
             for (const auto& name : frame.added_sorts) sm->removeSort(name);
         }
 
-        // Remove added named assertions
+        // Remove added named assertions, then put back whatever they displaced.
+        // Reverse order so that when a name was displaced repeatedly the
+        // outermost binding -- recorded first -- is the one that survives.
         for (const auto& key : frame.added_named_assertion_keys) {
-            named_assertions.erase(key);
+            auto it = named_assertions.find(key);
+            if (it != named_assertions.end()) {
+                assertion_names_.erase(it->second);
+                named_assertions.erase(it);
+            }
+        }
+        for (auto it = frame.replaced_named_assertions.rbegin();
+             it != frame.replaced_named_assertions.rend(); ++it) {
+            named_assertions[it->first] = it->second;
+            assertion_names_[it->second] = it->first;
         }
 
         // Remove added assertion group indices
@@ -129,6 +140,7 @@ void ParserContext::resetAssertions() {
     assertion_groups.clear();
     soft_assertion_groups.clear();
     named_assertions.clear();
+    assertion_names_.clear();
     split_lemmas.clear();
     // Note: scope_stack_ is NOT cleared; declarations and options are kept.
 }
@@ -145,6 +157,51 @@ void ParserContext::resetAll() {
     if (auto om = getObjectiveManager()) {
         om->clear();
     }
+}
+
+// --- Named assertions ---
+
+NameAssertionOutcome ParserContext::nameAssertion(const std::string& name,
+                                                 const std::shared_ptr<DAGNode>& node) {
+    NameAssertionOutcome out;
+    if (!node) return out;
+
+    // Already bound exactly this way: nothing changes, and in particular this
+    // scope must not claim it added the binding -- popping would then delete a
+    // name that an enclosing scope owns.
+    auto existing = named_assertions.find(name);
+    if (existing != named_assertions.end() && existing->second == node) return out;
+
+    ScopeFrame* frame = scope_stack_.empty() ? nullptr : &scope_stack_.back();
+
+    // Naming an assertion that already has a name: the old name goes away, so
+    // the bijection holds and a dump has exactly one name to print for it.
+    auto old = assertion_names_.find(node);
+    if (old != assertion_names_.end() && old->second != name) {
+        out.assertion_was_named = true;
+        out.previous_name = old->second;
+        if (frame) frame->replaced_named_assertions.emplace_back(old->second, node);
+        named_assertions.erase(old->second);
+        assertion_names_.erase(old);
+    }
+
+    // Reusing a name for a different assertion: the earlier one loses it.
+    auto taken = named_assertions.find(name);
+    if (taken != named_assertions.end() && taken->second != node) {
+        out.name_was_reused = true;
+        if (frame) frame->replaced_named_assertions.emplace_back(name, taken->second);
+        assertion_names_.erase(taken->second);
+    }
+
+    named_assertions[name] = node;
+    assertion_names_[node] = name;
+    registerNamedAssertionInScope(name);
+    return out;
+}
+
+const std::string* ParserContext::getAssertionName(const std::shared_ptr<DAGNode>& node) const {
+    auto it = assertion_names_.find(node);
+    return it == assertion_names_.end() ? nullptr : &it->second;
 }
 
 // --- Scope recording helpers (no-op if no active scope) ---
