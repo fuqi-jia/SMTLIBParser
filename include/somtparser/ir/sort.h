@@ -41,7 +41,9 @@ namespace SOMTParser{
     
     // supported const/variable types
     enum class SORT_KIND {
-        SK_NULL=0, SK_UNKNOWN, SK_BOOL, SK_INT, SK_REAL, SK_BV, SK_FP, SK_STR, SK_ARRAY, SK_DATATYPE, SK_SET, SK_RELATION, SK_BAG, SK_SEQ, SK_UF, 
+        SK_NULL=0, SK_UNKNOWN, SK_BOOL, SK_INT, SK_REAL, SK_BV, SK_FP, SK_STR, SK_ARRAY, SK_DATATYPE, SK_SET, SK_RELATION, SK_BAG, SK_SEQ,
+        SK_TUPLE, // (Tuple T1 ... Tn) — ported from the SMTStabilizer fork
+        SK_UF,
         SK_REG, // regular expression
         SK_EXT, // extended real
         SK_RAT, // rational number
@@ -102,6 +104,12 @@ namespace SOMTParser{
         bool isRelation() const { return kind == SORT_KIND::SK_RELATION; }
         bool isBag() const { return kind == SORT_KIND::SK_BAG; }
         bool isSeq() const { return kind == SORT_KIND::SK_SEQ; }
+        bool isTuple() const { return kind == SORT_KIND::SK_TUPLE; }
+        size_t getChildrenSize() const { return children.size(); }
+        std::shared_ptr<Sort> getChild(size_t i) const {
+            condAssert(i < children.size(), "Sort::getChild: index out of range");
+            return children[i];
+        }
         bool isUF() const { return kind == SORT_KIND::SK_UF; }
         bool isNat() const { return kind == SORT_KIND::SK_NAT; }
         bool isRand() const { return kind == SORT_KIND::SK_RAND; }
@@ -215,8 +223,18 @@ namespace SOMTParser{
                 case SORT_KIND::SK_RELATION: return "Relation";
                 case SORT_KIND::SK_BAG: return "Bag";
                 case SORT_KIND::SK_SEQ: return "Sequence";
+                case SORT_KIND::SK_TUPLE: {
+                    // (Tuple T1 ... Tn); the nullary tuple sort is UnitTuple.
+                    if(children.empty()) return "UnitTuple";
+                    std::string s = "(Tuple";
+                    for(const auto& ch : children) s += " " + ch->toString();
+                    return s + ")";
+                }
                 case SORT_KIND::SK_UF: return "UF";
-                case SORT_KIND::SK_REG: return "(RegEx String)";
+                // The regular-expression sort is spelled RegLan in SMT-LIB;
+                // base_parser reads that spelling, so printing anything else
+                // made our own output unparsable by us.
+                case SORT_KIND::SK_REG: return "RegLan";
                 case SORT_KIND::SK_EXT: return "ExtReal";
                 case SORT_KIND::SK_NAT: return "Natural";
                 case SORT_KIND::SK_RAND: return "Random";
@@ -328,6 +346,8 @@ namespace SOMTParser{
             std::shared_ptr<Sort> createBVSort(size_t width);
             std::shared_ptr<Sort> createFPSort(size_t exp, size_t sig);
             std::shared_ptr<Sort> createArraySort(std::shared_ptr<Sort> index, std::shared_ptr<Sort> elem);
+            /** (Tuple T1 ... Tn); an empty field list yields the unit tuple sort. */
+            std::shared_ptr<Sort> createTupleSort(const std::vector<std::shared_ptr<Sort>>& fields);
             std::shared_ptr<Sort> createDatatypeSort(const std::string& name,
                 const std::vector<Sort::DtConstructor>& constructors);
             std::shared_ptr<Sort> createSortDec(const std::string& name, size_t arity);

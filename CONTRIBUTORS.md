@@ -55,6 +55,21 @@ All contributors will be recognized in this file. When you make your first contr
 <!-- Format: **Your Name** - *Brief description of contribution* -->
 <!-- Example: **John Doe** - *Bug fixes in expression parser* -->
 
+## Acknowledgements
+
+These are not project contributors, but their published work fed back into
+SOMTParser and deserves credit.
+
+- **SMTStabilizer** (<https://github.com/shaowei-cai-group/SMTStabilizer>, MIT,
+  © 2026 Xiang Zhang) vendors and extends SOMTParser's parser. Reviewing that
+  fork surfaced several printer bugs on our side (the `bv2int`/`int2bv`
+  conversions printing as `UNKNOWN_KIND`, the regex sort printing as
+  `(RegEx String)` instead of `RegLan`, and the datatype tester printing in the
+  legacy `(is-C x)` form), and its implementations of the tuple theory,
+  `((_ update <selector>) t v)`, the SMT-LIB 2.7 `ubv_to_int`/`sbv_to_int`
+  spellings and term-annotation preservation were used as the reference when
+  adding those features here. The individual call sites carry inline notes.
+
 ---
 
 ## Contact
