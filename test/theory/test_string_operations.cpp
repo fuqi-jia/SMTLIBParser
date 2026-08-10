@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
-#include <cassert>
+#include "test_helpers.h"
 
 // Test string constants
 void test_string_constants(SOMTParser::ParserPtr& parser) {
@@ -42,7 +42,7 @@ cvc5:
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -66,7 +66,7 @@ void test_string_operations(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -87,8 +87,8 @@ void test_string_comparisons(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
-        assert(result->isTrue() || result->isFalse());
+        VERIFY(result && !result->isErr());
+        VERIFY(result->isTrue() || result->isFalse());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -108,7 +108,7 @@ void test_regex_operations(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }

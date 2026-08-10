@@ -5,7 +5,7 @@
 #include "somtparser/ir/number.h"
 #include "somtparser/ir/value.h"
 #include "somtparser/model/model.h"
-#include <cassert>
+#include "test_helpers.h"
 
 // Test array creation and basic operations
 void test_array_creation(SOMTParser::ParserPtr& parser) {
@@ -13,8 +13,8 @@ void test_array_creation(SOMTParser::ParserPtr& parser) {
     
     std::shared_ptr<SOMTParser::Sort> int_sort = SOMTParser::SortManager::INT_SORT;
     std::shared_ptr<SOMTParser::DAGNode> array = parser->mkArray("testArray", int_sort, int_sort);
-    assert(array);
-    assert(parser->toString(array).find("testArray") != std::string::npos);
+    VERIFY(array);
+    VERIFY(parser->toString(array).find("testArray") != std::string::npos);
     std::cout << "Created array: " << parser->toString(array) << std::endl;
     std::cout << std::endl;
 }
@@ -34,15 +34,15 @@ void test_array_operations(SOMTParser::ParserPtr& parser) {
     for (const auto& p : cases) {
         std::cout << "Expression: " << p.first << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(p.first);
-        assert(result);
+        VERIFY(result);
         std::string got = parser->toString(result);
         std::cout << "  Result: " << got << std::endl;
         if (!p.second.empty()) {
             auto expected = parser->mkExpr(p.second);
-            assert(expected && result == expected &&
+            VERIFY(expected && result == expected &&
                    "array operation result mismatch");
         } else {
-            assert(got.find("store") != std::string::npos || got.find("select") != std::string::npos || got.find("const") != std::string::npos);
+            VERIFY(got.find("store") != std::string::npos || got.find("select") != std::string::npos || got.find("const") != std::string::npos);
         }
         std::cout << std::endl;
     }
@@ -61,18 +61,18 @@ void test_array_model_select_evaluation(SOMTParser::ParserPtr& p) {
     m->setArrayStore("A", "1", v42);
 
     auto sel = p->mkExpr("(select A 1)");
-    assert(sel && !sel->isErr());
+    VERIFY(sel && !sel->isErr());
     auto ev = p->evaluate(sel, m);
-    assert(ev && !ev->isErr());
-    assert(ev->isCInt());
-    assert(p->toInt(ev) == SOMTParser::Integer(42));
+    VERIFY(ev && !ev->isErr());
+    VERIFY(ev->isCInt());
+    VERIFY(p->toInt(ev) == SOMTParser::Integer(42));
 
     auto sel2 = p->mkExpr("(select A 2)");
-    assert(sel2 && !sel2->isErr());
+    VERIFY(sel2 && !sel2->isErr());
     auto ev2 = p->evaluate(sel2, m);
-    assert(ev2 && !ev2->isErr());
-    assert(ev2->isCInt());
-    assert(p->toInt(ev2) == SOMTParser::Integer(0));
+    VERIFY(ev2 && !ev2->isErr());
+    VERIFY(ev2->isCInt());
+    VERIFY(p->toInt(ev2) == SOMTParser::Integer(0));
 }
 
 void test_value_array_operators_ir() {
@@ -82,13 +82,13 @@ void test_value_array_operators_ir() {
 
     SOMTParser::Value stored =
         arr.store("key1", SOMTParser::Value(SOMTParser::Number(SOMTParser::Integer(42))));
-    assert(stored.getType() == SOMTParser::ARRAY);
+    VERIFY(stored.getType() == SOMTParser::ARRAY);
 
     SOMTParser::Value selected = stored.select("key1");
-    assert(selected.toNumber() == SOMTParser::Number(SOMTParser::Integer(42)));
+    VERIFY(selected.toNumber() == SOMTParser::Number(SOMTParser::Integer(42)));
 
     SOMTParser::Value def_val = stored.select("key2");
-    assert(def_val.getNumberValue() ==
+    VERIFY(def_val.getNumberValue() ==
            SOMTParser::Number(SOMTParser::Integer(99)));
 }
 

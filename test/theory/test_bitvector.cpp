@@ -5,17 +5,17 @@
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/number.h"
 #include "somtparser/ir/value.h"
-#include <cassert>
+#include "test_helpers.h"
 
 // Test bitvector constants
 void test_bv_const_value_and_utils_nat(SOMTParser::ParserPtr& parser) {
     std::cout << "=== BV (_ bv n w) getValue + BitVectorUtils (not getNumberValue) ===" << std::endl;
     auto n = parser->mkExpr("(_ bv42 8)");
-    assert(n && n->isCBV());
+    VERIFY(n && n->isCBV());
     auto v = n->getValue();
-    assert(v && v->getType() == SOMTParser::BV);
-    assert(v->getBvWidth() == 8);
-    assert(SOMTParser::BitVectorUtils::bvToNat(n->toString()) == SOMTParser::Integer(42));
+    VERIFY(v && v->getType() == SOMTParser::BV);
+    VERIFY(v->getBvWidth() == 8);
+    VERIFY(SOMTParser::BitVectorUtils::bvToNat(n->toString()) == SOMTParser::Integer(42));
 }
 
 void test_bitvector_constants(SOMTParser::ParserPtr& parser) {
@@ -30,7 +30,7 @@ void test_bitvector_constants(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -52,7 +52,7 @@ void test_bv_logical_operations(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -76,7 +76,7 @@ void test_bv_arithmetic_operations(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -99,7 +99,7 @@ void test_bv_comparison_operations(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && (result->isTrue() || result->isFalse()));
+        VERIFY(result && (result->isTrue() || result->isFalse()));
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -115,17 +115,17 @@ void test_value_bv_operators_ir() {
     b.setBvWidth(4);
 
     SOMTParser::Value r_and = a.andOp(b);
-    assert(r_and.getType() == SOMTParser::BV);
-    assert(r_and.toString() == "0");
+    VERIFY(r_and.getType() == SOMTParser::BV);
+    VERIFY(r_and.toString() == "0");
 
     SOMTParser::Value r_or = a.orOp(b);
-    assert(r_or.toString() == "15");
+    VERIFY(r_or.toString() == "15");
 
     SOMTParser::Value r_xor = a.xorOp(b);
-    assert(r_xor.toString() == "15");
+    VERIFY(r_xor.toString() == "15");
 
     SOMTParser::Value r_shl = a.shift_left(SOMTParser::Number(SOMTParser::Integer(1)));
-    assert(r_shl.toString() == "20");
+    VERIFY(r_shl.toString() == "20");
 }
 
 // ─── Issue #3: BV arithmetic correctness (constant-folding path) ─────────────
@@ -139,38 +139,38 @@ void test_bv_arithmetic_correctness(SOMTParser::ParserPtr& parser) {
     // bvadd: 3 + 5 = 8  (#b0011 + #b0101 = #b1000)
     {
         auto r = parser->mkExpr("(bvadd #b0011 #b0101)");
-        assert(r && r->isCBV());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(8));
+        VERIFY(r && r->isCBV());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(8));
     }
     // bvsub: 10 - 3 = 7  (#b1010 - #b0011 = #b0111)
     {
         auto r = parser->mkExpr("(bvsub #b1010 #b0011)");
-        assert(r && r->isCBV());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(7));
+        VERIFY(r && r->isCBV());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(7));
     }
     // bvmul: 3 * 5 = 15  (#b0011 * #b0101 = #b1111)
     {
         auto r = parser->mkExpr("(bvmul #b0011 #b0101)");
-        assert(r && r->isCBV());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(15));
+        VERIFY(r && r->isCBV());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(15));
     }
     // bvudiv: 10 / 2 = 5  (#b1010 / #b0010 = #b0101)
     {
         auto r = parser->mkExpr("(bvudiv #b1010 #b0010)");
-        assert(r && r->isCBV());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(5));
+        VERIFY(r && r->isCBV());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(5));
     }
     // bvurem: 10 % 3 = 1  (#b1010 % #b0011 = #b0001)
     {
         auto r = parser->mkExpr("(bvurem #b1010 #b0011)");
-        assert(r && r->isCBV());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(1));
+        VERIFY(r && r->isCBV());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(1));
     }
     // overflow check: 15 + 1 wraps to 0 in 4-bit  (#b1111 + #b0001 = #b0000)
     {
         auto r = parser->mkExpr("(bvadd #b1111 #b0001)");
-        assert(r && r->isCBV());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(0));
+        VERIFY(r && r->isCBV());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(0));
     }
     std::cout << "  BV arithmetic correctness (fast path): OK\n";
 }
@@ -186,32 +186,32 @@ void test_bv_large_width_gmp_path(SOMTParser::ParserPtr& parser) {
     // bvadd: 100 + 200 = 300
     {
         auto r = parser->mkExpr("(bvadd (_ bv100 128) (_ bv200 128))");
-        assert(r && r->isCBV() && !r->isErr());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(300));
+        VERIFY(r && r->isCBV() && !r->isErr());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(300));
     }
     // bvsub: 500 - 1 = 499
     {
         auto r = parser->mkExpr("(bvsub (_ bv500 128) (_ bv1 128))");
-        assert(r && r->isCBV() && !r->isErr());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(499));
+        VERIFY(r && r->isCBV() && !r->isErr());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(499));
     }
     // bvmul: 1000 * 1000 = 1000000
     {
         auto r = parser->mkExpr("(bvmul (_ bv1000 128) (_ bv1000 128))");
-        assert(r && r->isCBV() && !r->isErr());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(1000000));
+        VERIFY(r && r->isCBV() && !r->isErr());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(1000000));
     }
     // bvudiv: 1000000 / 1000 = 1000
     {
         auto r = parser->mkExpr("(bvudiv (_ bv1000000 128) (_ bv1000 128))");
-        assert(r && r->isCBV() && !r->isErr());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(1000));
+        VERIFY(r && r->isCBV() && !r->isErr());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(1000));
     }
     // bvurem: 1000007 % 1000 = 7
     {
         auto r = parser->mkExpr("(bvurem (_ bv1000007 128) (_ bv1000 128))");
-        assert(r && r->isCBV() && !r->isErr());
-        assert(BitVectorUtils::bvToNat(r->toString()) == Integer(7));
+        VERIFY(r && r->isCBV() && !r->isErr());
+        VERIFY(BitVectorUtils::bvToNat(r->toString()) == Integer(7));
     }
     std::cout << "  Large BV GMP path: OK\n";
 }

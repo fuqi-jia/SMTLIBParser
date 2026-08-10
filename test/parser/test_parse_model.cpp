@@ -1,7 +1,7 @@
 #include "somtparser/frontend/parser.h"
 #include <iostream>
 #include <string>
-#include <cassert>
+#include "test_helpers.h"
 
 int main() {
     // Create parser
@@ -1245,78 +1245,78 @@ int main() {
         parser->mkVarInt("x");
         parser->mkVarInt("y");
         auto phi = parser->mkExpr("(and (> x 0) (> y 0))");
-        assert(phi);
+        VERIFY(phi);
         std::string modelStr = R"(
 (model
   (define-fun x () Int 1)
   (define-fun y () Int 2)
 ))";
         auto M = parser->parseModel(modelStr);
-        assert(M && M->size() >= 2);
+        VERIFY(M && M->size() >= 2);
         auto psi = parser->evaluate(phi, M);
-        assert(psi && psi->isTrue() && "evaluate((and (> x 0) (> y 0)), M) with x=1,y=2 should be true");
+        VERIFY(psi && psi->isTrue() && "evaluate((and (> x 0) (> y 0)), M) with x=1,y=2 should be true");
         std::cout << "Basic parseModel + evaluate: phi=(and (> x 0) (> y 0)), M={x->1,y->2} => " << parser->toString(psi) << " OK" << std::endl;
     }
 
     try {
         auto model = parser->parseModel(model_str1);
-        assert(model && "model1 should parse successfully");
+        VERIFY(model && "model1 should parse successfully");
         std::cout << "Model 1 parsed successfully!" << std::endl;
         std::cout << "Model 1 size: " << model->size() << std::endl;
-        assert(model->size() > 0);
+        VERIFY(model->size() > 0);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
             std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
         }
-        assert(pairs.size() == model->size());
+        VERIFY(pairs.size() == model->size());
     } catch (const std::exception& e) {
         std::cout << "Exception during parsing: " << e.what() << std::endl;
-        assert(false && "model1 should not throw");
+        VERIFY(false && "model1 should not throw");
     }
 
     try {
         auto model = parser->parseModel(model_str2);
-        assert(model && "model2 should parse successfully");
+        VERIFY(model && "model2 should parse successfully");
         std::cout << "Model 2 parsed successfully!" << std::endl;
         std::cout << "Model 2 size: " << model->size() << std::endl;
-        assert(model->size() > 0);
+        VERIFY(model->size() > 0);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
             std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
         }
     } catch (const std::exception& e) {
         std::cout << "Exception during parsing: " << e.what() << std::endl;
-        assert(false && "model2 should not throw");
+        VERIFY(false && "model2 should not throw");
     }
 
     try {
         auto model = parser->parseModel(model_str3_simple);
-        assert(model && "model3 (simple as-array) should parse successfully");
+        VERIFY(model && "model3 (simple as-array) should parse successfully");
         std::cout << "Model 3 (simplified) parsed successfully!" << std::endl;
         std::cout << "Model 3 size: " << model->size() << std::endl;
-        assert(model->size() >= 1);
+        VERIFY(model->size() >= 1);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
             std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
         }
     } catch (const std::exception& e) {
         std::cout << "Exception during parsing: " << e.what() << std::endl;
-        assert(false && "model3 should not throw");
+        VERIFY(false && "model3 should not throw");
     }
 
     try {
         auto model = parser->parseModel(model_str4_smtrat);
-        assert(model && "model4 (smtrat) should parse successfully");
+        VERIFY(model && "model4 (smtrat) should parse successfully");
         std::cout << "Model 4 (smtrat) parsed successfully!" << std::endl;
         std::cout << "Model 4 size: " << model->size() << std::endl;
-        assert(model->size() >= 3);
+        VERIFY(model->size() >= 3);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
             std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
         }
     } catch (const std::exception& e) {
         std::cout << "Exception during parsing: " << e.what() << std::endl;
-        assert(false && "model4 should not throw");
+        VERIFY(false && "model4 should not throw");
     }
 
     try {
@@ -1329,10 +1329,10 @@ int main() {
         
         auto model = parser->parseModel(model_str5_cvc5);
         
-        assert(model && "model5 (CVC5 real_algebraic_number) should parse successfully");
+        VERIFY(model && "model5 (CVC5 real_algebraic_number) should parse successfully");
         std::cout << "Model 5 (CVC5 real_algebraic_number) parsed successfully!" << std::endl;
         std::cout << "Model 5 size: " << model->size() << std::endl;
-        assert(model->size() == 1);
+        VERIFY(model->size() == 1);
         auto pairs = model->getPairs();
         for (const auto& pair : pairs) {
             std::cout << "Variable: " << pair.first << " = " << parser->toString(pair.second) << std::endl;
@@ -1345,7 +1345,7 @@ int main() {
         }
     } catch (const std::exception& e) {
         std::cout << "Exception during parsing: " << e.what() << std::endl;
-        assert(false && "model5 should not throw");
+        VERIFY(false && "model5 should not throw");
     }
     return 0;
 }
