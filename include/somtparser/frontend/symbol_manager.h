@@ -110,6 +110,16 @@ public:
     const std::unordered_map<std::string, std::shared_ptr<Sort>>& getSortKeyMap() const;
     void removeFun(const std::string& name);
 
+    // Declaration order. The maps above are unordered, so iterating them gives
+    // an order unrelated to the input -- which makes anything derived from it
+    // (notably dumpSMT2) irreproducible. These record first-registration order,
+    // mirroring how function_names_ already tracks functions. Names removed
+    // from the corresponding map are left in place and must be skipped by the
+    // caller via the map lookup.
+    const std::vector<std::string>& getSortOrder() const;
+    const std::vector<std::string>& getVarOrder() const;
+    const std::vector<std::string>& getTempVarOrder() const;
+
 private:
     struct LetBackup {
         std::string name;
@@ -129,6 +139,9 @@ private:
     std::unordered_map<std::string, std::shared_ptr<DAGNode>> placeholder_var_names_;
     std::vector<std::string> function_names_;
     std::vector<std::shared_ptr<DAGNode>> static_functions_;
+    std::vector<std::string> sort_order_;
+    std::vector<std::string> var_order_;
+    std::vector<std::string> temp_var_order_;
 };
 
 } // namespace SOMTParser

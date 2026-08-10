@@ -260,18 +260,30 @@ namespace SOMTParser{
 	void Parser::setOption(const std::string& key, const bool& value){
 		getOptions()->setOption(key, value?"true":"false");
 	}
+	// Declaration order, not hash order: these feed dumpSMT2, and iterating the
+	// underlying unordered_map produced a variable order unrelated to the input,
+	// so dumping a query and re-parsing it did not converge.
 	std::vector<std::shared_ptr<DAGNode>> Parser::getVariables() const{
 		std::vector<std::shared_ptr<DAGNode>> vars;
-		for(const auto& var : getSymbolManager()->getVarNames())
-			vars.emplace_back(var.second);
-		for(const auto& var : getSymbolManager()->getTempVarNames())
-			vars.emplace_back(var.second);
+		const auto& var_names = getSymbolManager()->getVarNames();
+		for(const auto& name : getSymbolManager()->getVarOrder()){
+			auto it = var_names.find(name);
+			if(it != var_names.end()) vars.emplace_back(it->second);
+		}
+		const auto& temp_names = getSymbolManager()->getTempVarNames();
+		for(const auto& name : getSymbolManager()->getTempVarOrder()){
+			auto it = temp_names.find(name);
+			if(it != temp_names.end()) vars.emplace_back(it->second);
+		}
 		return vars;
 	}
 	std::vector<std::shared_ptr<DAGNode>> Parser::getDeclaredVariables() const{
 		std::vector<std::shared_ptr<DAGNode>> vars;
-		for(const auto& var : getSymbolManager()->getVarNames())
-			vars.emplace_back(var.second);
+		const auto& var_names = getSymbolManager()->getVarNames();
+		for(const auto& name : getSymbolManager()->getVarOrder()){
+			auto it = var_names.find(name);
+			if(it != var_names.end()) vars.emplace_back(it->second);
+		}
 		return vars;
 	}
 
@@ -3493,11 +3505,46 @@ namespace SOMTParser{
 
 	std::string Parser::dumpSMT2(){
 		std::stringstream ss;
-		ss << "(set-logic " << getOptions()->getLogic() << ")" << std::endl;
-		// custom sorts
-		for(const auto& sort_pair : getSymbolManager()->getSortKeyMap()){
-			if(sort_pair.second->isDec()){
-				ss << "(declare-sort " << sort_pair.first << " " << sort_pair.second->arity << ")" << std::endl;
+		// An input without (set-logic ...) leaves the logic at the placeholder
+		// UNKNOWN_LOGIC, which is not a logic name any parser accepts -- ours
+		// included -- so emitting it made every such dump unreadable. Fall back
+		// to ALL, which is what "no logic was stated" means for a dump.
+		const std::string logic = getOptions()->getLogic();
+		ss << "(set-logic " << (logic == "UNKNOWN_LOGIC" ? "ALL" : logic) << ")" << std::endl;
+		// custom sorts, in declaration order (getSortKeyMap is unordered)
+		const auto& sort_map = getSymbolManager()->getSortKeyMap();
+		// Names introduced by a datatype declaration: its constructors, their
+		// selectors and the derived testers. (declare-datatypes ...) already
+		// declares all of them, so emitting a declare-fun for each as well
+		// would make the dump reject itself as a redeclaration.
+		std::unordered_set<std::string> datatype_member_names;
+		for(const auto& sort_name : getSymbolManager()->getSortOrder()){
+			auto it = sort_map.find(sort_name);
+			if(it == sort_map.end() || !it->second) continue;
+			const auto& sort = it->second;
+			if(sort->isDec()){
+				ss << "(declare-sort " << sort_name << " " << sort->arity << ")" << std::endl;
+			}
+			else if(sort->isDatatype() && sort->hasDtConstructors()){
+				// (declare-datatypes ((T 0)) (((ctor (sel S) ...) ...)))
+				// Without this the constructors were dumped as plain
+				// declare-funs over a sort that was never declared, so no
+				// datatype query could survive a dump/re-parse cycle.
+				ss << "(declare-datatypes ((" << sort_name << " " << sort->arity << ")) ((";
+				bool first_ctor = true;
+				for(const auto& ctor : sort->getDtConstructors()){
+					if(!first_ctor) ss << " ";
+					first_ctor = false;
+					datatype_member_names.insert(ctor.name);
+					datatype_member_names.insert("is-" + ctor.name);
+					ss << "(" << ctor.name;
+					for(const auto& sel : ctor.selectors){
+						datatype_member_names.insert(sel.name);
+						ss << " (" << sel.name << " " << sel.sort->toString() << ")";
+					}
+					ss << ")";
+				}
+				ss << ")))" << std::endl;
 			}
 		}
 		// variables
@@ -3507,6 +3554,8 @@ namespace SOMTParser{
 		}
 	std::vector<std::shared_ptr<DAGNode>> functions = getFunctions();
 	for(auto& func : functions){
+		if(!func) continue;
+		if(datatype_member_names.count(func->getName())) continue;
 		if(func->isFuncDec()){
 			// NT_FUNC_DEC: Uninterpreted function declaration (declare-fun)
 			ss << dumpFuncDec(func) << std::endl;
