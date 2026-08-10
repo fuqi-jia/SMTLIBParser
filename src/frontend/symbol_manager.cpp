@@ -3,8 +3,8 @@
  */
 
 #include "somtparser/frontend/symbol_manager.h"
+#include "somtparser/core/asserting.h"
 #include <algorithm>
-#include <cassert>
 
 namespace SOMTParser {
 
@@ -122,7 +122,12 @@ void SymbolManager::pushLetScope() {
 }
 
 void SymbolManager::popLetScope() {
-    assert(!let_scope_checkpoints_.empty() && "popLetScope: no checkpoint to pop");
+    // condAssert, not assert: the library is compiled with -DNDEBUG in the
+    // default Release build, where assert() is a no-op -- and the two lines
+    // below would then read and pop an empty vector, which is undefined
+    // behaviour. condAssert throws unconditionally, so an unbalanced pop
+    // surfaces as a diagnosable error in every configuration.
+    condAssert(!let_scope_checkpoints_.empty(), "popLetScope: no checkpoint to pop");
     size_t checkpoint = let_scope_checkpoints_.back();
     let_scope_checkpoints_.pop_back();
     // Restore from the end of backup list back to checkpoint
