@@ -127,6 +127,21 @@ namespace SOMTParser{
         static std::string bvRotateRight(const std::string& bv, const Integer& n);
 
         static bool bvComp(const std::string& bv1, const std::string& bv2, const NODE_KIND& kind);
+
+        // Bit-pattern predicates, useful for rewriting guards.
+        // Ported from the SMTStabilizer fork.
+        /** @brief True iff @p bv is 0111...1 (largest signed value of its width). */
+        static bool bvIsMaxSigned(const std::string& bv);
+        /** @brief True iff @p bv is 1000...0 (smallest signed value of its width). */
+        static bool bvIsMinSigned(const std::string& bv);
+        /** @brief True iff @p bv is 111...1 (largest unsigned value of its width). */
+        static bool bvIsMaxUnsigned(const std::string& bv);
+        /** @brief True iff @p bv is 111...1, i.e. -1 read as a signed value. */
+        static bool bvIsNegOne(const std::string& bv);
+        /** @brief Compare @p bv (unsigned) against @p u; returns -1, 0 or 1. */
+        static int bvCompareToUint(const std::string& bv, const uint64_t& u);
+        /** @brief Build the all-ones bitvector literal of width @p n. */
+        static std::string mkOnes(const Integer& n);
     };
 
     // Floating point utilities
@@ -289,6 +304,11 @@ namespace SOMTParser{
         static std::string strToLower(const std::string& s);
         static std::string strToUpper(const std::string& s);
         static std::string strRev(const std::string& s);
+        /**
+         * @brief Strip one layer of surrounding double quotes, if present.
+         *        Ported from the SMTStabilizer fork.
+         */
+        static std::string strUnquote(const std::string& s);
     };
 
     /**

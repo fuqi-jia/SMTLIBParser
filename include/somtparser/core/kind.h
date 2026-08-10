@@ -73,6 +73,9 @@ namespace SOMTParser{
         NT_BV_SHL,NT_BV_LSHR,NT_BV_ASHR,
         NT_BV_ULT,NT_BV_ULE,NT_BV_UGT,NT_BV_UGE,NT_BV_SLT,NT_BV_SLE,NT_BV_SGT,NT_BV_SGE,
         NT_BV_CONCAT,NT_BV_TO_NAT,NT_NAT_TO_BV,NT_BV_TO_INT,
+        // SMT-LIB 2.7 spellings of the bitvector->integer conversions
+        // (ubv_to_int/sbv_to_int); ported from the SMTStabilizer fork.
+        NT_UBV_TO_INT,NT_SBV_TO_INT,
         // BITVECTOR FUNCTIONS (in parseOper with args and params)
         NT_INT_TO_BV,NT_BV_EXTRACT,NT_BV_REPEAT,NT_BV_ZERO_EXT,NT_BV_SIGN_EXT,NT_BV_ROTATE_LEFT,NT_BV_ROTATE_RIGHT,
         
@@ -116,6 +119,18 @@ namespace SOMTParser{
         NT_UF_APPLY,
         // DATATYPE OPERATIONS
         NT_DT_CONSTRUCTOR, NT_DT_SELECTOR, NT_DT_TESTER, NT_DT_MATCH,
+        // ((_ update <selector>) t v) — functional record update; ported from
+        // the SMTStabilizer fork.
+        NT_DT_UPDATER,
+
+        // TUPLE OPERATIONS — ported from the SMTStabilizer fork.
+        NT_TUPLE_CONSTRUCTOR, NT_TUPLE_UNIT, NT_TUPLE_SELECT, NT_TUPLE_UPDATE, NT_TUPLE_PROJECT,
+
+        // TERM ANNOTATIONS: (! <term> :pattern (...) :qid q ...).
+        // NT_ATTRIBUTE is the annotated term itself (child 0 is the term, the
+        // remaining children are the annotations); ported from the
+        // SMTStabilizer fork.
+        NT_ATTRIBUTE, NT_PATTERN, NT_NO_PATTERN, NT_WEIGHT, NT_QID,
         
         // ARITHMETIC CONSTANTS
         NT_CONST_PI,NT_CONST_E,NT_INFINITY,NT_NAN,NT_EPSILON,NT_POS_INFINITY,NT_NEG_INFINITY,NT_POS_EPSILON,NT_NEG_EPSILON,
@@ -307,6 +322,9 @@ namespace SOMTParser{
         {"nat2bv", NODE_KIND::NT_NAT_TO_BV},
         {"bv2int", NODE_KIND::NT_BV_TO_INT},
         {"int2bv", NODE_KIND::NT_INT_TO_BV},
+        // SMT-LIB 2.7 spellings (ported from the SMTStabilizer fork)
+        {"ubv_to_int", NODE_KIND::NT_UBV_TO_INT},
+        {"sbv_to_int", NODE_KIND::NT_SBV_TO_INT},
         {"extract", NODE_KIND::NT_BV_EXTRACT},
         {"repeat", NODE_KIND::NT_BV_REPEAT},
         {"zero_extend", NODE_KIND::NT_BV_ZERO_EXT},
@@ -355,6 +373,12 @@ namespace SOMTParser{
         {"fp.isPositive", NODE_KIND::NT_FP_IS_POS},
         {"select", NODE_KIND::NT_SELECT},
         {"store", NODE_KIND::NT_STORE},
+        // TUPLE THEORY — ported from the SMTStabilizer fork.
+        {"tuple", NODE_KIND::NT_TUPLE_CONSTRUCTOR},
+        {"tuple.unit", NODE_KIND::NT_TUPLE_UNIT},
+        {"tuple.select", NODE_KIND::NT_TUPLE_SELECT},
+        {"tuple.update", NODE_KIND::NT_TUPLE_UPDATE},
+        {"tuple.project", NODE_KIND::NT_TUPLE_PROJECT},
         {"str.len", NODE_KIND::NT_STR_LEN},
         {"str.++", NODE_KIND::NT_STR_CONCAT},
         {"str.substr", NODE_KIND::NT_STR_SUBSTR},

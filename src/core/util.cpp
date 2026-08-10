@@ -1030,6 +1030,45 @@ namespace SOMTParser{
         }
         return res;
     }
+    // Bit-pattern predicates — ported from the SMTStabilizer fork.
+    bool BitVectorUtils::bvIsMaxSigned(const std::string& bv){
+        condAssert(bv.size() > 2 && bv[0] == '#' && bv[1] == 'b', "BitVectorUtils::bvIsMaxSigned: invalid bitvector");
+        if(bv[2] != '0') return false;
+        return std::all_of(bv.begin() + 3, bv.end(), [](char c){ return c == '1'; });
+    }
+    bool BitVectorUtils::bvIsMinSigned(const std::string& bv){
+        condAssert(bv.size() > 2 && bv[0] == '#' && bv[1] == 'b', "BitVectorUtils::bvIsMinSigned: invalid bitvector");
+        if(bv[2] != '1') return false;
+        return std::all_of(bv.begin() + 3, bv.end(), [](char c){ return c == '0'; });
+    }
+    bool BitVectorUtils::bvIsMaxUnsigned(const std::string& bv){
+        condAssert(bv.size() > 2 && bv[0] == '#' && bv[1] == 'b', "BitVectorUtils::bvIsMaxUnsigned: invalid bitvector");
+        return std::all_of(bv.begin() + 2, bv.end(), [](char c){ return c == '1'; });
+    }
+    bool BitVectorUtils::bvIsNegOne(const std::string& bv){
+        // -1 and the maximum unsigned value share the all-ones bit pattern.
+        return bvIsMaxUnsigned(bv);
+    }
+    int BitVectorUtils::bvCompareToUint(const std::string& bv, const uint64_t& u){
+        condAssert(bv.size() > 2 && bv[0] == '#' && bv[1] == 'b', "BitVectorUtils::bvCompareToUint: invalid bitvector");
+        const size_t width = bv.size() - 2;
+        // Any set bit above bit 63 already exceeds every uint64_t value.
+        if(width > 64){
+            for(size_t i = 2; i + 64 < bv.size(); ++i){
+                if(bv[i] == '1') return 1;
+            }
+        }
+        uint64_t value = 0;
+        for(size_t i = (width > 64 ? bv.size() - 64 : 2); i < bv.size(); ++i){
+            value = (value << 1) | (bv[i] == '1' ? 1u : 0u);
+        }
+        if(value < u) return -1;
+        if(value > u) return 1;
+        return 0;
+    }
+    std::string BitVectorUtils::mkOnes(const Integer& n){
+        return "#b" + std::string(n.toULong(), '1');
+    }
     std::string BitVectorUtils::natToBv(const Integer& i, const Integer& n){
         std::string res = "#b";
         std::string bin = i.toString(2);
@@ -1354,6 +1393,12 @@ namespace SOMTParser{
     std::string StringUtils::strRev(const std::string& s){
         std::string res = (s[0] == '"' && s[s.length()-1] == '"') ? s.substr(1, s.length()-2) : s;
         return "\"" + std::string(res.rbegin(), res.rend()) + "\"";
+    }
+
+    // Ported from the SMTStabilizer fork.
+    std::string StringUtils::strUnquote(const std::string& s){
+        if(s.size() >= 2 && s.front() == '"' && s.back() == '"') return s.substr(1, s.size() - 2);
+        return s;
     }
 
     // ─── RegexUtils ─────────────────────────────────────────────────────────────
