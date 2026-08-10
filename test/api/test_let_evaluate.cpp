@@ -6,7 +6,6 @@
 
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/dag.h"
-#include <cassert>
 #include "../test_helpers.h"
 
 using namespace SOMTParser;

@@ -6,68 +6,68 @@
 #include "somtparser/core/util.h"
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/number.h"
-#include <cassert>
+#include "test_helpers.h"
 
 static void assert_fp32_near(const std::shared_ptr<SOMTParser::DAGNode>& ev, float expected, float eps = 5e-4f) {
-    assert(ev && !ev->isErr() && ev->isCFP());
+    VERIFY(ev && !ev->isErr() && ev->isCFP());
     auto v = SOMTParser::fpNodeToFloat32(ev);
-    assert(v.has_value());
-    assert(std::fabs(*v - expected) < eps);
+    VERIFY(v.has_value());
+    VERIFY(std::fabs(*v - expected) < eps);
 }
 
 static void eval_expect_fp32(SOMTParser::ParserPtr& parser, SOMTParser::ModelPtr& model, const char* smt, float expected,
                              float eps = 5e-4f) {
     auto e = parser->mkExpr(smt);
-    assert(e && !e->isErr());
+    VERIFY(e && !e->isErr());
     auto ev = parser->evaluate(e, model);
     assert_fp32_near(ev, expected, eps);
 }
 
 static void eval_expect_bool(SOMTParser::ParserPtr& parser, SOMTParser::ModelPtr& model, const char* smt, bool want_true) {
     auto e = parser->mkExpr(smt);
-    assert(e && !e->isErr());
+    VERIFY(e && !e->isErr());
     auto ev = parser->evaluate(e, model);
-    assert(ev && !ev->isErr());
+    VERIFY(ev && !ev->isErr());
     if (want_true) {
-        assert(ev->isTrue());
+        VERIFY(ev->isTrue());
     } else {
-        assert(ev->isFalse());
+        VERIFY(ev->isFalse());
     }
 }
 
 /// For operators that do not fold to a single constant, check evaluate preserves shape and constant leaves.
 static void eval_expect_structure_unchanged(SOMTParser::ParserPtr& parser, SOMTParser::ModelPtr& model, const char* smt) {
     auto e = parser->mkExpr(smt);
-    assert(e && !e->isErr());
+    VERIFY(e && !e->isErr());
     auto ev = parser->evaluate(e, model);
-    assert(ev && !ev->isErr());
-    assert(ev->getKind() == e->getKind());
-    assert(ev->getChildrenSize() == e->getChildrenSize());
+    VERIFY(ev && !ev->isErr());
+    VERIFY(ev->getKind() == e->getKind());
+    VERIFY(ev->getChildrenSize() == e->getChildrenSize());
     for (size_t i = 0; i < e->getChildrenSize(); ++i) {
         auto a = e->getChild(i);
         auto b = ev->getChild(i);
-        assert(a && b);
+        VERIFY(a && b);
         if (a->isConst()) {
-            assert(b->isConst());
-            assert(parser->toString(a) == parser->toString(b));
+            VERIFY(b->isConst());
+            VERIFY(parser->toString(a) == parser->toString(b));
         }
     }
 }
 
 static void assert_bv_unsigned_eq(const std::shared_ptr<SOMTParser::DAGNode>& ev, unsigned long expect_nat) {
-    assert(ev && !ev->isErr() && ev->isCBV());
+    VERIFY(ev && !ev->isErr() && ev->isCBV());
     const std::string bits = ev->toString();
-    assert(bits.size() >= 3 && bits[0] == '#' && bits[1] == 'b');
+    VERIFY(bits.size() >= 3 && bits[0] == '#' && bits[1] == 'b');
     SOMTParser::Integer n = SOMTParser::BitVectorUtils::bvToNat(bits);
-    assert(n.toULong() == expect_nat);
+    VERIFY(n.toULong() == expect_nat);
 }
 
 static void assert_bv_signed_eq(const std::shared_ptr<SOMTParser::DAGNode>& ev, long expect_s) {
-    assert(ev && !ev->isErr() && ev->isCBV());
+    VERIFY(ev && !ev->isErr() && ev->isCBV());
     const std::string bits = ev->toString();
-    assert(bits.size() >= 3 && bits.substr(0, 2) == "#b");
+    VERIFY(bits.size() >= 3 && bits.substr(0, 2) == "#b");
     SOMTParser::Integer s = SOMTParser::BitVectorUtils::bvToInt(bits);
-    assert(s.toLong() == expect_s);
+    VERIFY(s.toLong() == expect_s);
 }
 
 int main() {
@@ -90,10 +90,10 @@ int main() {
             return 1;
         }
         auto ev = p->evaluate(phi, model);
-        assert(ev && !ev->isErr());
-        assert(ev->getKind() == NODE_KIND::NT_FP_ADD);
-        assert(ev->getChildrenSize() == 3u);
-        assert(ev->getChild(2)->isCFP());
+        VERIFY(ev && !ev->isErr());
+        VERIFY(ev->getKind() == NODE_KIND::NT_FP_ADD);
+        VERIFY(ev->getChildrenSize() == 3u);
+        VERIFY(ev->getChild(2)->isCFP());
         assert_fp32_near(ev->getChild(2), 1.0f);
     }
 
@@ -121,7 +121,7 @@ int main() {
 (check-sat)
 (exit)
 )");
-        assert(ok && "eval_dispatch_qf_s inline must parse");
+        VERIFY(ok && "eval_dispatch_qf_s inline must parse");
     }
     {
         ParserPtr p = newParser();
@@ -138,7 +138,7 @@ int main() {
 (check-sat)
 (exit)
 )");
-        assert(ok && "eval_const_array inline must parse");
+        VERIFY(ok && "eval_const_array inline must parse");
     }
 
     // --- Phase A: FP constant folding (expected float32 values) ---
@@ -182,20 +182,20 @@ int main() {
     // --- Phase B: const_array default value simplifies to integer 3 ---
     {
         auto ca = parser->mkExpr("((as const (Array Int Int)) (+ 1 2))");
-        assert(ca && !ca->isErr());
+        VERIFY(ca && !ca->isErr());
         auto ev = parser->evaluate(ca, model);
-        assert(ev && !ev->isErr());
-        assert(ev->isConstArray());
-        assert(ev->getChildrenSize() >= 1u);
+        VERIFY(ev && !ev->isErr());
+        VERIFY(ev->isConstArray());
+        VERIFY(ev->getChildrenSize() >= 1u);
         auto defv = ev->getChild(0);
-        assert(defv && defv->isConst());
-        assert(parser->toInt(defv) == Integer(3));
+        VERIFY(defv && defv->isConst());
+        VERIFY(parser->toInt(defv) == Integer(3));
     }
     {
         auto ca = parser->mkExpr("((as const (Array Int Int)) 0)");
-        assert(ca && !ca->isErr());
+        VERIFY(ca && !ca->isErr());
         auto ev = parser->evaluate(ca, model);
-        assert(ev && !ev->isErr());
+        VERIFY(ev && !ev->isErr());
         (void)ev;
     }
 
@@ -208,13 +208,13 @@ int main() {
     // --- Phase C: fp <-> bv / to_fp (exact bit patterns where defined) ---
     {
         auto e = parser->mkExpr("((_ fp.to_ubv 16) RNE ((_ to_fp 8 24) RNE 2.0))");
-        assert(e && !e->isErr());
+        VERIFY(e && !e->isErr());
         auto ev = parser->evaluate(e, model);
         assert_bv_unsigned_eq(ev, 2ul);
     }
     {
         auto e = parser->mkExpr("((_ fp.to_sbv 16) RNE ((_ to_fp 8 24) RNE -1.0))");
-        assert(e && !e->isErr());
+        VERIFY(e && !e->isErr());
         auto ev = parser->evaluate(e, model);
         assert_bv_signed_eq(ev, -1l);
     }

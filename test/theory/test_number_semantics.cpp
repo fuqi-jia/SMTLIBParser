@@ -3,7 +3,7 @@
 #include "somtparser/ir/number.h"
 #include "somtparser/frontend/parser.h"
 #include "somtparser/core/util.h"
-#include <cassert>
+#include "test_helpers.h"
 
 using namespace SOMTParser;
 
@@ -13,9 +13,9 @@ void test_canonical_equality() {
     // Number("0.5") and Number("1/2") should both normalize to same rational
     Number n1("0.5", false);
     Number n2(std::string("1/2"));
-    assert(n1.isRational());
-    assert(n2.isRational());
-    assert(n1.toRationalExact() == n2.toRationalExact());
+    VERIFY(n1.isRational());
+    VERIFY(n2.isRational());
+    VERIFY(n1.toRationalExact() == n2.toRationalExact());
     std::cout << "  0.5 == 1/2 rational: OK" << std::endl;
 }
 
@@ -26,8 +26,8 @@ void test_exact_decimal_arithmetic() {
     Number b("0.2", false);
     Number c("0.3", false);
     Number sum = a + b;
-    assert(sum.isRational());
-    assert(sum.toRationalExact() == c.toRationalExact());
+    VERIFY(sum.isRational());
+    VERIFY(sum.toRationalExact() == c.toRationalExact());
     std::cout << "  0.1 + 0.2 == 0.3 exact: OK" << std::endl;
 }
 
@@ -36,11 +36,11 @@ void test_real_division_rational() {
     std::cout << "=== Real Division -> Rational ===" << std::endl;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("(/ 7 3)");
-    assert(node != nullptr);
-    assert(node->isCReal());
+    VERIFY(node != nullptr);
+    VERIFY(node->isCReal());
     std::string s = parser->toString(node);
     std::cout << "  (/ 7 3) -> " << s << std::endl;
-    assert(node->getValue()->getNumberValue().toRationalExact() ==
+    VERIFY(node->getValue()->getNumberValue().toRationalExact() ==
            HighPrecisionRational("7/3"));
 }
 
@@ -49,11 +49,11 @@ void test_int_division_floor() {
     std::cout << "=== Int Division (floor) ===" << std::endl;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("(div 7 3)");
-    assert(node != nullptr);
-    assert(node->isCInt());
+    VERIFY(node != nullptr);
+    VERIFY(node->isCInt());
     std::string s = parser->toString(node);
     std::cout << "  (div 7 3) -> " << s << std::endl;
-    assert(s == "2");
+    VERIFY(s == "2");
 }
 
 // 5. (mod 7 3) -> 1
@@ -61,11 +61,11 @@ void test_int_modulo() {
     std::cout << "=== Int Modulo ===" << std::endl;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("(mod 7 3)");
-    assert(node != nullptr);
-    assert(node->isCInt());
+    VERIFY(node != nullptr);
+    VERIFY(node->isCInt());
     std::string s = parser->toString(node);
     std::cout << "  (mod 7 3) -> " << s << std::endl;
-    assert(s == "1");
+    VERIFY(s == "1");
 }
 
 // 6. Int sort cannot accept 1/2 (type error)
@@ -76,8 +76,8 @@ void test_int_sort_rejects_fraction() {
     // expressible as an Int constant. The parser handles (div 1 2) as Int division.
     // We verify that a RATIONAL_TYPE Number cannot be used as Int sort.
     Number r(std::string("1/2"));
-    assert(r.isRational());
-    assert(!r.asIntegerExact().has_value());
+    VERIFY(r.isRational());
+    VERIFY(!r.asIntegerExact().has_value());
     std::cout << "  1/2 not exact integer: OK" << std::endl;
 }
 
@@ -86,9 +86,9 @@ void test_real_sort_accepts_integer() {
     std::cout << "=== Real Sort Accepts Integer ===" << std::endl;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("5");
-    assert(node != nullptr);
+    VERIFY(node != nullptr);
     // "5" parsed as real context should still work
-    assert(node->isCReal() || node->isCInt());
+    VERIFY(node->isCReal() || node->isCInt());
     std::cout << "  Real sort accepts 5: OK" << std::endl;
 }
 
@@ -96,14 +96,14 @@ void test_real_sort_accepts_integer() {
 void test_toRationalExact_rejects_real() {
     std::cout << "=== toRationalExact Rejects REAL_TYPE ===" << std::endl;
     Number approx = Number::fromApproxDouble(0.1);
-    assert(approx.isReal());
+    VERIFY(approx.isReal());
     bool threw = false;
     try {
         approx.toRationalExact();
     } catch (const std::runtime_error&) {
         threw = true;
     }
-    assert(threw);
+    VERIFY(threw);
     std::cout << "  toRationalExact(REAL_TYPE) throws: OK" << std::endl;
 }
 
@@ -111,9 +111,9 @@ void test_toRationalExact_rejects_real() {
 void test_asIntegerExact_rejects_non_integer() {
     std::cout << "=== asIntegerExact Rejects Non-Integer ===" << std::endl;
     Number r(std::string("7/3"));
-    assert(r.isRational());
+    VERIFY(r.isRational());
     auto opt = r.asIntegerExact();
-    assert(!opt.has_value());
+    VERIFY(!opt.has_value());
     std::cout << "  asIntegerExact(7/3) returns nullopt: OK" << std::endl;
 }
 
@@ -124,7 +124,7 @@ void test_dump_real_fraction() {
     auto node = parser->mkExpr("(/ 1 10)");
     std::string s = dumpSMTLIB2(node);
     std::cout << "  dump (/ 1 10) -> " << s << std::endl;
-    assert(s == "(/ 1 10)");
+    VERIFY(s == "(/ 1 10)");
 }
 
 // 11. dump IntOrReal 1/10 does not output raw 1/10
@@ -134,9 +134,9 @@ void test_dump_real_fraction() {
 void test_negative_zero_canonical() {
     std::cout << "=== Negative Zero Canonicalization ===" << std::endl;
     Number n1("-0.0", false);
-    assert(n1.isInteger());
-    assert(n1.asIntegerExact().has_value());
-    assert(n1.asIntegerExact().value().toString() == "0");
+    VERIFY(n1.isInteger());
+    VERIFY(n1.asIntegerExact().has_value());
+    VERIFY(n1.asIntegerExact().value().toString() == "0");
     std::cout << "  -0.0 -> INT_TYPE 0: OK" << std::endl;
 }
 
@@ -144,9 +144,9 @@ void test_negative_zero_canonical() {
 void test_rational_integer_canonical() {
     std::cout << "=== Rational Integer Canonicalization ===" << std::endl;
     Number n(std::string("10/2"));
-    assert(n.isInteger());
-    assert(n.asIntegerExact().has_value());
-    assert(n.asIntegerExact().value().toString() == "5");
+    VERIFY(n.isInteger());
+    VERIFY(n.asIntegerExact().has_value());
+    VERIFY(n.asIntegerExact().value().toString() == "5");
     std::cout << "  10/2 -> INT_TYPE 5: OK" << std::endl;
 }
 
@@ -154,8 +154,8 @@ void test_rational_integer_canonical() {
 void test_parsed_literals_exact() {
     std::cout << "=== Parsed Literals Are Exact ===" << std::endl;
     Number n("3.14159", false);
-    assert(n.isRational());
-    assert(n.getType() == Number::RATIONAL_TYPE);
+    VERIFY(n.isRational());
+    VERIFY(n.getType() == Number::RATIONAL_TYPE);
     std::cout << "  3.14159 parsed as RATIONAL_TYPE: OK" << std::endl;
 }
 
@@ -183,9 +183,9 @@ void test_real_type_comparison_exact() {
 void test_floorToInteger() {
     std::cout << "=== floorToInteger Semantics ===" << std::endl;
     Number pos(std::string("7/3"));
-    assert(pos.floorToInteger().toString() == "2");
+    VERIFY(pos.floorToInteger().toString() == "2");
     Number neg(std::string("-7/3"));
-    assert(neg.floorToInteger().toString() == "-3");
+    VERIFY(neg.floorToInteger().toString() == "-3");
     std::cout << "  floorToInteger(7/3)=2, floorToInteger(-7/3)=-3: OK" << std::endl;
 }
 
@@ -196,10 +196,10 @@ void test_int_div_floor_negative() {
     // SMT-LIB div is floor towards -inf
     // (div -7 3) should be -3, not -2
     auto node = parser->mkExpr("(div -7 3)");
-    assert(node != nullptr);
+    VERIFY(node != nullptr);
     std::string s = parser->toString(node);
     std::cout << "  (div -7 3) -> " << s << std::endl;
-    assert(s == "(- 3)");
+    VERIFY(s == "(- 3)");
 }
 
 int main() {

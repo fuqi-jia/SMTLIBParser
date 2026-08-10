@@ -5,8 +5,8 @@
 #include "somtparser/frontend/parser.h"
 #include "somtparser/passes/op_dispatcher.h"
 #include <algorithm>
-#include <cassert>
 #include <iostream>
+#include "test_helpers.h"
 
 using namespace SOMTParser;
 
@@ -42,16 +42,16 @@ int main() {
     Parser parser;
     parser.mkVarInt("x");
     bool ok = parser.parseStr("(assert (> x 0))");
-    assert(ok);
+    VERIFY(ok);
 
     // get* delegate to ParserContext; need ParserContext& for get* via context()
     auto from_get = parser.getAssertions();
     auto from_ctx = static_cast<ParserContext&>(parser.context()).getAssertions();
-    assert(from_get.size() == from_ctx.size() && from_get.size() == 1);
+    VERIFY(from_get.size() == from_ctx.size() && from_get.size() == 1);
     std::cout << "getAssertions() == static_cast<ParserContext&>(context()).getAssertions() OK" << std::endl;
 
     Node root = from_get[0];
-    assert(kind(root) == NODE_KIND::NT_GT);
+    VERIFY(kind(root) == NODE_KIND::NT_GT);
 
     // OpDispatcher with Context& (parser.context()) — existing API
     OpDispatcher<int, Context> disp;
@@ -59,12 +59,12 @@ int main() {
     disp.otherwise(handler_fallback);
 
     int r1 = disp.dispatch(root, parser.context());
-    assert(r1 == 1);
+    VERIFY(r1 == 1);
     std::cout << "dispatch(node, parser.context()) OK" << std::endl;
 
     // Convenience: dispatch(Node) uses NullContext
     int r2 = disp.dispatch(root);
-    assert(r2 == 1);
+    VERIFY(r2 == 1);
     std::cout << "dispatch(node) with NullContext OK" << std::endl;
 
     // Fluent + sugar API
@@ -72,13 +72,13 @@ int main() {
     disp2.onGT(handler_gt).otherwise(handler_fallback);
     int r3 = disp2.dispatch(root, parser.context());
     int r4 = disp2.dispatch(root);
-    assert(r3 == 1 && r4 == 1);
+    VERIFY(r3 == 1 && r4 == 1);
     std::cout << "fluent + sugar (onGT/otherwise) and dispatch(node)/dispatch(node, context()) OK" << std::endl;
 
     // --- Recursive max-depth visitor (fluent + sugar, context carries dispatcher) ---
     parser.parseStr("(assert (and (> x 0) (< x 10)))");
     Node root2 = parser.getAssertions().back();
-    assert(kind(root2) == NODE_KIND::NT_AND);
+    VERIFY(kind(root2) == NODE_KIND::NT_AND);
 
     OpDispatcher<int, Context> depth_disp;
     depth_disp
@@ -98,12 +98,12 @@ int main() {
     int depth = depth_disp.dispatch(root2, depth_ctx);
     // Tree: AND(GT(x,0), LT(x,10)) -> AND depth 1 + max(GT depth, LT depth).
     // GT/LT each: 1 + max(VAR, CONST) = 1 + 1 = 2. So depth = 1 + 2 = 3.
-    assert(depth == 3);
+    VERIFY(depth == 3);
     std::cout << "recursive max-depth visitor: tree (and (> x 0) (< x 10)) depth=" << depth << " OK" << std::endl;
 
     // Single node depth
     int depth_single = depth_disp.dispatch(root, depth_ctx);
-    assert(depth_single == 2);  // GT(x, 0) -> 1 + max(1,1) = 2
+    VERIFY(depth_single == 2);  // GT(x, 0) -> 1 + max(1,1) = 2
     std::cout << "single (> x 0) depth=" << depth_single << " OK" << std::endl;
 
     std::cout << "======= All Context & Dispatcher tests passed =======" << std::endl;

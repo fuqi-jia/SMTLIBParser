@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
-#include <cassert>
+#include "test_helpers.h"
 
 // Test basic quantifier operations (forall and exists)
 void test_basic_quantifiers(SOMTParser::ParserPtr& parser) {
@@ -19,7 +19,7 @@ void test_basic_quantifiers(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -39,7 +39,7 @@ void test_nested_quantifiers(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::cout << std::endl;
     }
@@ -66,7 +66,7 @@ void test_quantifiers_with_arrays(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-            assert(result && !result->isErr());
+            VERIFY(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
         }
@@ -95,11 +95,11 @@ void test_manual_quantifier_creation(SOMTParser::ParserPtr& parser) {
         std::vector<std::shared_ptr<SOMTParser::DAGNode>> forall_params = {x_var, y_var, x_gt_y};
         std::shared_ptr<SOMTParser::DAGNode> forall_formula = parser->mkForall(forall_params);
         
-        assert(forall_formula && parser->toString(forall_formula).find("forall") != std::string::npos);
+        VERIFY(forall_formula && parser->toString(forall_formula).find("forall") != std::string::npos);
         std::cout << "Manually created forall formula: " << parser->toString(forall_formula) << std::endl;
         std::vector<std::shared_ptr<SOMTParser::DAGNode>> exists_params = {x_var, y_var, x_gt_y};
         std::shared_ptr<SOMTParser::DAGNode> exists_formula = parser->mkExists(exists_params);
-        assert(exists_formula && parser->toString(exists_formula).find("exists") != std::string::npos);
+        VERIFY(exists_formula && parser->toString(exists_formula).find("exists") != std::string::npos);
         std::cout << "Manually created exists formula: " << parser->toString(exists_formula) << std::endl;
     } catch (const std::exception& e) {
         std::cout << "Exception: " << e.what() << std::endl;
@@ -151,7 +151,7 @@ void test_practical_quantifier_examples(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-            assert(result && !result->isErr());
+            VERIFY(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
         }
