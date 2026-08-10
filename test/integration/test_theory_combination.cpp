@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
-#include <cassert>
+#include "test_helpers.h"
 
 // Test combination of arithmetic and boolean logic
 void test_arithmetic_boolean_combination(SOMTParser::ParserPtr& parser) {
@@ -34,7 +34,7 @@ void test_arithmetic_boolean_combination(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-            assert(result && !result->isErr());
+            VERIFY(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
         }
@@ -75,7 +75,7 @@ void test_array_arithmetic_combination(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-            assert(result && !result->isErr());
+            VERIFY(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
         }
@@ -117,7 +117,7 @@ void test_bitvector_combination(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-            assert(result && !result->isErr());
+            VERIFY(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
         }
@@ -162,7 +162,7 @@ void test_string_combination(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-            assert(result && !result->isErr());
+            VERIFY(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
         }
@@ -205,7 +205,7 @@ void test_quantifier_combinations(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-            assert(result && !result->isErr());
+            VERIFY(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
         }
@@ -254,7 +254,7 @@ void test_real_world_examples(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-            assert(result && !result->isErr());
+            VERIFY(result && !result->isErr());
             std::cout << "  Result: " << parser->toString(result) << std::endl;
             std::cout << std::endl;
         }

@@ -5,7 +5,7 @@
 #include "somtparser/frontend/parser.h"
 #include "somtparser/core/util.h"
 #include "somtparser/ir/dag.h"
-#include <cassert>
+#include "test_helpers.h"
 
 using namespace SOMTParser;
 
@@ -18,14 +18,14 @@ void test_A1_sort_vs_value_type() {
     std::cout << "[A1] Sort vs Value type confusion... " << std::flush;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("(/ 10 2)");
-    assert(node != nullptr);
-    assert(node->getSort()->isReal());
-    assert(node->isCReal());
-    assert(!node->isCInt());
+    VERIFY(node != nullptr);
+    VERIFY(node->getSort()->isReal());
+    VERIFY(node->isCReal());
+    VERIFY(!node->isCInt());
     auto val = node->getValue()->getNumberValue();
-    assert(val.isInteger());          // Value type is INT_TYPE, but sort is Real
+    VERIFY(val.isInteger());          // Value type is INT_TYPE, but sort is Real
     // Risk: code that assumes isCReal() => val.isReal() would be wrong
-    assert(!val.isReal());            // INT_TYPE is not REAL_TYPE
+    VERIFY(!val.isReal());            // INT_TYPE is not REAL_TYPE
     std::cout << "PASS (Value=INT_TYPE, Sort=Real)" << std::endl;
 }
 
@@ -34,10 +34,10 @@ void test_A2_intorreal_leak() {
     std::cout << "[A2] IntOrReal sort leakage... " << std::flush;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("5");
-    assert(node != nullptr);
-    assert(node->isCInt());
-    assert(node->isCReal());          // IntOrReal satisfies BOTH
-    assert(node->getSort()->isIntOrReal());
+    VERIFY(node != nullptr);
+    VERIFY(node->isCInt());
+    VERIFY(node->isCReal());          // IntOrReal satisfies BOTH
+    VERIFY(node->getSort()->isIntOrReal());
     // Risk: if this node enters backend without resolution, solver sees ambiguous sort
     std::cout << "PASS (sort=IntOrReal, isCInt=true, isCReal=true)" << std::endl;
 }
@@ -47,15 +47,15 @@ void test_A3_dual_identity() {
     std::cout << "[A3] Dual identity (/ 10 2)... " << std::flush;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("(/ 10 2)");
-    assert(node != nullptr);
-    assert(node->getSort()->isReal());
+    VERIFY(node != nullptr);
+    VERIFY(node->getSort()->isReal());
     auto val = node->getValue()->getNumberValue();
-    assert(val.isInteger());
-    assert(!val.isRational());        // den==1, downgraded to INT_TYPE
-    assert(val.asIntegerExact().has_value());
-    assert(val.asIntegerExact()->toString() == "5");
+    VERIFY(val.isInteger());
+    VERIFY(!val.isRational());        // den==1, downgraded to INT_TYPE
+    VERIFY(val.asIntegerExact().has_value());
+    VERIFY(val.asIntegerExact()->toString() == "5");
     // toRationalExact() on INT_TYPE should still work (returns 5/1)
-    assert(val.toRationalExact() == HighPrecisionRational("5/1"));
+    VERIFY(val.toRationalExact() == HighPrecisionRational("5/1"));
     std::cout << "PASS (sort=Real, Value=INT_TYPE 5)" << std::endl;
 }
 
@@ -66,30 +66,30 @@ void test_A4_div_vs_slash_semantics() {
 
     // (div 7 3) -> 2 (floor)
     auto divInt = parser->mkExpr("(div 7 3)");
-    assert(divInt != nullptr);
-    assert(divInt->getSort()->isInt());
-    assert(parser->toString(divInt) == "2");
+    VERIFY(divInt != nullptr);
+    VERIFY(divInt->getSort()->isInt());
+    VERIFY(parser->toString(divInt) == "2");
 
     // (div -7 3) -> -3 (floor towards -inf)
     auto divIntNeg = parser->mkExpr("(div -7 3)");
-    assert(divIntNeg != nullptr);
-    assert(divIntNeg->getSort()->isInt());
-    assert(parser->toInt(divIntNeg) == Integer(-3));
+    VERIFY(divIntNeg != nullptr);
+    VERIFY(divIntNeg->getSort()->isInt());
+    VERIFY(parser->toInt(divIntNeg) == Integer(-3));
 
     // (/ 7 3) -> 7/3 (RATIONAL_TYPE)
     auto divReal = parser->mkExpr("(/ 7 3)");
-    assert(divReal != nullptr);
-    assert(divReal->getSort()->isReal());
+    VERIFY(divReal != nullptr);
+    VERIFY(divReal->getSort()->isReal());
     auto val = divReal->getValue()->getNumberValue();
-    assert(val.isRational());
-    assert(val.toRationalExact() == HighPrecisionRational("7/3"));
+    VERIFY(val.isRational());
+    VERIFY(val.toRationalExact() == HighPrecisionRational("7/3"));
 
     // (/ 6 3) -> sort Real, even though value is integer
     auto divReal2 = parser->mkExpr("(/ 6 3)");
-    assert(divReal2 != nullptr);
-    assert(divReal2->getSort()->isReal());
+    VERIFY(divReal2 != nullptr);
+    VERIFY(divReal2->getSort()->isReal());
     auto val2 = divReal2->getValue()->getNumberValue();
-    assert(val2.isInteger());  // 6/3=2, but it's INT_TYPE under Real sort
+    VERIFY(val2.isInteger());  // 6/3=2, but it's INT_TYPE under Real sort
 
     std::cout << "PASS" << std::endl;
 }
@@ -100,8 +100,8 @@ void test_A5_operator_div_overload() {
     Number a(6);      // INT_TYPE
     Number b(3);      // INT_TYPE
     Number c = a / b; // Currently returns INT_TYPE 2 (via HPRational)
-    assert(c.isInteger());
-    assert(c.getType() == Number::INT_TYPE);
+    VERIFY(c.isInteger());
+    VERIFY(c.getType() == Number::INT_TYPE);
     // Risk: in a "Real division" context, we got INT_TYPE instead of RATIONAL_TYPE
     // This is the current design; the sort of the DAG node determines SMT semantics,
     // not the Number::Type. Documented here as a boundary.
@@ -115,12 +115,12 @@ void test_A5_operator_div_overload() {
 // B6 — TypeChecker::isReal("a/b") 接受有理数字符串
 void test_B6_typechecker_isreal_rational() {
     std::cout << "[B6] TypeChecker::isReal on rational strings... " << std::flush;
-    assert(TypeChecker::isReal("1/2") == true);
-    assert(TypeChecker::isReal("3/4") == true);
-    assert(TypeChecker::isReal("-7/3") == true);
-    assert(TypeChecker::isReal("1/") == false);
-    assert(TypeChecker::isReal("/2") == false);
-    assert(TypeChecker::isReal("1//2") == false);
+    VERIFY(TypeChecker::isReal("1/2") == true);
+    VERIFY(TypeChecker::isReal("3/4") == true);
+    VERIFY(TypeChecker::isReal("-7/3") == true);
+    VERIFY(TypeChecker::isReal("1/") == false);
+    VERIFY(TypeChecker::isReal("/2") == false);
+    VERIFY(TypeChecker::isReal("1//2") == false);
     // Risk: lexer should not accept raw 1/2 as a single token in SMT-LIB input
     // But TypeChecker is used internally after parsing, so this is acceptable
     std::cout << "PASS" << std::endl;
@@ -130,8 +130,8 @@ void test_B6_typechecker_isreal_rational() {
 void test_B7_toString_canonical() {
     std::cout << "[B7] toString() canonical format... " << std::flush;
     Number n("0.5", false);
-    assert(n.toString() == "1/2");
-    assert(n.isRational());
+    VERIFY(n.toString() == "1/2");
+    VERIFY(n.isRational());
     // dumpSMTLIB2 converts a/b -> (/ a b), so toString() should stay as a/b
     std::cout << "PASS" << std::endl;
 }
@@ -141,13 +141,13 @@ void test_B8_name_value_consistency() {
     std::cout << "[B8] DAG name vs Value consistency... " << std::flush;
     ParserPtr parser = newParser();
     auto n1 = parser->mkExpr("0.5");
-    assert(n1 != nullptr);
-    assert(n1->getName() == "1/2");  // canonicalized name
-    assert(n1->getValue()->getNumberValue().toString() == "1/2");
+    VERIFY(n1 != nullptr);
+    VERIFY(n1->getName() == "1/2");  // canonicalized name
+    VERIFY(n1->getValue()->getNumberValue().toString() == "1/2");
     auto n2 = parser->mkExpr("1/2");
-    assert(n2 != nullptr);
-    assert(n2->getName() == "1/2");
-    assert(n2->getValue()->getNumberValue().toString() == "1/2");
+    VERIFY(n2 != nullptr);
+    VERIFY(n2->getName() == "1/2");
+    VERIFY(n2->getValue()->getNumberValue().toString() == "1/2");
     std::cout << "PASS" << std::endl;
 }
 
@@ -157,11 +157,11 @@ void test_B9_hash_cons_identity() {
     ParserPtr parser = newParser();
     auto a = parser->mkExpr("0.5");
     auto b = parser->mkExpr("1/2");
-    assert(a != nullptr);
-    assert(b != nullptr);
+    VERIFY(a != nullptr);
+    VERIFY(b != nullptr);
     // After canonicalization in mkConstReal(string), 0.5 becomes name "1/2"
     // so hash-cons should share them
-    assert(a == b);
+    VERIFY(a == b);
     std::cout << "PASS (0.5 and 1/2 share same node)" << std::endl;
 }
 
@@ -169,14 +169,14 @@ void test_B9_hash_cons_identity() {
 void test_B10_rational_downgrade() {
     std::cout << "[B10] RATIONAL_TYPE den=1 downgrade... " << std::flush;
     Number n1("10/2", false);
-    assert(n1.isInteger());
-    assert(n1.getType() == Number::INT_TYPE);
-    assert(n1.asIntegerExact()->toString() == "5");
+    VERIFY(n1.isInteger());
+    VERIFY(n1.getType() == Number::INT_TYPE);
+    VERIFY(n1.asIntegerExact()->toString() == "5");
 
     Number n2(HighPrecisionRational("10/2"));
-    assert(n2.isInteger());
-    assert(n2.getType() == Number::INT_TYPE);
-    assert(n2.asIntegerExact()->toString() == "5");
+    VERIFY(n2.isInteger());
+    VERIFY(n2.getType() == Number::INT_TYPE);
+    VERIFY(n2.asIntegerExact()->toString() == "5");
     std::cout << "PASS" << std::endl;
 }
 
@@ -184,10 +184,10 @@ void test_B10_rational_downgrade() {
 void test_B11_negative_zero() {
     std::cout << "[B11] Negative zero canonicalization... " << std::flush;
     Number n("-0.0", false);
-    assert(n.isInteger());
-    assert(n.getType() == Number::INT_TYPE);
-    assert(n.toString() == "0");
-    assert(n.asIntegerExact()->toString() == "0");
+    VERIFY(n.isInteger());
+    VERIFY(n.getType() == Number::INT_TYPE);
+    VERIFY(n.toString() == "0");
+    VERIFY(n.asIntegerExact()->toString() == "0");
     std::cout << "PASS" << std::endl;
 }
 
@@ -196,26 +196,26 @@ void test_B12_scientific_notation() {
     std::cout << "[B12] Scientific notation... " << std::flush;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("1.23e-5");
-    assert(node != nullptr);
-    assert(node->getSort()->isReal());
+    VERIFY(node != nullptr);
+    VERIFY(node->getSort()->isReal());
     // Value should be exact rational 123/10000000
     auto val = node->getValue()->getNumberValue();
-    assert(val.isRational());
-    assert(val.toRationalExact() == HighPrecisionRational("123/10000000"));
+    VERIFY(val.isRational());
+    VERIFY(val.toRationalExact() == HighPrecisionRational("123/10000000"));
     std::cout << "PASS (1.23e-5 -> 123/10000000)" << std::endl;
 }
 
 // B13 — isReal() 边界格式
 void test_B13_isreal_boundaries() {
     std::cout << "[B13] isReal() boundary formats... " << std::flush;
-    assert(TypeChecker::isReal("1.2.3") == false);
-    assert(TypeChecker::isReal("1/2/3") == false);
-    assert(TypeChecker::isReal("") == false);
-    assert(TypeChecker::isReal("-") == false);
-    assert(TypeChecker::isReal("e5") == false);
-    assert(TypeChecker::isReal(".") == false);
-    assert(TypeChecker::isReal("1.") == true);   // valid decimal
-    assert(TypeChecker::isReal(".5") == true);   // valid decimal
+    VERIFY(TypeChecker::isReal("1.2.3") == false);
+    VERIFY(TypeChecker::isReal("1/2/3") == false);
+    VERIFY(TypeChecker::isReal("") == false);
+    VERIFY(TypeChecker::isReal("-") == false);
+    VERIFY(TypeChecker::isReal("e5") == false);
+    VERIFY(TypeChecker::isReal(".") == false);
+    VERIFY(TypeChecker::isReal("1.") == true);   // valid decimal
+    VERIFY(TypeChecker::isReal(".5") == true);   // valid decimal
     std::cout << "PASS" << std::endl;
 }
 
@@ -227,14 +227,14 @@ void test_B13_isreal_boundaries() {
 void test_C14_approximate_to_rational() {
     std::cout << "[C14] approximateToRational() precision loss... " << std::flush;
     Number approx = Number::fromApproxDouble(1.0 / 3.0);
-    assert(approx.isReal());
+    VERIFY(approx.isReal());
     HighPrecisionRational r = approx.approximateToRational();
     // This uses HighPrecisionRational(realValue.toString()) internally
     // The result is approximate, not exact 1/3
-    assert(r != HighPrecisionRational("1/3"));  // Should NOT be exact
+    VERIFY(r != HighPrecisionRational("1/3"));  // Should NOT be exact
     // But should be close
     double diff = std::abs(r.toDouble() - 1.0 / 3.0);
-    assert(diff < 1e-15);
+    VERIFY(diff < 1e-15);
     std::cout << "PASS (documented approximate boundary)" << std::endl;
 }
 
@@ -244,10 +244,10 @@ void test_C15_real_type_in_folding() {
     ParserPtr parser = newParser();
     parser->setEvaluateUseFloating(true);
     auto node = parser->mkExpr("(sin 1)");
-    assert(node != nullptr);
-    assert(node->getSort()->isReal());
+    VERIFY(node != nullptr);
+    VERIFY(node->getSort()->isReal());
     auto val = node->getValue()->getNumberValue();
-    assert(val.isReal());  // REAL_TYPE
+    VERIFY(val.isReal());  // REAL_TYPE
     // toRationalExact() should reject REAL_TYPE
     bool threw = false;
     try {
@@ -255,7 +255,7 @@ void test_C15_real_type_in_folding() {
     } catch (const std::runtime_error&) {
         threw = true;
     }
-    assert(threw);
+    VERIFY(threw);
     std::cout << "PASS (REAL_TYPE rejected by toRationalExact)" << std::endl;
 }
 
@@ -267,7 +267,7 @@ void test_C16_real_type_in_comparison() {
     // sin(pi) is theoretically 0, but MPFR approximation might not be exact
     // The comparison should NOT incorrectly fold to true/false
     auto node = parser->mkExpr("(< (sin pi) 0.001)");
-    assert(node != nullptr);
+    VERIFY(node != nullptr);
     // If it folded, it would be a Bool constant; if not, it's a comparison node
     // We document the current behavior without asserting a specific outcome,
     // because MPFR precision-dependent folding is inherently approximate.
@@ -279,14 +279,14 @@ void test_C17_dump_negative_rational() {
     std::cout << "[C17] dump negative rational... " << std::flush;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("(- (/ 1 10))");
-    assert(node != nullptr);
+    VERIFY(node != nullptr);
     std::string dumped = dumpSMTLIB2(node);
-    assert(dumped.find("(- (/ 1 10))") != std::string::npos);
+    VERIFY(dumped.find("(- (/ 1 10))") != std::string::npos);
 
     auto neg = parser->mkExpr("(- 0.5)");
-    assert(neg != nullptr);
+    VERIFY(neg != nullptr);
     std::string dumped2 = dumpSMTLIB2(neg);
-    assert(dumped2.find("(- (/ 1 2))") != std::string::npos);
+    VERIFY(dumped2.find("(- (/ 1 2))") != std::string::npos);
     std::cout << "PASS" << std::endl;
 }
 
@@ -294,8 +294,8 @@ void test_C17_dump_negative_rational() {
 void test_C18_unknown_type() {
     std::cout << "[C18] Default Number contract... " << std::flush;
     Number n;
-    assert(n.getType() == Number::INT_TYPE);
-    assert(n == Number(0));
+    VERIFY(n.getType() == Number::INT_TYPE);
+    VERIFY(n == Number(0));
     std::cout << "PASS (default Number is integer zero)" << std::endl;
 }
 
@@ -317,7 +317,7 @@ void test_C20_toReal_precision() {
     // toReal() is approximate, not mathematically exact
     Real expected(0.1, 128);
     Real diff = (r - expected).abs();
-    assert(diff.toDouble() > 0.0 && diff.toDouble() < 1e-15);
+    VERIFY(diff.toDouble() > 0.0 && diff.toDouble() < 1e-15);
     std::cout << "PASS (toReal is approximate, documented)" << std::endl;
 }
 
@@ -326,15 +326,15 @@ void test_C21_dump_nested_negative() {
     std::cout << "[C21] dump nested negative rational... " << std::flush;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("(- (/ 7 3))");
-    assert(node != nullptr);
+    VERIFY(node != nullptr);
     std::string dumped = dumpSMTLIB2(node);
-    assert(dumped == "(- (/ 7 3))");
+    VERIFY(dumped == "(- (/ 7 3))");
 
     // Also test negative decimal
     auto negDec = parser->mkExpr("(- 0.5)");
-    assert(negDec != nullptr);
+    VERIFY(negDec != nullptr);
     std::string dumped2 = dumpSMTLIB2(negDec);
-    assert(dumped2 == "(- (/ 1 2))");
+    VERIFY(dumped2 == "(- (/ 1 2))");
     std::cout << "PASS" << std::endl;
 }
 
@@ -348,11 +348,11 @@ void test_mixed_int_real_folding() {
     ParserPtr parser = newParser();
     // (+ 1 2.5) -> all promoted to Real
     auto node = parser->mkExpr("(+ 1 2.5)");
-    assert(node != nullptr);
-    assert(node->getSort()->isReal());
+    VERIFY(node != nullptr);
+    VERIFY(node->getSort()->isReal());
     auto val = node->getValue()->getNumberValue();
-    assert(val.isRational());
-    assert(val.toRationalExact() == HighPrecisionRational("7/2"));
+    VERIFY(val.isRational());
+    VERIFY(val.toRationalExact() == HighPrecisionRational("7/2"));
     std::cout << "PASS" << std::endl;
 }
 
@@ -361,8 +361,8 @@ void test_isRealParam_intorreal() {
     std::cout << "[EXTRA] isRealParam accepts IntOrReal... " << std::flush;
     ParserPtr parser = newParser();
     auto node = parser->mkExpr("5");  // IntOrReal sort
-    assert(node != nullptr);
-    assert(node->getSort()->isIntOrReal());
+    VERIFY(node != nullptr);
+    VERIFY(node->getSort()->isIntOrReal());
     std::cout << "PASS" << std::endl;
 }
 

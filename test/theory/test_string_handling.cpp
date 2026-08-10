@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
-#include <cassert>
+#include "test_helpers.h"
 
 // Test strings of different lengths
 void test_string_lengths(SOMTParser::ParserPtr& parser) {
@@ -18,7 +18,7 @@ void test_string_lengths(SOMTParser::ParserPtr& parser) {
     for (const auto& str : test_strings) {
         std::cout << "Testing string length: " << str.length() << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkConstStr(str);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
     }
 }
@@ -35,7 +35,7 @@ void test_special_chars(SOMTParser::ParserPtr& parser) {
     for (const auto& str : test_strings) {
         std::cout << "Testing special character: " << str << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(str);
-        assert(result && !result->isErr());
+        VERIFY(result && !result->isErr());
         std::cout << "  Result: " << parser->toString(result) << std::endl;
     }
 }

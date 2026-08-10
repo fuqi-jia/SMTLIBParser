@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include "somtparser/frontend/parser.h"
-#include <cassert>
+#include "test_helpers.h"
 
 // Test let expressions
 void test_let_expressions(SOMTParser::ParserPtr& parser) {
@@ -30,10 +30,10 @@ void test_let_expressions(SOMTParser::ParserPtr& parser) {
     for (const auto& expr : expressions) {
         std::cout << "Expression: " << expr << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> result = parser->mkExpr(expr);
-        assert(result);
+        VERIFY(result);
         std::cout << "  Result: " << parser->toString(result) << std::endl;
         std::shared_ptr<SOMTParser::DAGNode> expanded = parser->expandLet(result);
-        assert(expanded);
+        VERIFY(expanded);
         std::cout << "  Expanded: " << parser->toString(expanded) << std::endl;
         std::cout << std::endl;
     }
@@ -46,22 +46,22 @@ void test_cnf_bool_var_atom_roundtrip(SOMTParser::ParserPtr& parser) {
     parser->mkVarInt("y");
 
     std::shared_ptr<SOMTParser::DAGNode> phi = parser->mkExpr("(and (> x 0) (< y 3))");
-    assert(phi);
+    VERIFY(phi);
 
     std::shared_ptr<SOMTParser::DAGNode> nnf = parser->toNNF(phi);
-    assert(nnf);
+    VERIFY(nnf);
     std::vector<std::shared_ptr<SOMTParser::DAGNode>> expr_vec = {phi};
     std::shared_ptr<SOMTParser::DAGNode> cnf = parser->toCNF(expr_vec);
-    assert(cnf);
+    VERIFY(cnf);
 
     std::shared_ptr<SOMTParser::DAGNode> atom_gt = parser->mkExpr("(> x 0)");
-    assert(atom_gt);
+    VERIFY(atom_gt);
     std::shared_ptr<SOMTParser::DAGNode> b = parser->getCNFBoolVar(atom_gt);
-    assert(b && "getCNFBoolVar( (> x 0) ) should return the CNF bool var");
+    VERIFY(b && "getCNFBoolVar( (> x 0) ) should return the CNF bool var");
     std::shared_ptr<SOMTParser::DAGNode> a = parser->getCNFAtom(b);
-    assert(a == atom_gt);
-    assert(a && "getCNFAtom(b) should recover the atom");
-    assert(parser->toString(a) == parser->toString(atom_gt) && "recovered atom should be (> x 0)");
+    VERIFY(a == atom_gt);
+    VERIFY(a && "getCNFAtom(b) should recover the atom");
+    VERIFY(parser->toString(a) == parser->toString(atom_gt) && "recovered atom should be (> x 0)");
 
     std::cout << "  phi: " << parser->toString(phi) << std::endl;
     std::cout << "  NNF: " << parser->toString(nnf) << std::endl;
@@ -104,17 +104,17 @@ void test_normal_forms(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> original = parser->mkExpr(expr);
-            assert(original);
+            VERIFY(original);
             std::cout << "  Original: " << parser->toString(original) << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> nnf = parser->toNNF(original);
-            assert(nnf);
+            VERIFY(nnf);
             std::cout << "  NNF: " << parser->toString(nnf) << std::endl;
             std::vector<std::shared_ptr<SOMTParser::DAGNode>> expr_vec = {original};
             std::shared_ptr<SOMTParser::DAGNode> cnf = parser->toCNF(expr_vec);
-            assert(cnf);
+            VERIFY(cnf);
             std::cout << "  CNF: " << parser->toString(cnf) << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> dnf = parser->toDNF(original);
-            assert(dnf);
+            VERIFY(dnf);
             std::cout << "  DNF: " << parser->toString(dnf) << std::endl;
             std::cout << std::endl;
         }
@@ -153,10 +153,10 @@ void test_arithmetic_normalization(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> original = parser->mkExpr(expr);
-            assert(original);
+            VERIFY(original);
             std::cout << "  Original: " << parser->toString(original) << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> normalized = parser->arithNormalize(original);
-            assert(normalized);
+            VERIFY(normalized);
             std::cout << "  Normalized: " << parser->toString(normalized) << std::endl;
             std::cout << std::endl;
         }
@@ -207,10 +207,10 @@ void test_binarization(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> original = parser->mkExpr(expr);
-            assert(original);
+            VERIFY(original);
             std::cout << "  Original: " << parser->toString(original) << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> binarized = parser->binarizeOp(original);
-            assert(binarized);
+            VERIFY(binarized);
             std::cout << "  Binarized: " << parser->toString(binarized) << std::endl;
             std::cout << std::endl;
         }
@@ -252,7 +252,7 @@ void test_collect_atoms_variables(SOMTParser::ParserPtr& parser) {
         for (const auto& expr : expressions) {
             std::cout << "Expression: " << expr << std::endl;
             std::shared_ptr<SOMTParser::DAGNode> formula = parser->mkExpr(expr);
-            assert(formula);
+            VERIFY(formula);
             std::cout << "  Formula: " << parser->toString(formula) << std::endl;
             std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> atoms;
             parser->collectAtoms(formula, atoms);
@@ -266,7 +266,7 @@ void test_collect_atoms_variables(SOMTParser::ParserPtr& parser) {
             for (const auto& var : vars) {
                 std::cout << "    " << parser->toString(var) << std::endl;
             }
-            assert(atoms.size() > 0 || vars.size() > 0);
+            VERIFY(atoms.size() > 0 || vars.size() > 0);
             std::cout << std::endl;
         }
     } catch (const std::exception& e) {
@@ -296,25 +296,25 @@ void test_substitution(SOMTParser::ParserPtr& parser) {
         
         // Apply substitution
         std::shared_ptr<SOMTParser::DAGNode> substituted = parser->substitute(formula, subst_map);
-        assert(substituted);
+        VERIFY(substituted);
         std::cout << "After substitution {x->5, y->10}: " << parser->toString(substituted) << std::endl;
-        assert(parser->toString(substituted).find("15") != std::string::npos || parser->toString(substituted).find("5") != std::string::npos);
+        VERIFY(parser->toString(substituted).find("15") != std::string::npos || parser->toString(substituted).find("5") != std::string::npos);
         std::unordered_map<std::string, std::shared_ptr<SOMTParser::DAGNode>> subst_map2;
         subst_map2["z"] = parser->mkConstInt(0);
         std::shared_ptr<SOMTParser::DAGNode> substituted2 = parser->substitute(substituted, subst_map2);
-        assert(substituted2);
+        VERIFY(substituted2);
         std::cout << "After substitution {z->0}: " << parser->toString(substituted2) << std::endl;
-    assert(substituted2->isTrue());
+    VERIFY(substituted2->isTrue());
         
         // Create a more complex formula with let
         std::string expr2 = "(let ((a (+ x y))) (> a z))";
         std::shared_ptr<SOMTParser::DAGNode> formula2 = parser->mkExpr(expr2);
-        assert(formula2);
+        VERIFY(formula2);
         std::cout << "Complex formula: " << parser->toString(formula2) << std::endl;
         
         // Apply substitution to complex formula
         std::shared_ptr<SOMTParser::DAGNode> substituted3 = parser->substitute(formula2, subst_map);
-        assert(substituted3);
+        VERIFY(substituted3);
         std::cout << "After substitution {x->5, y->10}: " << parser->toString(substituted3) << std::endl;
 
     } catch (const std::exception& e) {
@@ -344,65 +344,65 @@ void test_collectvars_let_binding(SOMTParser::ParserPtr& parser) {
     // Test 1: (let ((y x)) y) → should find {x}, NOT y
     {
         auto formula = parser->mkExpr("(let ((y x)) y)");
-        assert(formula);
+        VERIFY(formula);
         std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> vars;
         parser->collectVars(formula, vars);
         auto names = getVarNames(vars);
         std::cout << "  Test 1 vars: ";
         for (const auto& n : names) std::cout << n << " ";
         std::cout << std::endl;
-        assert(names.size() == 1);
-        assert(names.find("x") != names.end());
-        assert(names.find("y") == names.end());
+        VERIFY(names.size() == 1);
+        VERIFY(names.find("x") != names.end());
+        VERIFY(names.find("y") == names.end());
     }
 
     // Test 2: (let ((a b) (c d)) (+ a c)) → should find {b, d}
     {
         auto formula = parser->mkExpr("(let ((a b) (c d)) (+ a c))");
-        assert(formula);
+        VERIFY(formula);
         std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> vars;
         parser->collectVars(formula, vars);
         auto names = getVarNames(vars);
         std::cout << "  Test 2 vars: ";
         for (const auto& n : names) std::cout << n << " ";
         std::cout << std::endl;
-        assert(names.size() == 2);
-        assert(names.find("b") != names.end());
-        assert(names.find("d") != names.end());
-        assert(names.find("a") == names.end());
-        assert(names.find("c") == names.end());
+        VERIFY(names.size() == 2);
+        VERIFY(names.find("b") != names.end());
+        VERIFY(names.find("d") != names.end());
+        VERIFY(names.find("a") == names.end());
+        VERIFY(names.find("c") == names.end());
     }
 
     // Test 3: Nested let: (let ((y x)) (let ((z y)) z)) → should find {x}
     {
         auto formula = parser->mkExpr("(let ((y x)) (let ((z y)) z))");
-        assert(formula);
+        VERIFY(formula);
         std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> vars;
         parser->collectVars(formula, vars);
         auto names = getVarNames(vars);
         std::cout << "  Test 3 vars: ";
         for (const auto& n : names) std::cout << n << " ";
         std::cout << std::endl;
-        assert(names.size() == 1);
-        assert(names.find("x") != names.end());
-        assert(names.find("y") == names.end());
-        assert(names.find("z") == names.end());
+        VERIFY(names.size() == 1);
+        VERIFY(names.find("x") != names.end());
+        VERIFY(names.find("y") == names.end());
+        VERIFY(names.find("z") == names.end());
     }
 
     // Test 4: Let with expression: (let ((v (+ p q))) v) → should find {p, q}
     {
         auto formula = parser->mkExpr("(let ((v (+ p q))) v)");
-        assert(formula);
+        VERIFY(formula);
         std::unordered_set<std::shared_ptr<SOMTParser::DAGNode>> vars;
         parser->collectVars(formula, vars);
         auto names = getVarNames(vars);
         std::cout << "  Test 4 vars: ";
         for (const auto& n : names) std::cout << n << " ";
         std::cout << std::endl;
-        assert(names.size() == 2);
-        assert(names.find("p") != names.end());
-        assert(names.find("q") != names.end());
-        assert(names.find("v") == names.end());
+        VERIFY(names.size() == 2);
+        VERIFY(names.find("p") != names.end());
+        VERIFY(names.find("q") != names.end());
+        VERIFY(names.find("v") == names.end());
     }
 
     std::cout << "  test_collectvars_let_binding: all assertions passed" << std::endl;

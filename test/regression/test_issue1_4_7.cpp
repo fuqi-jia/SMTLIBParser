@@ -8,8 +8,8 @@
 #include "somtparser/frontend/parser.h"
 #include "somtparser/ir/number.h"
 #include "somtparser/ir/value.h"
-#include <cassert>
 #include <iostream>
+#include "test_helpers.h"
 
 using SOMTParser::NODE_KIND;
 using SOMTParser::ParserPtr;
@@ -17,36 +17,36 @@ using SOMTParser::SortManager;
 
 static void test_issue1_reserved_and_ge_kind(ParserPtr& p) {
     std::cout << "=== Issue 1: reserved built-ins and (>= ...) kind ===" << std::endl;
-    assert(SOMTParser::isBuiltinNameReservedAgainstUserFun(">="));
-    assert(!SOMTParser::builtinOperMayBeShadowedByUserFun(">="));
-    assert(!SOMTParser::isBuiltinNameReservedAgainstUserFun("factorial"));
+    VERIFY(SOMTParser::isBuiltinNameReservedAgainstUserFun(">="));
+    VERIFY(!SOMTParser::builtinOperMayBeShadowedByUserFun(">="));
+    VERIFY(!SOMTParser::isBuiltinNameReservedAgainstUserFun("factorial"));
 
     auto ok = p->mkFuncDec("factorial", {SortManager::INT_SORT}, SortManager::INT_SORT);
-    assert(!ok->isUnknown() && !ok->isErr());
+    VERIFY(!ok->isUnknown() && !ok->isErr());
 
     p->mkVarInt("x");
     p->mkVarInt("y");
     auto ge = p->mkExpr("(>= x y)");
-    assert(ge && ge->isGe());
-    assert(p->getKind(">=") == NODE_KIND::NT_GE);
+    VERIFY(ge && ge->isGe());
+    VERIFY(p->getKind(">=") == NODE_KIND::NT_GE);
 }
 
 static void test_issue7_bv_utils_not_get_number_value(ParserPtr& p) {
     std::cout << "=== Issue 7: BV literal + BitVectorUtils (getNumberValue is NUMBER-only) ===" << std::endl;
     auto n = p->mkExpr("(_ bv42 8)");
-    assert(n && n->isCBV());
+    VERIFY(n && n->isCBV());
     auto v = n->getValue();
-    assert(v && v->getType() == SOMTParser::BV);
-    assert(SOMTParser::BitVectorUtils::bvToNat(n->toString()) == SOMTParser::Integer(42));
+    VERIFY(v && v->getType() == SOMTParser::BV);
+    VERIFY(SOMTParser::BitVectorUtils::bvToNat(n->toString()) == SOMTParser::Integer(42));
 }
 
 static void test_issue4_fp_const_get_value(ParserPtr& p) {
     std::cout << "=== Issue 4: FP const getValue after mkConstFp path ===" << std::endl;
     auto n = p->mkExpr("((_ to_fp 8 24) RNE 1.0)");
-    assert(n && !n->isErr() && n->isCFP());
+    VERIFY(n && !n->isErr() && n->isCFP());
     auto val = n->getValue();
-    assert(val != nullptr);
-    assert(val->getType() == SOMTParser::FP);
+    VERIFY(val != nullptr);
+    VERIFY(val->getType() == SOMTParser::FP);
 }
 
 // ─── Issue #2: Sort-classified variable accessors ────────────────────────────
@@ -62,10 +62,10 @@ static void test_issue2_sort_classified_vars() {
         ParserPtr p = SOMTParser::newParser();
         p->mkVarBool("b1");
         p->mkVarBool("b2");
-        assert(p->getNumBoolVars() == 2);
-        assert(p->getBoolVars().size() == 2);
-        assert(p->getNumIntVars() == 0);
-        assert(p->getNumFpVars() == 0);
+        VERIFY(p->getNumBoolVars() == 2);
+        VERIFY(p->getBoolVars().size() == 2);
+        VERIFY(p->getNumIntVars() == 0);
+        VERIFY(p->getNumFpVars() == 0);
         std::cout << "  Bool vars: OK\n";
     }
 
@@ -75,9 +75,9 @@ static void test_issue2_sort_classified_vars() {
         p->mkVarInt("i1");
         p->mkVarInt("i2");
         p->mkVarInt("i3");
-        assert(p->getNumIntVars() == 3);
-        assert(p->getNumBoolVars() == 0);
-        assert(p->getNumRealVars() == 0);
+        VERIFY(p->getNumIntVars() == 3);
+        VERIFY(p->getNumBoolVars() == 0);
+        VERIFY(p->getNumRealVars() == 0);
         std::cout << "  Int vars: OK\n";
     }
 
@@ -85,8 +85,8 @@ static void test_issue2_sort_classified_vars() {
     {
         ParserPtr p = SOMTParser::newParser();
         p->mkVarReal("r1");
-        assert(p->getNumRealVars() == 1);
-        assert(p->getNumIntVars() == 0);
+        VERIFY(p->getNumRealVars() == 1);
+        VERIFY(p->getNumIntVars() == 0);
         std::cout << "  Real vars: OK\n";
     }
 
@@ -95,8 +95,8 @@ static void test_issue2_sort_classified_vars() {
         ParserPtr p = SOMTParser::newParser();
         p->mkVarBv("bv1", 32);
         p->mkVarBv("bv2", 8);
-        assert(p->getNumBvVars() == 2);
-        assert(p->getNumBoolVars() == 0);
+        VERIFY(p->getNumBvVars() == 2);
+        VERIFY(p->getNumBoolVars() == 0);
         std::cout << "  BV vars: OK\n";
     }
 
@@ -105,9 +105,9 @@ static void test_issue2_sort_classified_vars() {
         ParserPtr p = SOMTParser::newParser();
         p->mkVarFp("fp1", 8, 24);   // Float32
         p->mkVarFp("fp2", 11, 53);  // Float64
-        assert(p->getNumFpVars() == 2);
-        assert(p->getFpVars().size() == 2);
-        assert(p->getNumBvVars() == 0);
+        VERIFY(p->getNumFpVars() == 2);
+        VERIFY(p->getFpVars().size() == 2);
+        VERIFY(p->getNumBvVars() == 0);
         std::cout << "  FP vars: OK\n";
     }
 
@@ -115,8 +115,8 @@ static void test_issue2_sort_classified_vars() {
     {
         ParserPtr p = SOMTParser::newParser();
         p->mkVarRoundingMode("rm1");
-        assert(p->getNumRoundingModeVars() == 1);
-        assert(p->getNumFpVars() == 0);
+        VERIFY(p->getNumRoundingModeVars() == 1);
+        VERIFY(p->getNumFpVars() == 0);
         std::cout << "  RoundingMode vars: OK\n";
     }
 
@@ -130,13 +130,13 @@ static void test_issue2_sort_classified_vars() {
             "(declare-fun r () Real)\n"
             "(declare-fun fp32 () (_ FloatingPoint 8 24))\n"
             "(declare-fun bv16 () (_ BitVec 16))\n");
-        assert(p->getNumBoolVars() == 1);
-        assert(p->getNumIntVars()  == 1);
-        assert(p->getNumRealVars() == 1);
-        assert(p->getNumFpVars()   == 1);
-        assert(p->getNumBvVars()   == 1);
+        VERIFY(p->getNumBoolVars() == 1);
+        VERIFY(p->getNumIntVars()  == 1);
+        VERIFY(p->getNumRealVars() == 1);
+        VERIFY(p->getNumFpVars()   == 1);
+        VERIFY(p->getNumBvVars()   == 1);
         // Total through getDeclaredVariables
-        assert(p->getDeclaredVariables().size() == 5);
+        VERIFY(p->getDeclaredVariables().size() == 5);
         std::cout << "  Mixed problem variable classification: OK\n";
     }
 
@@ -147,8 +147,8 @@ static void test_issue2_sort_classified_vars() {
             "(set-logic QF_S)\n"
             "(declare-fun s1 () String)\n"
             "(declare-fun s2 () String)\n");
-        assert(p->getNumStringVars() == 2);
-        assert(p->getNumBoolVars() == 0);
+        VERIFY(p->getNumStringVars() == 2);
+        VERIFY(p->getNumBoolVars() == 0);
         std::cout << "  String vars: OK\n";
     }
 
@@ -160,8 +160,8 @@ static void test_issue2_sort_classified_vars() {
             "(declare-datatypes ((Color 0)) (((red) (green) (blue))))\n"
             "(declare-fun c1 () Color)\n"
             "(declare-fun c2 () Color)\n");
-        assert(p->getNumDatatypeVars() == 2);
-        assert(p->getNumBoolVars() == 0);
+        VERIFY(p->getNumDatatypeVars() == 2);
+        VERIFY(p->getNumBoolVars() == 0);
         std::cout << "  Datatype vars: OK\n";
     }
 

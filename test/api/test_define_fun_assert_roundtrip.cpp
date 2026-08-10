@@ -3,8 +3,8 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-#include <cassert>
 #include <cstdio>
+#include "test_helpers.h"
 
 int main() {
     const char* tmp_file = "define_fun_assert_roundtrip.smt2";
@@ -19,7 +19,7 @@ int main() {
 )";
 
     std::ofstream out(tmp_file);
-    assert(out && "cannot create temp smt2 file");
+    VERIFY(out && "cannot create temp smt2 file");
     out << smt2_content;
     out.close();
 
@@ -27,15 +27,15 @@ int main() {
     bool ok = parser->parse(tmp_file);
     std::remove(tmp_file);
 
-    assert(ok && "parse should succeed");
+    VERIFY(ok && "parse should succeed");
     std::string dumped = parser->dumpSMT2();
     std::cout << dumped;
 
-    assert(dumped.find("(assert (eq x u))") != std::string::npos &&
+    VERIFY(dumped.find("(assert (eq x u))") != std::string::npos &&
            "dumpSMT2 must output (assert (eq x u)) with both arguments");
-    assert(dumped.find("(define-fun eq ") != std::string::npos &&
+    VERIFY(dumped.find("(define-fun eq ") != std::string::npos &&
            "dump must contain define-fun eq");
-    assert((dumped.find("(= x y)") != std::string::npos ||
+    VERIFY((dumped.find("(= x y)") != std::string::npos ||
             dumped.find("(= y x)") != std::string::npos) &&
            "define-fun eq body must preserve both parameters");
 
