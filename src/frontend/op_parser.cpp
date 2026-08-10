@@ -72,6 +72,22 @@ namespace SOMTParser{
             case NODE_KIND::NT_DISTINCT:
             case NODE_KIND::NT_MAX:
             case NODE_KIND::NT_MIN:
+            // Additional symmetric operators, from the SMTStabilizer fork's
+            // list.  Its NT_FORALL/NT_EXISTS/NT_FP_ADD/NT_FP_MUL entries are
+            // deliberately omitted: those carry a non-operand first child (the
+            // bound-variable list, resp. the rounding mode), and sortParams
+            // here reorders *all* operands.
+            case NODE_KIND::NT_BV_NAND:
+            case NODE_KIND::NT_BV_NOR:
+            case NODE_KIND::NT_BV_XNOR:
+            case NODE_KIND::NT_BV_COMP:
+            case NODE_KIND::NT_BV_UADDO:
+            case NODE_KIND::NT_BV_SADDO:
+            case NODE_KIND::NT_BV_UMULO:
+            case NODE_KIND::NT_BV_SMULO:
+            case NODE_KIND::NT_FP_EQ:
+            case NODE_KIND::NT_FP_MIN:
+            case NODE_KIND::NT_FP_MAX:
                 return true;
             default:
                 return false;
@@ -164,8 +180,12 @@ namespace SOMTParser{
             params_with_hash.emplace_back(param, param->hashCode());
         }
         
-        // sort by hash code
-        std::sort(params_with_hash.begin(), params_with_hash.end(), compareByHash);
+        // Sort by hash code. stable_sort, not sort: hash collisions must fall
+        // back to input order, otherwise operands that hash alike come out in
+        // an unspecified order and the AST stops being reproducible. (The
+        // SMTStabilizer fork breaks such ties by comparing shared_ptr values,
+        // which orders by heap address and is not reproducible across runs.)
+        std::stable_sort(params_with_hash.begin(), params_with_hash.end(), compareByHash);
         
         // extract sorted nodes
         for(size_t i = 0; i < params_with_hash.size(); i++) {
@@ -3164,6 +3184,28 @@ namespace SOMTParser{
         std::shared_ptr<Sort> new_sort = getSortManager()->createBVSort(toInt(size).toULong());
         return mkOper(new_sort, NODE_KIND::NT_INT_TO_BV, param, size);
     }
+    /*
+    (ubv_to_int Bv), return Int -- SMT-LIB 2.7 spelling of the unsigned
+    bitvector-to-integer conversion. Ported from the SMTStabilizer fork.
+    */
+    std::shared_ptr<DAGNode> Parser::mkUbvToInt(std::shared_ptr<DAGNode> param){
+        if(!isBvParam(param)) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in ubv_to_int", line_number);
+            return mkUnknown();
+        }
+        return mkOper(SortManager::INT_SORT, NODE_KIND::NT_UBV_TO_INT, param);
+    }
+    /*
+    (sbv_to_int Bv), return Int -- SMT-LIB 2.7 signed counterpart.
+    Ported from the SMTStabilizer fork.
+    */
+    std::shared_ptr<DAGNode> Parser::mkSbvToInt(std::shared_ptr<DAGNode> param){
+        if(!isBvParam(param)) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in sbv_to_int", line_number);
+            return mkUnknown();
+        }
+        return mkOper(SortManager::INT_SORT, NODE_KIND::NT_SBV_TO_INT, param);
+    }
 
     // FLOATING POINT COMMON OPERATORS
     /*
@@ -3840,6 +3882,119 @@ namespace SOMTParser{
         // Apply array simplification to normalize store chain
         return simplifyArray(store_node);
     }
+    // TERM ANNOTATIONS — ported from the SMTStabilizer fork.
+    // These are structural wrappers, so they bypass mkOper (and therefore
+    // simplification): folding an annotation away is exactly what we are trying
+    // to avoid.
+    std::shared_ptr<DAGNode> Parser::mkPattern(const std::vector<std::shared_ptr<DAGNode>> &params){
+        return getNodeManager()->createNode(SortManager::NULL_SORT, NODE_KIND::NT_PATTERN, ":pattern", params);
+    }
+    std::shared_ptr<DAGNode> Parser::mkNoPattern(std::shared_ptr<DAGNode> param){
+        return getNodeManager()->createNode(SortManager::NULL_SORT, NODE_KIND::NT_NO_PATTERN, ":no-pattern", {param});
+    }
+    std::shared_ptr<DAGNode> Parser::mkWeight(std::shared_ptr<DAGNode> weight){
+        return getNodeManager()->createNode(SortManager::NULL_SORT, NODE_KIND::NT_WEIGHT, ":weight", {weight});
+    }
+    std::shared_ptr<DAGNode> Parser::mkQid(const std::string &qid){
+        return getNodeManager()->createNode(SortManager::NULL_SORT, NODE_KIND::NT_QID, qid);
+    }
+    std::shared_ptr<DAGNode> Parser::mkAttribute(std::shared_ptr<DAGNode> term, const std::vector<std::shared_ptr<DAGNode>> &annotations){
+        if(annotations.empty()) return term;
+        std::vector<std::shared_ptr<DAGNode>> children{term};
+        children.insert(children.end(), annotations.begin(), annotations.end());
+        return getNodeManager()->createNode(term->getSort(), NODE_KIND::NT_ATTRIBUTE, "!", children);
+    }
+
+    // TUPLE OPERATORS — ported from the SMTStabilizer fork.
+    /*
+    (tuple t1 ... tn), return (Tuple T1 ... Tn); the nullary case is tuple.unit.
+    */
+    std::shared_ptr<DAGNode> Parser::mkTuple(const std::vector<std::shared_ptr<DAGNode>> &params){
+        std::vector<std::shared_ptr<Sort>> field_sorts;
+        field_sorts.reserve(params.size());
+        for(const auto& p : params){
+            if(p->isErr()) return p;
+            field_sorts.emplace_back(p->getSort());
+        }
+        std::shared_ptr<Sort> sort = getSortManager()->createTupleSort(field_sorts);
+        // tuple.unit is nullary, and mkOper rejects an empty parameter list.
+        if(params.empty()) return getNodeManager()->createNode(sort, NODE_KIND::NT_TUPLE_UNIT, "tuple.unit");
+        return mkOper(sort, NODE_KIND::NT_TUPLE_CONSTRUCTOR, params);
+    }
+    /*
+    ((_ tuple.select i) t), return Ti
+    */
+    std::shared_ptr<DAGNode> Parser::mkTupleSelect(std::shared_ptr<DAGNode> tuple, std::shared_ptr<DAGNode> index){
+        if(tuple->isErr()) return tuple;
+        if(index->isErr()) return index;
+        if(!tuple->getSort() || !tuple->getSort()->isTuple()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in tuple.select: first argument is not a tuple", line_number);
+            return mkUnknown();
+        }
+        const size_t i = toInt(index).toULong();
+        if(i >= tuple->getSort()->getChildrenSize()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "tuple.select index out of range", line_number);
+            return mkUnknown();
+        }
+        return mkOper(tuple->getSort()->getChild(i), NODE_KIND::NT_TUPLE_SELECT, tuple, index);
+    }
+    /*
+    ((_ tuple.update i) t v), return the tuple sort of t
+    */
+    std::shared_ptr<DAGNode> Parser::mkTupleUpdate(std::shared_ptr<DAGNode> tuple, std::shared_ptr<DAGNode> index, std::shared_ptr<DAGNode> value){
+        if(tuple->isErr()) return tuple;
+        if(index->isErr()) return index;
+        if(value->isErr()) return value;
+        if(!tuple->getSort() || !tuple->getSort()->isTuple()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in tuple.update: first argument is not a tuple", line_number);
+            return mkUnknown();
+        }
+        const size_t i = toInt(index).toULong();
+        if(i >= tuple->getSort()->getChildrenSize()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "tuple.update index out of range", line_number);
+            return mkUnknown();
+        }
+        return mkOper(tuple->getSort(), NODE_KIND::NT_TUPLE_UPDATE, tuple, index, value);
+    }
+    /*
+    ((_ tuple.project i1 ... ik) t), return (Tuple Ti1 ... Tik)
+    */
+    std::shared_ptr<DAGNode> Parser::mkTupleProject(std::shared_ptr<DAGNode> tuple, const std::vector<std::shared_ptr<DAGNode>> &indices){
+        if(tuple->isErr()) return tuple;
+        if(!tuple->getSort() || !tuple->getSort()->isTuple()) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in tuple.project: argument is not a tuple", line_number);
+            return mkUnknown();
+        }
+        std::vector<std::shared_ptr<Sort>> field_sorts;
+        std::vector<std::shared_ptr<DAGNode>> params{tuple};
+        field_sorts.reserve(indices.size());
+        params.reserve(indices.size() + 1);
+        for(const auto& idx : indices){
+            if(idx->isErr()) return idx;
+            const size_t i = toInt(idx).toULong();
+            if(i >= tuple->getSort()->getChildrenSize()) {
+                err_all(ERROR_TYPE::ERR_TYPE_MIS, "tuple.project index out of range", line_number);
+                return mkUnknown();
+            }
+            field_sorts.emplace_back(tuple->getSort()->getChild(i));
+            params.emplace_back(idx);
+        }
+        return mkOper(getSortManager()->createTupleSort(field_sorts), NODE_KIND::NT_TUPLE_PROJECT, params);
+    }
+    /*
+    ((_ update <selector>) t v), return the datatype sort of t.
+    Ported from the SMTStabilizer fork.
+    */
+    std::shared_ptr<DAGNode> Parser::mkDtUpdate(const std::string &selector, std::shared_ptr<DAGNode> dt, std::shared_ptr<DAGNode> value){
+        if(dt->isErr()) return dt;
+        if(value->isErr()) return value;
+        if(!dt->getSort() || !dt->getSort()->isDatatype() || !dt->getSort()->hasDtSelector(selector)) {
+            err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in datatype update: no such selector", line_number);
+            return mkUnknown();
+        }
+        return getNodeManager()->createNode(dt->getSort(), NODE_KIND::NT_DT_UPDATER, selector, {dt, value});
+    }
+
     // STRINGS COMMON OPERATORS
     /*
     (str.len Str), return Nat

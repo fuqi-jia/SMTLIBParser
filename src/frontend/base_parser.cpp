@@ -248,6 +248,9 @@ namespace SOMTParser{
 	void Parser::setOption(const std::string& key, const std::string& value){
 		getOptions()->setOption(key, value);
 	}
+	void Parser::setOption(const std::string& key, const char* value){
+		getOptions()->setOption(key, value ? std::string(value) : std::string());
+	}
 	void Parser::setOption(const std::string& key, const int& value){
 		getOptions()->setOption(key, std::to_string(value));
 	}
@@ -777,27 +780,42 @@ namespace SOMTParser{
 	bool Parser::parseSmtlib2File(const std::string filename) {
 
 		/*
-		load file
+		load file -- an empty name or "-" reads the script from stdin, so the
+		parser can be used in a pipeline. Ported from the SMTStabilizer fork.
 		*/
-		std::ifstream fin(filename, std::ifstream::binary);
+		delete[] buffer;
+		buffer = nullptr;
 
-		if (!fin) {
-			std::cout << "error: Cannot open file \"" << filename << "\"." << std::endl;
-			return false;
+		if (filename.empty() || filename == "-") {
+			std::string content((std::istreambuf_iterator<char>(std::cin)),
+			                    std::istreambuf_iterator<char>());
+			buflen = (long)content.size();
+			buffer = new char[buflen + 1];
+			if (buflen > 0) std::memcpy(buffer, content.data(), (size_t)buflen);
+			buffer[buflen] = 0;
+			source_name_ = "<stdin>";
 		}
+		else {
+			std::ifstream fin(filename, std::ifstream::binary);
 
-		fin.seekg(0, std::ios::end);
-		buflen = (long)fin.tellg();
-		fin.seekg(0, std::ios::beg);
+			if (!fin) {
+				std::cout << "error: Cannot open file \"" << filename << "\"." << std::endl;
+				return false;
+			}
 
-		buffer = new char[buflen + 1];
-		fin.read(buffer, buflen);
-		buffer[buflen] = 0;
+			fin.seekg(0, std::ios::end);
+			buflen = (long)fin.tellg();
+			fin.seekg(0, std::ios::beg);
+
+			buffer = new char[buflen + 1];
+			fin.read(buffer, buflen);
+			buffer[buflen] = 0;
+			source_name_ = filename;
+
+			fin.close();
+		}
 		source_text_.assign(buffer, static_cast<size_t>(buflen));
-		source_name_ = filename;
 		next_command_index_ = 0;
-
-		fin.close();
 
 		/*
 		parse command
@@ -985,6 +1003,25 @@ namespace SOMTParser{
 		}
 		else if(key == ":weight"){
 			return KEYWORD::KW_WEIGHT;
+		}
+		// Quantifier annotations — ported from the SMTStabilizer fork.
+		else if(key == ":pattern"){
+			return KEYWORD::KW_PATTERN;
+		}
+		else if(key == ":no-pattern"){
+			return KEYWORD::KW_NO_PATTERN;
+		}
+		else if(key == ":qid"){
+			return KEYWORD::KW_QID;
+		}
+		else if(key == ":skolemid"){
+			return KEYWORD::KW_SKOLEMID;
+		}
+		else if(key == ":lblpos"){
+			return KEYWORD::KW_LBLPOS;
+		}
+		else if(key == ":lblneg"){
+			return KEYWORD::KW_LBLNEG;
 		}
 		else if (key == ":comp"){
 			return KEYWORD::KW_COMP;
@@ -1921,6 +1958,11 @@ namespace SOMTParser{
 			if (basic_it != BASIC_SORTS.end()) {
 				return basic_it->second;
 			}
+			// The nullary tuple sort is spelled UnitTuple; it needs the sort
+			// manager, so it cannot live in the static BASIC_SORTS table.
+			else if (s == "UnitTuple") {
+				return getSortManager()->createTupleSort({});
+			}
 			// then check the user-defined type
 			else {
 				std::shared_ptr<Sort> usort = getSymbolManager()->resolveSort(s);
@@ -1948,6 +1990,16 @@ namespace SOMTParser{
 				sort = getSortManager()->createArraySort(sortS, sortT);
 				getSymbolManager()->registerSort(sort_key_name, sort);
 			}
+		}
+		else if(s == "Tuple"){
+			// (Tuple T1 ... Tn) — ported from the SMTStabilizer fork.
+			std::vector<std::shared_ptr<Sort>> fields;
+			scanToNextSymbol();
+			while(*bufptr && *bufptr != ')'){
+				fields.emplace_back(parseSort());
+				scanToNextSymbol();
+			}
+			sort = getSortManager()->createTupleSort(fields);
 		}
 		else if(s == "Datatype"){}
 		else if(s == "Set"){}
