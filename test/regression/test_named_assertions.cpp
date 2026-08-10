@@ -11,6 +11,10 @@
 //
 // The last one has no lossless answer: the parser now warns and keeps the last
 // name.  These tests pin the warning down as much as the result.
+//
+// Out of scope: a name on a nested subterm, (assert (and (! p :named n) q)).
+// It is parsed and recorded, but dumpSMT2 annotates whole assertions, so the
+// name does not survive a dump -- not supported for now.
 
 #include <iostream>
 #include <sstream>

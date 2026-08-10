@@ -3579,6 +3579,13 @@ namespace SOMTParser{
 		// Hash-consing can put one named node in `assertions` more than once --
 		// (assert (! p :named n)) (assert p) -- and repeating the name would be a
 		// duplicate declaration on re-parse, so only the first occurrence carries it.
+		//
+		// NOT SUPPORTED: a name on a nested subterm, e.g.
+		// (assert (and (! p :named n) q)).  SMT-LIB allows :named on any term,
+		// and the parser records such a name so getNamedAssertions() can find
+		// it, but this loop annotates whole assertions, so the name is dropped
+		// from the dump.  Emitting it would mean re-inserting the annotation at
+		// the right position while printing the term.
 		std::unordered_set<std::string> emitted_names;
 		for(auto& constraint : context_.assertions){
 			const std::string* name = context_.getAssertionName(constraint);

@@ -440,6 +440,11 @@ namespace SOMTParser{
                                 scanToNextSymbol();
                                 if(kw == ":named" && *bufptr
                                    && *bufptr != ':' && *bufptr != ')'){
+                                    // `formula` is a whole assertion only when this
+                                    // (! ...) sits directly under (assert ...). A name
+                                    // on a nested subterm is recorded here and found by
+                                    // getNamedAssertions(), but dumpSMT2 annotates whole
+                                    // assertions and so drops it -- not supported for now.
                                     size_t name_ln = line_number;
                                     std::string name = getSymbol();
                                     warn_named_displaced(context_.nameAssertion(name, formula),
