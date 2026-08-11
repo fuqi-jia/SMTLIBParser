@@ -31,7 +31,9 @@
 #include "somtparser/ir/value.h"
 #include <stack>
 #include <optional>
+#include <ostream>
 #include <sstream>
+#include <streambuf>
 #include <unordered_set>
 
 namespace SOMTParser{
@@ -44,6 +46,11 @@ namespace SOMTParser{
             children.emplace_back(p);
         }
         kind = is_rec ? NODE_KIND::NT_FUNC_REC : NODE_KIND::NT_FUNC_DEF;
+        // The node now prints differently, so any ordering key taken from the
+        // old printed form is stale.
+        cached_print_hash = 0;
+        cached_print_len = 0;
+        print_hash_computed = false;
     }
 
     
@@ -56,6 +63,10 @@ namespace SOMTParser{
             children.emplace_back(p);
         }
         kind = is_rec ? NODE_KIND::NT_FUNC_REC_APPLY : NODE_KIND::NT_FUNC_APPLY;
+        // As in updateFuncDef: the printed form changed, drop the stale key.
+        cached_print_hash = 0;
+        cached_print_len = 0;
+        print_hash_computed = false;
     }
 
     // Helper: check if a string is in canonical rational a/b form
@@ -152,10 +163,73 @@ namespace SOMTParser{
     }
 
     // High-performance iterative streaming version to avoid stack overflow
-    void dumpSMTLIB2_streaming(const std::shared_ptr<DAGNode>& root, std::ostream& out) {
+    // Hashes everything written to it without ever materialising the text, so
+    // a node's printed form can be hashed in place of being built.
+    //
+    // The hash is polynomial/rolling rather than a plain accumulator because it
+    // has to compose: H(A.B) = H(A)*BASE^|B| + H(B). That identity is what lets
+    // an already-hashed subtree be folded in as a single unit (absorb), so no
+    // node ever re-walks a subtree an ancestor already walked. Hashing every
+    // operand of n nested commutative operators is then linear; re-printing
+    // each ancestor's whole subtree instead would be quadratic.
+    //
+    // BASE must be odd to stay invertible modulo 2^64 (unsigned overflow is
+    // well-defined wraparound), otherwise low bits would decay to zero.
+    class PrintHashBuf : public std::streambuf {
+    public:
+        static const uint64_t BASE = 1099511628211ull;  // FNV-1a prime, odd
+
+        uint64_t hash() const { return h_; }
+        uint64_t length() const { return len_; }
+
+        void absorb(uint64_t chunk_hash, uint64_t chunk_len) {
+            h_ = h_ * ipow(BASE, chunk_len) + chunk_hash;
+            len_ += chunk_len;
+        }
+
+    protected:
+        std::streamsize xsputn(const char* s, std::streamsize n) override {
+            for (std::streamsize i = 0; i < n; i++) {
+                h_ = h_ * BASE + static_cast<unsigned char>(s[i]);
+            }
+            len_ += static_cast<uint64_t>(n);
+            return n;
+        }
+
+        int_type overflow(int_type c) override {
+            if (c != traits_type::eof()) {
+                h_ = h_ * BASE + static_cast<unsigned char>(c);
+                len_ += 1;
+            }
+            return c;
+        }
+
+    private:
+        static uint64_t ipow(uint64_t base, uint64_t exp) {
+            uint64_t r = 1;
+            while (exp) {
+                if (exp & 1) r *= base;
+                base *= base;
+                exp >>= 1;
+            }
+            return r;
+        }
+
+        uint64_t h_ = 0;
+        uint64_t len_ = 0;
+    };
+
+    // Takes a raw pointer so that a node can print itself without owning a
+    // shared_ptr to itself (see DAGNode::orderKey). Ownership is the caller's;
+    // this only reads.
+    //
+    // `hb`, when set, must be the streambuf backing `out`: it switches on the
+    // subtree folding described on PrintHashBuf. It is null for ordinary
+    // printing, which always walks the whole term.
+    void dumpSMTLIB2_streaming(DAGNode* root, std::ostream& out, PrintHashBuf* hb = nullptr) {
         if (!root) return;
 
-        std::shared_ptr<DAGNode> actualRoot = root;
+        DAGNode* actualRoot = root;
 
         // Static kind string cache for performance
         static std::unordered_map<NODE_KIND, const char*> kind_cache;
@@ -210,7 +284,7 @@ namespace SOMTParser{
         // Pre-allocate stack with reasonable capacity to avoid frequent reallocations
         std::vector<WorkItem> work_stack;
         work_stack.reserve(65536); // Reserve space for deep expressions
-        work_stack.emplace_back(actualRoot.get(), 0);
+        work_stack.emplace_back(actualRoot, 0);
 
         while (!work_stack.empty()) {
             WorkItem item = work_stack.back();
@@ -237,6 +311,14 @@ namespace SOMTParser{
             // Process node (action == 0)
             DAGNode* node = item.node;
             if (!node) continue;
+
+            // Every node -- root and child alike -- reaches the printer through
+            // this one point, so folding in an already-hashed subtree here
+            // covers all of them.
+            if (hb && node->hasPrintHash()) {
+                hb->absorb(node->printHash(), node->printLength());
+                continue;
+            }
 
             auto kind = node->getKind();
             switch (kind) {
@@ -1136,8 +1218,23 @@ namespace SOMTParser{
     // Wrapper function that returns string for compatibility
     std::string dumpSMTLIB2(const std::shared_ptr<DAGNode>& root) {
         std::ostringstream oss;
-        dumpSMTLIB2_streaming(root, oss);  // enable cache by default
+        dumpSMTLIB2_streaming(root.get(), oss);  // enable cache by default
         return oss.str();
+    }
+
+    std::size_t DAGNode::orderKey() const {
+        if(print_hash_computed) {
+            return static_cast<std::size_t>(cached_print_hash);
+        }
+        // const_cast is safe: the printer only reads. Its parameter is
+        // non-const because its internal work stack holds DAGNode*.
+        PrintHashBuf buf;
+        std::ostream os(&buf);
+        dumpSMTLIB2_streaming(const_cast<DAGNode*>(this), os, &buf);
+        cached_print_hash = buf.hash();
+        cached_print_len = buf.length();
+        print_hash_computed = true;
+        return static_cast<std::size_t>(cached_print_hash);
     }
 
     

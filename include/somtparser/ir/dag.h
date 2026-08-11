@@ -42,6 +42,7 @@
 #include <list>
 #include <algorithm>
 #include <ctime>
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <functional> // for std::hash
@@ -80,6 +81,14 @@ namespace SOMTParser{
         mutable size_t                          cached_hash_code;
         mutable bool                            hash_computed;
         mutable size_t                          _use_count;
+        // Rolling hash of this node's printed form, and that form's length;
+        // see orderKey(). The length is what lets a parent fold this subtree in
+        // without re-walking it. Default member initializers, not constructor
+        // bodies: DAGNode has a dozen constructors and a field one of them
+        // forgot would silently order operands by stale data.
+        mutable uint64_t                        cached_print_hash = 0;
+        mutable uint64_t                        cached_print_len = 0;
+        mutable bool                            print_hash_computed = false;
 
     public:
         DAGNode(std::shared_ptr<Sort> sort, NODE_KIND kind, std::string name, std::vector<std::shared_ptr<DAGNode>> children): sort(sort), kind(kind), name(name), value(nullptr), children(children){
@@ -315,6 +324,9 @@ namespace SOMTParser{
             children_hash = "";
             cached_hash_code = 0;
             hash_computed = false;
+            cached_print_hash = 0;
+            cached_print_len = 0;
+            print_hash_computed = false;
             name = "";
             _use_count = 0;
         }
@@ -1008,8 +1020,34 @@ namespace SOMTParser{
         }
 
         /**
+         * @brief Key that canonicalises the operand order of commutative
+         *        operators: a hash of this node's printed SMT-LIB form.
+         *
+         * Deliberately not hashCode(). hashCode() mixes in the sort string, the
+         * internal name and the child count, and none of those survive a dump:
+         * a Real literal prints as `0` and reads back as IntOrReal, and an fp
+         * literal prints from a childless node but reads back as a three-child
+         * one. Ordering by hashCode() therefore gave the same script a
+         * different operand order on every re-parse, so dumpSMT2() was not a
+         * fixed point. The printed form is the only thing a dump preserves by
+         * construction, so ordering on it is what makes the order survive.
+         *
+         * Distinct printed forms may still collide; callers must break ties
+         * with a stable sort, which keeps such operands in input order and so
+         * keeps the result reproducible.
+         */
+        std::size_t orderKey() const;
+
+        /** Whether orderKey() has already been computed for this node. */
+        bool hasPrintHash() const { return print_hash_computed; }
+        /** Rolling hash of the printed form; only valid once hasPrintHash(). */
+        uint64_t printHash() const { return cached_print_hash; }
+        /** Character length of the printed form; only valid once hasPrintHash(). */
+        uint64_t printLength() const { return cached_print_len; }
+
+        /**
          * @brief Update the function definition
-         * 
+         *
          * @note This function is only used to update the function definition.
          * 
          * @param out_sort The output sort

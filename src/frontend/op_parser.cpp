@@ -141,6 +141,14 @@ namespace SOMTParser{
         return getSort({l, r, m});
     }
 
+    // Canonicalises the operand order of a commutative operator.
+    //
+    // Ordered by DAGNode::orderKey() -- a hash of each operand's printed form --
+    // and not by hashCode(), so that dumping a script and reading it back yields
+    // the same order. hashCode() also mixes in the sort and the internal node
+    // layout, which a dump does not preserve, so it reordered operands on every
+    // round trip. All comparisons below are strict (`>`), which keeps equal keys
+    // in input order and makes the result reproducible.
     std::vector<std::shared_ptr<DAGNode>> sortParams(const std::vector<std::shared_ptr<DAGNode>> &p){
         // fast path
         if(p.size() <= 1) {
@@ -148,8 +156,8 @@ namespace SOMTParser{
         }
         if(p.size() == 2) {
             std::vector<std::shared_ptr<DAGNode>> params = p;
-            size_t hash0 = params[0]->hashCode();
-            size_t hash1 = params[1]->hashCode();
+            size_t hash0 = params[0]->orderKey();
+            size_t hash1 = params[1]->orderKey();
             if(hash0 > hash1) {
                 std::swap(params[0], params[1]);
             }
@@ -157,9 +165,9 @@ namespace SOMTParser{
         }
         if(p.size() == 3) {
             std::vector<std::shared_ptr<DAGNode>> params = p;
-            size_t hash0 = params[0]->hashCode();
-            size_t hash1 = params[1]->hashCode();
-            size_t hash2 = params[2]->hashCode();
+            size_t hash0 = params[0]->orderKey();
+            size_t hash1 = params[1]->orderKey();
+            size_t hash2 = params[2]->orderKey();
             
             // 简单的3元素排序网络
             if(hash0 > hash1) { std::swap(params[0], params[1]); std::swap(hash0, hash1); }
@@ -177,10 +185,10 @@ namespace SOMTParser{
         params_with_hash.reserve(params.size());
         
         for(const auto& param : params) {
-            params_with_hash.emplace_back(param, param->hashCode());
+            params_with_hash.emplace_back(param, param->orderKey());
         }
-        
-        // Sort by hash code. stable_sort, not sort: hash collisions must fall
+
+        // Sort by ordering key. stable_sort, not sort: key collisions must fall
         // back to input order, otherwise operands that hash alike come out in
         // an unspecified order and the AST stops being reproducible. (The
         // SMTStabilizer fork breaks such ties by comparing shared_ptr values,
