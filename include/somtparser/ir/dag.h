@@ -1092,6 +1092,7 @@ namespace SOMTParser{
     std::string dumpSMTLIB2(const std::shared_ptr<DAGNode>& node);
     std::string dumpFuncDef(const std::shared_ptr<DAGNode>& node);
     std::string dumpFuncRec(const std::shared_ptr<DAGNode>& node);
+    std::string dumpFuncsRec(const std::vector<std::shared_ptr<DAGNode>>& nodes);
     std::string dumpFuncDec(const std::shared_ptr<DAGNode>& node);
     
     // smart pointer

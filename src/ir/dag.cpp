@@ -1165,6 +1165,37 @@ namespace SOMTParser{
         res += dumpSMTLIB2(node->getChild(0)) +  ")";
         return res;
     }
+    // (define-funs-rec ((f (params) sort) ...) (body ...))
+    //
+    // A mutually recursive group has to be emitted as one command: its members
+    // call each other, so a sequence of define-fun-rec commands would refer to
+    // a function that the script has not defined yet.  SMT-LIB puts all the
+    // signatures first precisely so every body can see every name.
+    std::string dumpFuncsRec(const std::vector<std::shared_ptr<DAGNode>>& nodes){
+        condAssert(!nodes.empty(), "dumpFuncsRec: empty group");
+        std::string res = "(define-funs-rec (";
+        for(size_t n = 0; n < nodes.size(); n++){
+            const auto& node = nodes[n];
+            condAssert(node != nullptr, "dumpFuncsRec: null member");
+            if(n != 0) res += " ";
+            res += "(" + node->getName() + " (";
+            // children[0] is the body, children[1..n] are the parameters.
+            for(size_t i = 1; i < node->getChildrenSize(); i++){
+                if(i != 1) res += " ";
+                res += "(" + node->getChild(i)->getName() + " " +
+                       node->getChild(i)->getSort()->toString() + ")";
+            }
+            res += ") " + node->getSort()->toString() + ")";
+        }
+        res += ") (";
+        for(size_t n = 0; n < nodes.size(); n++){
+            if(n != 0) res += " ";
+            res += dumpSMTLIB2(nodes[n]->getChild(0));
+        }
+        res += "))";
+        return res;
+    }
+
     std::string dumpFuncDec(const std::shared_ptr<DAGNode>& node){
         std::string res = "(declare-fun " + node->getName() + " (";
         // For NT_FUNC_DEC, children[0] is NULL_NODE, children[1..n] are parameter type nodes
