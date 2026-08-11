@@ -84,6 +84,25 @@ int main() {
         check("fp one", folded, reread);
     }
 
+    // The checks above pin orderKey() itself. This one pins that the operand
+    // ordering actually uses it: a commutative operator over operands that
+    // print alike must lay them out the same way in both scripts. Reverting
+    // sortParams to hashCode() leaves every check above passing and fails here.
+    {
+        auto real_zero = std::make_shared<Parser>();
+        VERIFY(real_zero->parseStr("(set-logic ALL)(declare-const zero2 Real)(assert (= zero2 0.00000))"));
+        auto int_zero = std::make_shared<Parser>();
+        VERIFY(int_zero->parseStr("(set-logic ALL)(declare-const zero2 Real)(assert (= zero2 0))"));
+        const std::string a = dumpSMTLIB2(real_zero->getAssertions()[0]);
+        const std::string b = dumpSMTLIB2(int_zero->getAssertions()[0]);
+        if (a != b) {
+            std::cerr << "  commutative order not stable across representations:\n"
+                      << "    " << a << "\n    " << b << "\n";
+            VERIFY(false);
+        }
+        std::cout << "  equal-printing operands order alike: " << a << "\n";
+    }
+
     // Sanity: the key is not simply constant, or everything above would pass
     // no matter what the key did.
     {
