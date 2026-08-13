@@ -95,7 +95,17 @@ namespace SOMTParser{
     }
 
     bool canExempt(std::shared_ptr<Sort> l, std::shared_ptr<Sort> r){
-        if((l->isInt() || l->isReal()) && (r->isInt() || r->isReal())){
+        // IntOrReal has to be in this list. It is the sort a numeric LITERAL
+        // carries -- `2` is IntOrReal, not Int -- so leaving it out meant
+        // `(/ x 2)` was rejected as a type mismatch while `(/ x y)` on two
+        // declared Reals passed. getSort(), twenty lines below, already asks
+        // isIntOrReal() for exactly this reason; this function did not, and the
+        // divergence showed up only where a literal met an operator that wants
+        // Reals.
+        const auto numeric = [](const std::shared_ptr<Sort>& s){
+            return s->isInt() || s->isReal() || s->isIntOrReal();
+        };
+        if(numeric(l) && numeric(r)){
             return true;
         }
         // Special handling for root-obj and root-of-with-interval nodes
@@ -1254,12 +1264,25 @@ namespace SOMTParser{
                 }
             }
             if(isZero(params[i])){
-                if(getOptions()->isIntTheory()){
-                    return mkConstInt(0);
-                }
-                else if(getOptions()->isRealTheory()){
+                // Zero ANNIHILATES a product, and which sort the zero comes
+                // back as follows the operands -- not the active logic.
+                //
+                // This used to ask getOptions() and had no fallback, so when
+                // the logic named neither theory control fell out of the `if`
+                // and the zero was added to neither new_params nor the result:
+                // it vanished, and (* x 0) came back as x. The default logic
+                // is "ALL", whose string contains neither "I" nor "R", so the
+                // condition that triggered it was not exotic -- it was every
+                // model built before a set-logic, which is every model built
+                // through the API.
+                //
+                // Deciding by logic was also wrong where it did fire: under a
+                // mixed logic such as AUFLIRA, isRealTheory() holds and an
+                // Int-sorted product returned a Real zero.
+                if(sort != nullptr && sort->isReal()){
                     return mkConstReal(0.0);
                 }
+                return mkConstInt(0);
             }
             else if(isOne(params[i])){
                 continue;

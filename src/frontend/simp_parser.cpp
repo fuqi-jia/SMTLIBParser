@@ -955,8 +955,21 @@ namespace SOMTParser{
                     return mkUnknown();
                 }
                 if(l->isCInt() && r->isCInt()){
-                    // SMT-LIB div uses floor semantics (towards -inf), not C++ truncation
-                    return mkConstInt(toInt(l).floorDiv(toInt(r)));
+                    // SMT-LIB's Ints theory defines div and mod together, as the
+                    // unique q, r with m = n*q + r and 0 <= r < |n| -- Euclidean,
+                    // not floor and not C++ truncation. This used to call
+                    // floorDiv while NT_MOD below used C++ '%', which agree only
+                    // when both operands are positive: (div -7 2) folded to -4
+                    // and (mod -7 2) to -1, so 2*(-4) + (-1) = -9, not -7. The
+                    // defining identity was broken by the folding itself.
+                    if(toInt(r) == Integer(0)){
+                        // Division by zero is *total* in SMT-LIB and its value is
+                        // unconstrained, so there is no constant to fold to.
+                        // Leaving the term symbolic is the faithful action;
+                        // throwing would reject a script a solver accepts.
+                        return mkUnknown();
+                    }
+                    return mkConstInt(toInt(l).euclideanDiv(toInt(r)));
                 }
                 else if((l->isCReal() && r->isCReal()) || (l->isCInt() && r->isCReal()) || (l->isCReal() && r->isCInt()) || (l->isCInt() && r->isCInt())){
                     if(getEvaluateUseFloating()){
@@ -996,7 +1009,14 @@ namespace SOMTParser{
                     return mkUnknown();
                 }
                 if(l->isCInt() && r->isCInt()){
-                    return mkConstInt(toInt(l) % toInt(r));
+                    // Euclidean, to match NT_DIV_INT above. C++ '%' truncates and
+                    // takes the sign of the dividend, so it returned negative
+                    // remainders -- violating SMT-LIB's 0 <= (mod m n) < |n| in
+                    // every case with a negative dividend.
+                    if(toInt(r) == Integer(0)){
+                        return mkUnknown();     // see NT_DIV_INT
+                    }
+                    return mkConstInt(toInt(l).euclideanMod(toInt(r)));
                 }
                 return mkUnknown();
             }
