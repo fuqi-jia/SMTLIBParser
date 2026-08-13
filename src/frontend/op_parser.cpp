@@ -1246,12 +1246,25 @@ namespace SOMTParser{
                 }
             }
             if(isZero(params[i])){
-                if(getOptions()->isIntTheory()){
-                    return mkConstInt(0);
-                }
-                else if(getOptions()->isRealTheory()){
+                // Zero ANNIHILATES a product, and which sort the zero comes
+                // back as follows the operands -- not the active logic.
+                //
+                // This used to ask getOptions() and had no fallback, so when
+                // the logic named neither theory control fell out of the `if`
+                // and the zero was added to neither new_params nor the result:
+                // it vanished, and (* x 0) came back as x. The default logic
+                // is "ALL", whose string contains neither "I" nor "R", so the
+                // condition that triggered it was not exotic -- it was every
+                // model built before a set-logic, which is every model built
+                // through the API.
+                //
+                // Deciding by logic was also wrong where it did fire: under a
+                // mixed logic such as AUFLIRA, isRealTheory() holds and an
+                // Int-sorted product returned a Real zero.
+                if(sort != nullptr && sort->isReal()){
                     return mkConstReal(0.0);
                 }
+                return mkConstInt(0);
             }
             else if(isOne(params[i])){
                 continue;
