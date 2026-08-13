@@ -815,6 +815,39 @@ HighPrecisionInteger HighPrecisionInteger::floorDiv(const HighPrecisionInteger& 
     return HighPrecisionInteger(q.get_str());
 }
 
+// Euclidean division, as SMT-LIB's Ints theory defines div and mod: the unique
+// q, r with m = n*q + r and 0 <= r < |n|.
+//
+// GMP has no Euclidean rounding mode, but it falls out of the two it does have:
+// the remainder of a floor division is non-negative exactly when the divisor is
+// positive, and the remainder of a ceiling division is non-negative exactly
+// when the divisor is negative. So pick by the sign of the divisor.
+HighPrecisionInteger HighPrecisionInteger::euclideanDiv(const HighPrecisionInteger& other) const {
+    if (other.value == 0) {
+        throw std::domain_error("Division by zero");
+    }
+    mpz_class q;
+    if (other.value > 0) {
+        mpz_fdiv_q(q.get_mpz_t(), value.get_mpz_t(), other.value.get_mpz_t());
+    } else {
+        mpz_cdiv_q(q.get_mpz_t(), value.get_mpz_t(), other.value.get_mpz_t());
+    }
+    return HighPrecisionInteger(q.get_str());
+}
+
+HighPrecisionInteger HighPrecisionInteger::euclideanMod(const HighPrecisionInteger& other) const {
+    if (other.value == 0) {
+        throw std::domain_error("Modulo by zero");
+    }
+    mpz_class r;
+    if (other.value > 0) {
+        mpz_fdiv_r(r.get_mpz_t(), value.get_mpz_t(), other.value.get_mpz_t());
+    } else {
+        mpz_cdiv_r(r.get_mpz_t(), value.get_mpz_t(), other.value.get_mpz_t());
+    }
+    return HighPrecisionInteger(r.get_str());
+}
+
 HighPrecisionInteger& HighPrecisionInteger::operator+=(const HighPrecisionInteger& other) {
     value += other.value;
     return *this;
