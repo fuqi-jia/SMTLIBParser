@@ -102,6 +102,18 @@ public:
     bool hasFunctionName(const std::string& name) const;
     void removeFunctionName(const std::string& name);
 
+    // --- Mutually recursive function groups, from (define-funs-rec ...) ---
+    // The grouping is not recoverable from the function nodes themselves: each
+    // member is an ordinary NT_FUNC_REC, indistinguishable from one written as
+    // a standalone (define-fun-rec ...). It has to be recorded here because a
+    // group can only be dumped as a single define-funs-rec -- its members call
+    // each other, so emitting them as separate define-fun-rec commands makes
+    // the first one refer to a name the script has not defined yet, and the
+    // dump no longer re-parses.
+    void addRecFunGroup(const std::vector<std::string>& names);
+    /** The group `name` belongs to, or nullptr if it was not defined in one. */
+    const std::vector<std::string>* getRecFunGroup(const std::string& name) const;
+
     // --- Static functions ---
     void addStaticFunction(const std::shared_ptr<DAGNode>& node);
     const std::vector<std::shared_ptr<DAGNode>>& getStaticFunctions() const;
@@ -138,6 +150,8 @@ private:
     std::unordered_map<std::string, std::shared_ptr<DAGNode>> temp_var_names_;
     std::unordered_map<std::string, std::shared_ptr<DAGNode>> placeholder_var_names_;
     std::vector<std::string> function_names_;
+    std::vector<std::vector<std::string>> rec_fun_groups_;
+    std::unordered_map<std::string, size_t> rec_fun_group_of_;
     std::vector<std::shared_ptr<DAGNode>> static_functions_;
     std::vector<std::string> sort_order_;
     std::vector<std::string> var_order_;

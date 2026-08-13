@@ -543,7 +543,11 @@ namespace SOMTParser{
         case NODE_KIND::NT_STR_REPLACE_REG_ALL:
             return "str.replace_re_all";
         case NODE_KIND::NT_STR_INDEXOF_REG:
-            return "str.indexof";
+            // Not "str.indexof": that is NT_STR_INDEXOF, which takes a string
+            // needle and a start offset (arity 3). This one takes a regular
+            // expression and no offset (arity 2), so printing the other name
+            // produced a term no parser can read back.
+            return "str.indexof_re";
         // INTERVAL
         case NODE_KIND::NT_MAX:
             return "max";

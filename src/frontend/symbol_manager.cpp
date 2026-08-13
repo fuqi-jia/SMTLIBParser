@@ -316,6 +316,22 @@ bool SymbolManager::hasFunctionName(const std::string& name) const {
     return std::find(function_names_.begin(), function_names_.end(), name) != function_names_.end();
 }
 
+void SymbolManager::addRecFunGroup(const std::vector<std::string>& names) {
+    if (names.empty()) return;
+    const size_t index = rec_fun_groups_.size();
+    rec_fun_groups_.emplace_back(names);
+    for (const auto& name : names) {
+        rec_fun_group_of_[name] = index;
+    }
+}
+
+const std::vector<std::string>* SymbolManager::getRecFunGroup(const std::string& name) const {
+    auto it = rec_fun_group_of_.find(name);
+    if (it == rec_fun_group_of_.end()) return nullptr;
+    condAssert(it->second < rec_fun_groups_.size(), "getRecFunGroup: dangling group index");
+    return &rec_fun_groups_[it->second];
+}
+
 void SymbolManager::removeFunctionName(const std::string& name) {
     auto it = std::find(function_names_.begin(), function_names_.end(), name);
     if (it != function_names_.end()) function_names_.erase(it);

@@ -1539,7 +1539,13 @@ namespace SOMTParser{
 				}
 			}
 			parseRpar(); // end of function bodies list
-			
+
+			// Remember that these names form one mutually recursive group. The
+			// nodes themselves carry no trace of it, so without this the dump
+			// would split the group into standalone define-fun-rec commands and
+			// forward-reference the members defined later.
+			getSymbolManager()->addRecFunGroup(func_names);
+
 			skipToRpar();
 			return CMD_TYPE::CT_DEFINE_FUNS_REC;
 		}
@@ -3577,9 +3583,29 @@ namespace SOMTParser{
 			ss << "(declare-fun " << var->getName() << " () " << var->getSort()->toString() << ")" << std::endl;
 		}
 	std::vector<std::shared_ptr<DAGNode>> functions = getFunctions();
+	// Members of a (define-funs-rec ...) group are emitted together, at the
+	// position of whichever member comes first, so the rest must be skipped
+	// when the loop reaches them.
+	std::unordered_set<std::string> emitted_funcs;
 	for(auto& func : functions){
 		if(!func) continue;
 		if(datatype_member_names.count(func->getName())) continue;
+		if(!emitted_funcs.insert(func->getName()).second) continue;
+		if(const auto* group = getSymbolManager()->getRecFunGroup(func->getName())){
+			std::vector<std::shared_ptr<DAGNode>> members;
+			for(const auto& member_name : *group){
+				auto member = getSymbolManager()->getFun(member_name);
+				// A member removed via removeFuns() leaves the rest of the
+				// group behind; dropping it silently would emit a group whose
+				// bodies call a name nothing defines, so refuse instead.
+				condAssert(member != nullptr,
+					"dumpSMT2: define-funs-rec group member `" + member_name + "` is gone");
+				members.emplace_back(member);
+				emitted_funcs.insert(member_name);
+			}
+			ss << dumpFuncsRec(members) << std::endl;
+			continue;
+		}
 		if(func->isFuncDec()){
 			// NT_FUNC_DEC: Uninterpreted function declaration (declare-fun)
 			ss << dumpFuncDec(func) << std::endl;

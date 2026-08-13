@@ -173,8 +173,16 @@ void test_expandLet() {
         VERIFY(expr && !expr->isLet() && !expr->isLetChain());
         auto expanded = p->expandLet(expr);
         VERIFY(expanded);
+        // Expanding a term that contains no let must hand back the very same
+        // hash-consed node. That is the property this case exists to check,
+        // and it is stronger than comparing printed text.
+        VERIFY(expanded == expr);
+        // `+` is commutative, so the builder canonicalises the operand order
+        // and either printing is correct (CLAUDE.md invariant 2). This used to
+        // assert "(+ x 2)" exactly, which silently depended on the ordering
+        // key rather than on anything expandLet does.
         std::string s = p->toString(expanded);
-        VERIFY(s == "(+ x 2)");
+        VERIFY(s == "(+ x 2)" || s == "(+ 2 x)");
     }
 
     std::cout << "test_expandLet: all passed\n\n";

@@ -171,9 +171,15 @@ class TestLifetimeSafety:
         node = p.assertions[0]
         del p
         gc.collect()
-        assert node.to_smt2() == "(> (+ z 1) 5)"
+        # What this test is about is that the node outlives the parser, so it
+        # asserts the node's STRUCTURE rather than its printed text. The
+        # operands of a commutative operator are canonicalised into an order
+        # the caller did not choose, so `(+ z 1)` may print either way round
+        # and pinning one spelling here tests the ordering, not the lifetime.
+        assert node.kind == ">"
         assert node[0].kind == "+"
-        assert node[0][0].name == "z"
+        assert {c.to_smt2() for c in node[0]} == {"z", "1"}
+        assert node[1].to_smt2() == "5"
 
     def test_deep_subtree_survives_parser_gc(self):
         p = sp.Parser()
