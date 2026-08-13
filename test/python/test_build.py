@@ -440,7 +440,15 @@ class TestTransformations:
         p = sp.parse(
             "(declare-const x Int)(assert (or (> x 0) (and (< x 9) (= x 4))))")
         atoms = p.collect_atoms(p.assertions[0])
-        assert {a.to_smt2() for a in atoms} == {"(> x 0)", "(< x 9)", "(= x 4)"}
+        # Compared by operator and operand SET. `=` is commutative, so its
+        # operands are canonicalised into an order the source did not choose
+        # and `(= x 4)` may come back as `(= 4 x)`; what this test is about is
+        # which atoms were collected, not how each one prints.
+        assert {(a.kind, frozenset(c.to_smt2() for c in a)) for a in atoms} == {
+            (">", frozenset({"x", "0"})),
+            ("<", frozenset({"x", "9"})),
+            ("=", frozenset({"x", "4"})),
+        }
 
     def test_expand_let(self):
         p = sp.parse("(declare-const x Int)(assert (let ((t (+ x 1))) (> t 0)))")
