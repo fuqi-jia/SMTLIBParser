@@ -95,7 +95,17 @@ namespace SOMTParser{
     }
 
     bool canExempt(std::shared_ptr<Sort> l, std::shared_ptr<Sort> r){
-        if((l->isInt() || l->isReal()) && (r->isInt() || r->isReal())){
+        // IntOrReal has to be in this list. It is the sort a numeric LITERAL
+        // carries -- `2` is IntOrReal, not Int -- so leaving it out meant
+        // `(/ x 2)` was rejected as a type mismatch while `(/ x y)` on two
+        // declared Reals passed. getSort(), twenty lines below, already asks
+        // isIntOrReal() for exactly this reason; this function did not, and the
+        // divergence showed up only where a literal met an operator that wants
+        // Reals.
+        const auto numeric = [](const std::shared_ptr<Sort>& s){
+            return s->isInt() || s->isReal() || s->isIntOrReal();
+        };
+        if(numeric(l) && numeric(r)){
             return true;
         }
         // Special handling for root-obj and root-of-with-interval nodes
