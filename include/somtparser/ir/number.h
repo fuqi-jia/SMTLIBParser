@@ -71,7 +71,24 @@ namespace SOMTParser {
             HighPrecisionInteger operator*(const HighPrecisionInteger& other) const;
             HighPrecisionInteger operator/(const HighPrecisionInteger& other) const;
             HighPrecisionInteger operator%(const HighPrecisionInteger& other) const;
-            HighPrecisionInteger floorDiv(const HighPrecisionInteger& other) const; // SMT-LIB div semantics (floor towards -inf)
+            // Three integer division conventions, kept apart on purpose. They
+            // agree when both operands are positive and disagree otherwise, and
+            // every language this project reads picks one:
+            //
+            //     m    n  | operator/ (trunc) | floorDiv | euclideanDiv
+            //    -7    2  |       -3          |    -4    |     -4
+            //    -7   -2  |        3          |     3    |      4
+            //     7   -2  |       -3          |    -4    |     -3
+            //
+            // euclideanDiv/euclideanMod are what SMT-LIB's Ints theory defines:
+            // they are the unique pair with m = n*q + r and 0 <= r < |n|.
+            // floorDiv is NOT that pair -- it agrees only for positive n -- and
+            // a comment here used to claim it was, which is how NT_DIV_INT and
+            // NT_MOD ended up disagreeing with each other (see
+            // src/frontend/simp_parser.cpp).
+            HighPrecisionInteger floorDiv(const HighPrecisionInteger& other) const;   // towards -inf
+            HighPrecisionInteger euclideanDiv(const HighPrecisionInteger& other) const;
+            HighPrecisionInteger euclideanMod(const HighPrecisionInteger& other) const;
             HighPrecisionInteger& operator+=(const HighPrecisionInteger& other);
             HighPrecisionInteger& operator-=(const HighPrecisionInteger& other);
             HighPrecisionInteger& operator*=(const HighPrecisionInteger& other);
