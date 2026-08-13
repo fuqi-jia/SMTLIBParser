@@ -2664,7 +2664,17 @@ namespace SOMTParser{
 	// (quantifier ((<identifier> <sort>)+） <expr>)
 	std::shared_ptr<DAGNode> Parser::mkQuantVar(const std::string& name, std::shared_ptr<Sort> sort){
 		std::shared_ptr<DAGNode> var = getSymbolManager()->getQuantVar(name);
-		if(var) return var;
+		// The SORT has to match, not only the name. Reusing a binding of the
+		// same name at a different sort is how
+		//   (forall ((x Int)) (and (P x) (forall ((x (_ BitVec 8))) (Q x))))
+		// came back as
+		//   (forall ((x Int)) (and (P x) (forall ((x Int))          (Q x))))
+		// -- the inner binder silently took the outer one's sort, so Q, which
+		// is declared over (_ BitVec 8), was applied to an Int. The script
+		// parsed, printed and reported success. Shadowing is legal SMT-LIB, so
+		// this is a well-formed input being silently changed into a different
+		// problem.
+		if(var && var->getSort() && sort && var->getSort()->isEqTo(sort)) return var;
 		var = getNodeManager()->createNode(sort, NODE_KIND::NT_QUANT_VAR, name);
 		getSymbolManager()->registerQuantVar(name, var);
 		return var;
@@ -2675,13 +2685,20 @@ namespace SOMTParser{
 		parseLpar();
 		std::vector<std::shared_ptr<DAGNode>> params;
 		std::vector<std::string> quant_var_names;
+		// The bindings this quantifier shadows, so leaving its scope RESTORES
+		// them. popQuantScope erases by name, which is right when nothing was
+		// shadowed and wrong when something was: the outer binder would vanish
+		// and its remaining occurrences would resolve as free symbols.
+		std::vector<std::pair<std::string, std::shared_ptr<DAGNode>>> shadowed;
 		while (*bufptr != ')') {
 			// (quantifier ((<identifier> <sort>)+） <expr>)
 			//              ^
 			parseLpar();
 			std::string var_name = getSymbol();
 			std::shared_ptr<Sort> var_sort = parseSort();
+			std::shared_ptr<DAGNode> outer = getSymbolManager()->getQuantVar(var_name);
 			std::shared_ptr<DAGNode> var = mkQuantVar(var_name, var_sort);
+			if(outer && outer != var) shadowed.emplace_back(var_name, outer);
 			params.emplace_back(var);
 			quant_var_names.emplace_back(var_name);
 			parseRpar();
@@ -2702,6 +2719,9 @@ namespace SOMTParser{
 			condAssert(false, "Invalid quantifier");
 		}
 		getSymbolManager()->popQuantScope(quant_var_names);
+		for(auto it = shadowed.rbegin(); it != shadowed.rend(); ++it){
+			getSymbolManager()->registerQuantVar(it->first, it->second);
+		}
 		return res;
 	}
 
