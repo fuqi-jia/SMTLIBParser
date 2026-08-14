@@ -1734,7 +1734,23 @@ namespace SOMTParser{
 			pending_command_logic_ = type;
 			bool is_valid = getOptions()->setLogic(type);
 			if(!is_valid){
-				err_unkwn_sym(type, type_ln);
+				// A WARNING, not a parse error. setLogic already handles this
+				// case and says so where it is defined: an unrecognised name
+				// "should not disable theories; fall back to ALL and report the
+				// name as unrecognised". Throwing here contradicted that and
+				// made the whole file unparseable.
+				//
+				// The names this rejects are not exotic. `HORN` is what Z3,
+				// Eldarica and Golem consume and what every CHC-COMP instance
+				// opens with (docs/languages/chc-comp.md §2.1), and SMT-LIB
+				// gains logics over time -- so a released parser refusing an
+				// unknown one refuses inputs that are legal today and inputs
+				// that become legal later. Falling back to ALL is strictly
+				// safer than the alternative, since ALL enables every theory.
+				std::cerr << "warning: unrecognised logic \"" << type
+				          << "\" in line " << type_ln
+				          << "; continuing with ALL, which enables every theory"
+				          << std::endl;
 			}
 
 			return CMD_TYPE::CT_SET_LOGIC;
