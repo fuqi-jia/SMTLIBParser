@@ -586,18 +586,23 @@ namespace SOMTParser{
                             res = mkSub(frame.oper_params);
                         } else if (opName == "*") {
                             res = mkMul(frame.oper_params);
+                        // :chainable, like `=` and `distinct` beside them --
+                        // `(<= a b c)` means `(and (<= a b) (<= b c))`, and the
+                        // n-ary builders do that expansion. This is the SECOND
+                        // dispatch for the same operators (parseOper has the
+                        // other), which is why the two disagreed for so long.
                         } else if (opName == "<=") {
-                            condAssert(frame.oper_params.size() == 2, "Invalid number of parameters for <=");
-                            res = mkLe(frame.oper_params[0], frame.oper_params[1]);
+                            condAssert(frame.oper_params.size() >= 2, "Not enough parameters for <=");
+                            res = mkLe(frame.oper_params);
                         } else if (opName == "<") {
-                            condAssert(frame.oper_params.size() == 2, "Invalid number of parameters for <");
-                            res = mkLt(frame.oper_params[0], frame.oper_params[1]);
+                            condAssert(frame.oper_params.size() >= 2, "Not enough parameters for <");
+                            res = mkLt(frame.oper_params);
                         } else if (opName == ">=") {
-                            condAssert(frame.oper_params.size() == 2, "Invalid number of parameters for >=");
-                            res = mkGe(frame.oper_params[0], frame.oper_params[1]);
+                            condAssert(frame.oper_params.size() >= 2, "Not enough parameters for >=");
+                            res = mkGe(frame.oper_params);
                         } else if (opName == ">") {
-                            condAssert(frame.oper_params.size() == 2, "Invalid number of parameters for >");
-                            res = mkGt(frame.oper_params[0], frame.oper_params[1]);
+                            condAssert(frame.oper_params.size() >= 2, "Not enough parameters for >");
+                            res = mkGt(frame.oper_params);
                         } else if(opName == "bvult"){
                             condAssert(frame.oper_params.size() == 2, "Invalid number of parameters for bvult");
                             res = mkBvUlt(frame.oper_params[0], frame.oper_params[1]);
@@ -1042,18 +1047,25 @@ namespace SOMTParser{
             case NODE_KIND::NT_CSCH:
                 condAssert(oper_params.size() == 1, "Invalid number of parameters for csch");
                 return mkCsch(oper_params[0]);
+            // The four orderings are :chainable (SMT-LIB 2.6, theory Ints and
+			// Reals): `(<= a b c)` is legal and means `(and (<= a b) (<= b c))`.
+			// The n-ary builders below have always done exactly that expansion
+			// -- and nothing called them, because this dispatch asserted two
+			// parameters, so a conforming script aborted here instead. `=` and
+			// `distinct`, which are chainable and pairwise in the same way,
+			// were wired to their n-ary forms from the first.
             case NODE_KIND::NT_LE:
-				condAssert(oper_params.size() == 2, "Invalid number of parameters for <= ");
-				return mkLe(oper_params[0], oper_params[1]);
+				condAssert(oper_params.size() >= 2, "Not enough parameters for <=");
+				return mkLe(oper_params);
 			case NODE_KIND::NT_LT:
-				condAssert(oper_params.size() == 2, "Invalid number of parameters for <");
-				return mkLt(oper_params[0], oper_params[1]);
+				condAssert(oper_params.size() >= 2, "Not enough parameters for <");
+				return mkLt(oper_params);
 			case NODE_KIND::NT_GE:
-				condAssert(oper_params.size() == 2, "Invalid number of parameters for >= ");
-				return mkGe(oper_params[0], oper_params[1]);
+				condAssert(oper_params.size() >= 2, "Not enough parameters for >=");
+				return mkGe(oper_params);
 			case NODE_KIND::NT_GT:
-				condAssert(oper_params.size() == 2, "Invalid number of parameters for >");
-				return mkGt(oper_params[0], oper_params[1]);
+				condAssert(oper_params.size() >= 2, "Not enough parameters for >");
+				return mkGt(oper_params);
 			case NODE_KIND::NT_TO_REAL:
 				condAssert(oper_params.size() == 1, "Invalid number of parameters for to_real");
 				return mkToReal(oper_params[0]);

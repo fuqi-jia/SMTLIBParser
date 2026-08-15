@@ -5025,10 +5025,6 @@ namespace SOMTParser{
             case NODE_KIND::NT_MOD:
             case NODE_KIND::NT_LOG:
             case NODE_KIND::NT_ATAN2:
-            case NODE_KIND::NT_LE:
-            case NODE_KIND::NT_LT:
-            case NODE_KIND::NT_GE:
-            case NODE_KIND::NT_GT:
             case NODE_KIND::NT_IS_DIVISIBLE:
             case NODE_KIND::NT_GCD:
             case NODE_KIND::NT_LCM:
@@ -5118,6 +5114,15 @@ namespace SOMTParser{
                 return 4;
 
             // n-ary
+            // The four orderings are :chainable, exactly as `=` and `distinct`
+            // are, so `(<= a b c)` has the arity of the list it is given. They
+            // sat in the `binary` group above, which made a conforming script a
+            // parse failure -- and the n-ary builders that expand the chain
+            // were unreachable.
+            case NODE_KIND::NT_LE:
+            case NODE_KIND::NT_LT:
+            case NODE_KIND::NT_GE:
+            case NODE_KIND::NT_GT:
             case NODE_KIND::NT_EQ:
             case NODE_KIND::NT_EQ_BOOL:
             case NODE_KIND::NT_EQ_OTHER:
