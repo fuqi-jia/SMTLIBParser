@@ -474,7 +474,12 @@ namespace SOMTParser{
             // the generic path and printed as (int2bv x 8) instead of
             // ((_ int2bv 8) x).  Ported from the SMTStabilizer fork.
             case NODE_KIND::NT_INT_TO_BV:
-            case NODE_KIND::NT_NAT_TO_BV: {
+            case NODE_KIND::NT_NAT_TO_BV:
+            // divisible is indexed for the same reason and was missing for the
+            // same reason: it printed as (divisible x 3), which is not the
+            // operator SMT-LIB defines and which this parser would read back as
+            // a two-argument application.
+            case NODE_KIND::NT_IS_DIVISIBLE: {
                 auto child0 = node->getChild(0).get();
                 auto child1 = node->getChild(1).get();
 
