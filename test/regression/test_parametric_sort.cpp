@@ -124,15 +124,12 @@ int main() {
         VERIFY(p->parseStr(uf));
     }
     {
-        // Applying it to the WRONG instantiation is still accepted, and that is
-        // recorded here rather than asserted away: uninterpreted-function
-        // argument sorts are not checked at all, so `(f y)` with y at
-        // `(P Bool)` is accepted for the same reason `(f b)` is when f takes an
-        // Int and b is a Bool. That is a separate gap in mkApplyUF, not
-        // something this comparison reaches -- the sorts DO now differ, and
-        // nothing asks them to.
+        // ...and applying it to the WRONG instantiation is refused. This needs
+        // both halves: the two sorts must differ (this file's subject) AND the
+        // application must consult the declared parameter sort, which is
+        // test_uf_argument_sorts.cpp's.
         ParserPtr p = newParser();
-        VERIFY(p->parseStr(
+        VERIFY(!p->parseStr(
             std::string(kDecl) + "(declare-fun f ((P Int)) Bool)\n"
             "(declare-const y (P Bool))\n(assert (f y))\n(check-sat)\n"));
     }

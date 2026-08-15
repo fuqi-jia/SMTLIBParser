@@ -2365,6 +2365,34 @@ namespace SOMTParser{
 			return mkErr(ERROR_TYPE::ERR_PARAM_MIS);
 		}
 
+		// ...and their SORTS, which were not checked at all. A declaration is a
+		// signature, and an application that ignores it is not an application
+		// of that function:
+		//
+		//     (declare-fun f (Int) Bool)
+		//     (declare-const b Bool)
+		//     (assert (f b))            -- accepted, and is not a term
+		//
+		// The count was checked and the sorts were not, so the half of the
+		// signature that says what the arguments MEAN was carried by nothing.
+		//
+		// Sort::operator== is what decides, so the numeric leniency the rest of
+		// the parser depends on is unchanged: a literal carries IntOrReal and
+		// compares equal to both Int and Real, so `(f 1)` against an Int or a
+		// Real parameter still applies.
+		const std::vector<std::shared_ptr<DAGNode>> declared = fun->getFuncParams();
+		for (size_t i = 0; i < params.size() && i < declared.size(); i++){
+			if (!declared[i] || !params[i]) continue;
+			const std::shared_ptr<Sort> want = declared[i]->getSort();
+			const std::shared_ptr<Sort> got = params[i]->getSort();
+			// A missing sort on either side is someone else's error to report;
+			// refusing here would turn it into a misleading one.
+			if (!want || !got || want->isNull() || got->isNull()) continue;
+			if (*want != *got){
+				return mkErr(ERROR_TYPE::ERR_TYPE_MIS);
+			}
+		}
+
 		// For declare-fun (uninterpreted functions), create a function application node
 		if(fun->getFuncBody()->isNull()){
 			// Determine if this is a datatype constructor/selector/tester
