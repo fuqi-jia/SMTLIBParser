@@ -6,8 +6,10 @@
 (assert (= s "aba"))
 (assert (= t "aaa"))
 
-; Binary: str.indexof_re
-(assert (>= (str.indexof_re s (str.to_re "b")) 0))
+; Ternary: str.indexof_re takes a start index, like str.indexof.
+; This fixture said "Binary" and used two arguments, which is what the
+; parser accepted and not what SMT-LIB declares.
+(assert (>= (str.indexof_re s (str.to_re "b") 0) 0))
 
 ; Ternary: str.replace_re / str.replace_re_all
 (assert (= (str.replace_re s (str.to_re "a") "x") "xbx"))
