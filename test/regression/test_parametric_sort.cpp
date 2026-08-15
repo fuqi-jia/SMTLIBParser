@@ -134,6 +134,76 @@ int main() {
             "(declare-const y (P Bool))\n(assert (f y))\n(check-sat)\n"));
     }
 
+    // ---- The same rules through the API, which text cannot reach. -----------
+    //
+    // Every case above goes through parseStr, so it only ever sees sorts that
+    // parseSort built. A caller working through the C++ API takes a different
+    // path into the same rules, and until mkSortApp existed it could not take
+    // it at all: mkSortDec gives back a CONSTRUCTOR, and there was no way to
+    // apply it short of reaching into Sort::children.
+    {
+        ParserPtr p = newParser();
+        auto S = p->mkSortDec("S", 1);
+        VERIFY(S != nullptr);
+        auto s_bool = p->mkSortApp(S, {p->mkBoolSort()});
+        auto s_int  = p->mkSortApp(S, {p->mkIntSort()});
+        auto s_bool2 = p->mkSortApp(S, {p->mkBoolSort()});
+        VERIFY(s_bool && s_int && s_bool2);
+
+        // The rule, on the path the round trip does not cover.
+        VERIFY(*s_bool == *s_bool2);
+        VERIFY(!(*s_bool == *s_int));
+        VERIFY(s_bool->toString() == "(S Bool)");
+        VERIFY(s_int->toString() == "(S Int)");
+        // The constructor is not one of its own applications.
+        VERIFY(!(*S == *s_bool));
+
+        // Nesting, through the API.
+        auto s_s_bool = p->mkSortApp(S, {s_bool});
+        VERIFY(s_s_bool->toString() == "(S (S Bool))");
+        VERIFY(!(*s_s_bool == *s_bool));
+
+        // Applying the constructor twice must not accumulate arguments: the
+        // builder clones, because filling the interned constructor's children
+        // would make every later instantiation see the previous one's.
+        VERIFY(S->children.empty());
+        VERIFY(s_bool->children.size() == 1);
+    }
+    {
+        // Arity is checked, and arity 0 hands back the constructor rather than
+        // a clone that would compare equal and duplicate.
+        ParserPtr p = newParser();
+        auto S = p->mkSortDec("S", 1);
+        VERIFY(p->mkSortApp(S, {})->isNull());
+        VERIFY(p->mkSortApp(S, {p->mkIntSort(), p->mkIntSort()})->isNull());
+        auto U = p->mkSortDec("U", 0);
+        VERIFY(p->mkSortApp(U, {}) == U);
+    }
+    {
+        // A model built entirely through the API dumps a script that says what
+        // the model said -- which is the property an API caller depends on and
+        // the text tests above cannot check, since they start from text.
+        ParserPtr p = newParser();
+        auto S = p->mkSortDec("S", 1);
+        auto s_bool = p->mkSortApp(S, {p->mkBoolSort()});
+        auto s_int  = p->mkSortApp(S, {p->mkIntSort()});
+        auto a = p->mkVar(s_bool, "a");
+        auto b = p->mkVar(s_bool, "b");
+        auto c = p->mkVar(s_int, "c");
+        // Parser::assert is a member function and parser.h undefines the macro
+        // (CLAUDE.md invariant 5), so this is the ordinary call it looks like.
+        VERIFY(p->assert(p->mkEq(a, b)));
+        const std::string out = p->dumpSMT2();
+        VERIFY(has(out, "(declare-sort S 1)"));
+        VERIFY(has(out, "(declare-fun a () (S Bool))"));
+        VERIFY(has(out, "(declare-fun c () (S Int))"));
+        ParserPtr q = newParser();
+        if (!q->parseStr(out)) {
+            std::cout << "  API-built script does not parse:\n" << out;
+            VERIFY(false);
+        }
+    }
+
     std::cout << "All parametric-sort tests passed." << std::endl;
     return 0;
 }
