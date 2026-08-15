@@ -356,11 +356,29 @@ namespace SOMTParser{
     }
 
     std::shared_ptr<Sort> Parser::mkSortDec(const std::string &name, const size_t &arity){
-        return getSortManager()->createSortDec(name, arity);
+        auto sort = getSortManager()->createSortDec(name, arity);
+        // Registering the symbol is part of DECLARING a sort, not a separate
+        // step the caller opts into. The `(declare-sort ...)` command path does
+        // both while this builder did only the first, so a sort declared
+        // through the API existed and could be used -- terms over it built and
+        // type-checked fine -- and dumpSMT2() never emitted its `declare-sort`
+        // line, because the dump walks the SymbolManager's registration order.
+        // The script came back naming a sort nothing declared, and re-parsing
+        // it failed with "Unknown or unexpected symbol".
+        //
+        // registerSort is idempotent and createSortDec interns, so calling this
+        // once per occurrence is safe.
+        if (sort) { getSymbolManager()->registerSort(name, sort); }
+        return sort;
     }
 
     std::shared_ptr<Sort> Parser::mkSortDef(const std::string &name, const std::vector<std::shared_ptr<Sort>> &params, std::shared_ptr<Sort> out_sort){
-        return getSortManager()->createSortDef(name, params, out_sort);
+        auto sort = getSortManager()->createSortDef(name, params, out_sort);
+        // Same as mkSortDec above: the (define-sort ...) command path registers
+        // the symbol after calling this, and a caller of the builder alone got
+        // a usable sort with no declaration in the dump.
+        if (sort) { getSymbolManager()->registerSort(name, sort); }
+        return sort;
     }
     std::shared_ptr<Sort> Parser::mkIntSort(){
         return SortManager::INT_SORT;
@@ -391,6 +409,31 @@ namespace SOMTParser{
     }
     std::shared_ptr<Sort> Parser::mkArraySort(std::shared_ptr<Sort> index, std::shared_ptr<Sort> elem){
         return getSortManager()->createArraySort(index, elem);
+    }
+
+    std::shared_ptr<Sort> Parser::mkSortApp(const std::shared_ptr<Sort> &ctor,
+                                            const std::vector<std::shared_ptr<Sort>> &args){
+        // Bad input yields the NULL sort; it does not throw. The DAGNode
+        // builders call err_all here, which throws and is caught by parseStr --
+        // fine when a parse is running, and wrong for a builder whose caller is
+        // a library rather than the scanner: the exception escapes as an
+        // internal error and a caller's own bad argument looks like a defect in
+        // this parser. The return type already has a null value for this.
+        if(!ctor) return SortManager::NULL_SORT;
+        if(ctor->arity != args.size()) return SortManager::NULL_SORT;
+        for(const auto& a : args){
+            if(!a || a->isNull()) return SortManager::NULL_SORT;
+        }
+        // Arity 0 is the constructor itself: `(declare-sort U 0)` gives a sort,
+        // and cloning it would make a second object that compares equal and
+        // needlessly duplicates.
+        if(args.empty()) return ctor;
+        // Clone rather than mutate: the constructor is the interned object the
+        // symbol table hands out, and filling ITS children would make every
+        // later instantiation see the previous one's arguments.
+        auto applied = std::make_shared<Sort>(*ctor);
+        applied->children = args;
+        return applied;
     }
 
     // CORE OPERATORS
