@@ -157,8 +157,28 @@ namespace SOMTParser{
 
         // compare two sorts
         bool operator==(const Sort& other) const {
-            // same sort name and arity
-            if((isDef() || isDec()) && (other.isDef() || other.isDec()) && name == other.name && arity == other.arity){
+            // same sort name and arity -- and, for a sort constructor applied
+            // to arguments, the same arguments.
+            //
+            // `(declare-sort P 1)` makes P a sort CONSTRUCTOR, so `(P Int)` and
+            // `(P Bool)` are two sorts, exactly as `(Array Int Int)` and
+            // `(Array Int Bool)` are. parseSort already instantiates them --
+            // it clones the declared sort and fills `children` with the
+            // arguments -- and this comparison then ignored `children` and
+            // reported the two equal. `(= x y)` across them type-checked, so a
+            // script the standard forbids parsed and translated with no
+            // diagnostic. The array and set branches below compare their
+            // children for this reason; a declared constructor needs it too.
+            if((isDef() || isDec()) && (other.isDef() || other.isDec())
+               && name == other.name && arity == other.arity){
+                if(children.size() != other.children.size()) return false;
+                for(size_t i = 0; i < children.size(); i++){
+                    if(!children[i] || !other.children[i]){
+                        if(children[i] != other.children[i]) return false;
+                        continue;
+                    }
+                    if(!(*children[i] == *other.children[i])) return false;
+                }
                 return true;
             }
 
@@ -241,8 +261,18 @@ namespace SOMTParser{
                 case SORT_KIND::SK_INTOREAL: return "IntOrReal";
                 case SORT_KIND::SK_ALGEBRAIC: return "Algebraic";
                 case SORT_KIND::SK_TRANSCENDENTAL: return "Transcendental";
-                case SORT_KIND::SK_DEC: return name;
-                case SORT_KIND::SK_DEF: return name;
+                // An applied sort constructor prints WITH its arguments.
+                // Printing the bare name emitted `(declare-fun x () P)` for a P
+                // declared at arity 1 -- a sort constructor used with no
+                // arguments, which this parser happens to read back and no
+                // other tool accepts.
+                case SORT_KIND::SK_DEC:
+                case SORT_KIND::SK_DEF: {
+                    if(children.empty()) return name;
+                    std::string s = "(" + name;
+                    for(const auto& ch : children) s += " " + (ch ? ch->toString() : "?");
+                    return s + ")";
+                }
                 case SORT_KIND::SK_ROUNDING_MODE: return "RoundingMode";
                 default: return "Unknown";
             }
