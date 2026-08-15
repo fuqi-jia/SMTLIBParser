@@ -813,6 +813,27 @@ namespace SOMTParser{
          */
         std::shared_ptr<Sort> mkSortDef(const std::string &name, const std::vector<std::shared_ptr<Sort>> &params, std::shared_ptr<Sort> out_sort);
 
+        /**
+         * @brief Apply a declared sort constructor: `(S Bool)`.
+         *
+         * `(declare-sort S 1)` declares a function from sorts to sorts, not a
+         * sort, so `mkSortDec` alone cannot produce a sort a variable may have.
+         * parseSort builds the application inline; there was no builder, so a
+         * caller working through the API could declare a constructor and had no
+         * way to instantiate it except by reaching into `Sort::children`.
+         *
+         * Bad input yields the NULL sort rather than throwing, unlike the
+         * DAGNode builders: those report through err_all, which throws and is
+         * caught by parseStr, and an escaped exception makes a caller's own bad
+         * argument look like a defect in this parser.
+         *
+         * @param ctor  the declared constructor, from `mkSortDec(name, arity)`
+         * @param args  one sort per declared parameter; arity 0 returns @p ctor
+         * @return the applied sort, or the NULL sort if the arity disagrees
+         */
+        std::shared_ptr<Sort> mkSortApp(const std::shared_ptr<Sort> &ctor,
+                                        const std::vector<std::shared_ptr<Sort>> &args);
+
         // mk special sort
         /**
          * @brief Create an integer sort
