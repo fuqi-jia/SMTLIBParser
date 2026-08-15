@@ -281,6 +281,16 @@ namespace SOMTParser{
         {"to_real", NODE_KIND::NT_TO_REAL},
         {"to_int", NODE_KIND::NT_TO_INT},
         {"is_int", NODE_KIND::NT_IS_INT},
+        // `((_ divisible n) t)` is the STANDARD spelling (SMT-LIB 2.6, theory
+        // Ints: "((_ divisible n) Int Bool) for all n in N>0"). The engine knew
+        // only `is_divisible`, which is not an SMT-LIB name at all, so a
+        // conforming script could not be read and a term containing one could
+        // not be written for any other solver to read.
+        {"divisible", NODE_KIND::NT_IS_DIVISIBLE},
+        // Kept as a lenient alias, in the flat two-argument form the engine has
+        // always accepted. Parser leniency is deliberate here (CLAUDE.md), and
+        // dropping a spelling that used to work would break input this project
+        // has produced itself.
         {"is_divisible", NODE_KIND::NT_IS_DIVISIBLE},
         {"is_prime", NODE_KIND::NT_IS_PRIME},
         {"is_even", NODE_KIND::NT_IS_EVEN},

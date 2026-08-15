@@ -1064,7 +1064,18 @@ namespace SOMTParser{
 				condAssert(oper_params.size() == 1, "Invalid number of parameters for is_int");
 				return mkIsInt(oper_params[0]);
 			case NODE_KIND::NT_IS_DIVISIBLE:
-				condAssert(oper_params.size() == 2, "Invalid number of parameters for is_divisible");
+				// ((_ divisible n) t) -- the standard form, where n is an INDEX
+				// and arrives in func_args rather than as an argument. Same
+				// shape as nat2bv above, and the same defect: without this the
+				// two-parameter assert aborted on every conforming script.
+				//
+				// The children stay (term, n) either way, so the flat form and
+				// the indexed one build the identical node and nothing
+				// downstream has to know which was written.
+				if(func_args.size() == 1 && oper_params.size() == 1){
+					return mkIsDivisible(oper_params[0], func_args[0]);
+				}
+				condAssert(oper_params.size() == 2, "Invalid number of parameters for divisible");
 				return mkIsDivisible(oper_params[0], oper_params[1]);
 			case NODE_KIND::NT_IS_PRIME:
 				condAssert(oper_params.size() == 1, "Invalid number of parameters for is_prime");

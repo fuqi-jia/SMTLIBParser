@@ -192,7 +192,9 @@ namespace SOMTParser{
         case NODE_KIND::NT_IS_INT:
             return "is_int";
         case NODE_KIND::NT_IS_DIVISIBLE:
-            return "is_divisible";
+            // The standard name, so a dumped script is readable by another
+            // solver. `is_divisible` remains accepted on input.
+            return "divisible";
         case NODE_KIND::NT_IS_PRIME:
             return "is_prime";
         case NODE_KIND::NT_IS_EVEN:
