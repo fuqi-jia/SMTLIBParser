@@ -4108,6 +4108,40 @@ namespace SOMTParser{
         std::shared_ptr<DAGNode>                parseMatch();
         /** Parse one <datatype_dec> ((ctor...)...) after its opening '('; register ctors/selectors/testers on @p dt_sort. */
         void                                    defineDatatypeConstructors(const std::shared_ptr<Sort>& dt_sort);
+        /** Reads an optional `(par (X ...)` wrapper before a datatype's
+         *  constructor list and returns the parameter names, empty when the body
+         *  is not parametric. Leaves the buffer where the plain form would. */
+        std::vector<std::string>                parseDatatypeParams();
+        /** Sort-parameter binding for an application of a parametric datatype's
+         *  member. See the definition for how selectors, testers and
+         *  constructors each determine it. */
+        void                                    dtParamBinding(const std::shared_ptr<DAGNode>& fun,
+                                                    const std::vector<std::shared_ptr<DAGNode>>& params,
+                                                    std::unordered_map<std::string, std::shared_ptr<Sort>>& out);
+    public:
+        /** The result sort an application of @p fun should carry, with a
+         *  parametric datatype's parameters substituted. Returns the declared
+         *  sort unchanged for everything else. */
+        std::shared_ptr<Sort>                   dtAppliedSort(const std::shared_ptr<DAGNode>& fun,
+                                                    const std::vector<std::shared_ptr<DAGNode>>& params);
+        /** A parametric datatype's sort parameters, in declaration order; empty
+         *  for an ordinary one. A Sort records only the arity, so a caller that
+         *  needs the names has to ask here. */
+        std::vector<std::string>                datatypeParams(const std::string& dt) const {
+            const auto it = datatype_params_.find(dt);
+            return it == datatype_params_.end() ? std::vector<std::string>{} : it->second;
+        }
+        /** Record a parametric datatype's parameter names, for a caller that
+         *  builds a model programmatically rather than parsing a script. */
+        void                                    setDatatypeParams(const std::string& dt,
+                                                    const std::vector<std::string>& p) {
+            datatype_params_[dt] = p;
+        }
+    private:
+        /** Sort-parameter names per parametric datatype, in declaration order.
+         *  A Sort records its ARITY and not what its parameters were called, so
+         *  dumpSMT2 could not otherwise write the `par` form back. */
+        std::unordered_map<std::string, std::vector<std::string>> datatype_params_;
         
         // parse optimization
         // single_opt = (maximize <expr> [:comp <symbol>] [:epsilon <symbol>] [:M <symbol>] [:id <symbol>]) 

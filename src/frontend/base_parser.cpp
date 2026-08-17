@@ -1237,7 +1237,29 @@ namespace SOMTParser{
 			getSymbolManager()->registerSort(dt_name, ps);
 			context_.registerSortInScope(dt_name);
 			parseLpar();
-			defineDatatypeConstructors(ps);
+			// `(declare-datatype Pair (par (A B) (...)))`. The arity is not
+			// written in this form -- it is the number of parameters -- so it is
+			// set from what `par` declares.
+			{
+				const std::vector<std::string> params = parseDatatypeParams();
+				if (!params.empty()) {
+					ps->arity = params.size();
+					datatype_params_[dt_name] = params;
+					for (const std::string& pn : params) {
+						getSymbolManager()->registerSort(
+							pn, getSortManager()->createSort(
+								SORT_KIND::SK_DEC, pn, 0));
+						context_.registerSortInScope(pn);
+					}
+				}
+				defineDatatypeConstructors(ps);
+				// Out of scope again: a parameter is bound by its `par` and the
+				// next command must not see it.
+				for (const std::string& pn : params) {
+					getSymbolManager()->removeSort(pn);
+				}
+				if (!params.empty()) { parseRpar(); }   // close the `par`
+			}
 			skipToRpar();
 			return CMD_TYPE::CT_DECLARE_DATATYPES;
 		}
@@ -1275,8 +1297,26 @@ namespace SOMTParser{
 			parseLpar(); // outer '(' for datatype list
 			for(size_t ti = 0; ti < sort_decls.size(); ++ti) {
 				parseLpar(); // '(' for this datatype
+				// `(par (X) (<ctors>))` when the sort was declared with a
+				// non-zero arity. The parameters are in scope only while this
+				// datatype's constructors are read.
+				const std::vector<std::string> params = parseDatatypeParams();
+				if (!params.empty()) {
+					datatype_params_[sort_decls[ti].first] = params;
+					for (const std::string& pn : params) {
+						getSymbolManager()->registerSort(
+							pn, getSortManager()->createSort(
+								SORT_KIND::SK_DEC, pn, 0));
+						context_.registerSortInScope(pn);
+					}
+				}
 				defineDatatypeConstructors(placeholder_sorts[ti]);
+				for (const std::string& pn : params) {
+					getSymbolManager()->removeSort(pn);
+				}
+				if (!params.empty()) { parseRpar(); }   // close the `par`
 			}
+
 			parseRpar(); // close outer datatype list
 			skipToRpar(); // close the declare-datatypes command
 
@@ -1992,6 +2032,22 @@ namespace SOMTParser{
 			// then check the user-defined type
 			else {
 				std::shared_ptr<Sort> usort = getSymbolManager()->resolveSort(s);
+				// A PARAMETRIC datatype's name is a sort CONSTRUCTOR, and a
+				// constructor is not a sort until it is applied: `L` alone has
+				// no more meaning than `Array` alone. Accepting it declared
+				// variables at a non-sort, and the dump then said
+				// `(declare-fun l () L)` -- an arity-1 name used at arity 0,
+				// which nothing reads back.
+				if(usort && usort->isDatatype() && usort->getChildrenSize() == 0){
+					const std::vector<std::string> ps = datatypeParams(s);
+					if(!ps.empty()){
+						err_arity_mis(s + " (a datatype taking " +
+						              std::to_string(ps.size()) +
+						              " sort argument(s), used with none)",
+						              expr_ln);
+						return SortManager::NULL_SORT;
+					}
+				}
 				if(usort) return usort;
 				err_unkwn_sym(s, expr_ln);
 			}
@@ -2359,6 +2415,138 @@ namespace SOMTParser{
 		return symbol;
 	}
 
+	/** The key under which dtParamBinding records the APPLIED datatype sort for a
+	 *  constructor, whose declared result is the bare name. Not a valid SMT-LIB
+	 *  symbol, so it cannot collide with a parameter. */
+	static const char* const kDtSelfKey = "\x01self";
+
+	/** Collect a parameter binding by matching a DECLARED sort against an ACTUAL
+	 *  one. Names in @p names are the parameters; anything else must agree
+	 *  structurally, and a disagreement is reported by the caller's sort check
+	 *  rather than here. */
+	static void matchSortParams(const std::shared_ptr<Sort>& declared,
+	                            const std::shared_ptr<Sort>& actual,
+	                            const std::unordered_set<std::string>& names,
+	                            std::unordered_map<std::string, std::shared_ptr<Sort>>& out){
+		if(!declared || !actual) return;
+		if(names.count(declared->name)){
+			if(out.find(declared->name) == out.end()) out[declared->name] = actual;
+			return;
+		}
+		const size_t n = std::min(declared->children.size(), actual->children.size());
+		for(size_t i = 0; i < n; i++){
+			matchSortParams(declared->children[i], actual->children[i], names, out);
+		}
+	}
+
+	/** Replace every parameter in @p s by its binding. Returns @p s unchanged
+	 *  when it mentions none, so a non-parametric datatype costs nothing. */
+	static std::shared_ptr<Sort> substituteSortParams(
+			const std::shared_ptr<Sort>& s,
+			const std::unordered_map<std::string, std::shared_ptr<Sort>>& b){
+		if(!s || b.empty()) return s;
+		const auto it = b.find(s->name);
+		if(it != b.end()) return it->second;
+		bool any = false;
+		std::vector<std::shared_ptr<Sort>> kids;
+		kids.reserve(s->children.size());
+		for(const auto& ch : s->children){
+			std::shared_ptr<Sort> r = substituteSortParams(ch, b);
+			if(r != ch) any = true;
+			kids.push_back(r);
+		}
+		if(!any) return s;
+		auto out = std::make_shared<Sort>(*s);
+		out->children = kids;
+		return out;
+	}
+
+	/** The sort-parameter binding for an application of a PARAMETRIC datatype's
+	 *  member, empty when the datatype has none.
+	 *
+	 *  A member is polymorphic and its declaration records the parameters
+	 *  rather than an instance: `hd` is declared `L -> X`, so applying it to an
+	 *  `(L Int)` must give `Int` and not `X` -- a sort no longer in scope, over
+	 *  which the next operator reports a type mismatch naming a symbol the
+	 *  script never wrote.
+	 *
+	 *  For a SELECTOR or TESTER the argument determines everything: its sort is
+	 *  the instance, and its sort arguments are the parameters in order. Its
+	 *  declared domain cannot serve, because that is the BARE datatype -- `L`
+	 *  carrying its arity and no arguments -- with nothing in it to match a
+	 *  parameter against.
+	 *
+	 *  For a CONSTRUCTOR the parameters appear among the argument sorts, so they
+	 *  are matched structurally; the result is the bare datatype name and is
+	 *  applied to the bindings in parameter order, under the reserved key below.
+	 *  A constructor that mentions no parameter -- `nil` -- cannot be resolved
+	 *  this way and needs the script's own `(as nil (L Int))`.
+	 */
+	void Parser::dtParamBinding(const std::shared_ptr<DAGNode>& fun,
+	                            const std::vector<std::shared_ptr<DAGNode>>& params,
+	                            std::unordered_map<std::string, std::shared_ptr<Sort>>& out){
+		if(!fun) return;
+		const std::vector<std::shared_ptr<DAGNode>> declared = fun->getFuncParams();
+		const std::shared_ptr<Sort> ret = fun->getSort();
+		const std::string dt_name = ret ? ret->name : std::string();
+		const auto pit = datatype_params_.find(dt_name);
+		const std::string arg_dt =
+			(!params.empty() && params[0] && params[0]->getSort())
+				? params[0]->getSort()->name : std::string();
+		const auto ait = datatype_params_.find(arg_dt);
+		const std::vector<std::string>* names = nullptr;
+		if(pit != datatype_params_.end()) names = &pit->second;
+		else if(ait != datatype_params_.end()) names = &ait->second;
+		if(!names || names->empty()) return;
+
+		const std::unordered_set<std::string> nameset(names->begin(), names->end());
+		if(ait != datatype_params_.end() && !params.empty() && params[0]
+		   && params[0]->getSort()){
+			const std::shared_ptr<Sort> inst = params[0]->getSort();
+			const auto& kids = inst->children;
+			for(size_t i = 0; i < names->size() && i < kids.size(); i++){
+				out[(*names)[i]] = kids[i];
+			}
+			// The datatype's own NAME binds to the instance. A selector's
+			// declared domain is the BARE datatype -- `hd : L -> X`, with `L`
+			// carrying its arity and no arguments -- and an applied instance is
+			// a different sort from it now that a datatype's arguments count in
+			// a comparison. Without this binding `(hd (tl l))` fails its own
+			// argument check: `tl` correctly returns `(L Int)`, and `hd`
+			// declares it takes `L`.
+			if(!kids.empty()) out[arg_dt] = inst;
+		}
+		for(size_t i = 0; i < params.size() && i < declared.size(); i++){
+			if(!declared[i] || !params[i]) continue;
+			matchSortParams(declared[i]->getSort(), params[i]->getSort(), nameset, out);
+		}
+		if(pit != datatype_params_.end() && ret && ret->children.empty()
+		   && out.size() >= names->size()){
+			auto applied = std::make_shared<Sort>(*ret);
+			bool complete = true;
+			for(const std::string& pn : *names){
+				const auto b = out.find(pn);
+				if(b == out.end()){ complete = false; break; }
+				applied->children.push_back(b->second);
+			}
+			if(complete) out[kDtSelfKey] = applied;
+		}
+	}
+
+	/** The result sort an application should carry. Returns the declared sort
+	 *  unchanged for a non-parametric datatype and for everything else, so the
+	 *  cost is one failed map lookup on the ordinary path. */
+	std::shared_ptr<Sort> Parser::dtAppliedSort(
+			const std::shared_ptr<DAGNode>& fun,
+			const std::vector<std::shared_ptr<DAGNode>>& params){
+		std::unordered_map<std::string, std::shared_ptr<Sort>> b;
+		dtParamBinding(fun, params, b);
+		if(b.empty()) return fun ? fun->getSort() : nullptr;
+		const auto self = b.find(kDtSelfKey);
+		if(self != b.end()) return self->second;
+		return substituteSortParams(fun->getSort(), b);
+	}
+
 	std::shared_ptr<DAGNode> Parser::applyFun(std::shared_ptr<DAGNode> fun, const std::vector<std::shared_ptr<DAGNode>> & params){
 		// check the number of params
 		if (fun->getFuncParamsSize() != params.size()){
@@ -2381,9 +2569,17 @@ namespace SOMTParser{
 		// compares equal to both Int and Real, so `(f 1)` against an Int or a
 		// Real parameter still applies.
 		const std::vector<std::shared_ptr<DAGNode>> declared = fun->getFuncParams();
+
+		// A member of a PARAMETRIC datatype is polymorphic, and its declaration
+		// records the parameters rather than any instance of them, so both the
+		// argument check and the result sort are taken after substituting them.
+		std::unordered_map<std::string, std::shared_ptr<Sort>> dt_binding;
+		dtParamBinding(fun, params, dt_binding);
+
 		for (size_t i = 0; i < params.size() && i < declared.size(); i++){
 			if (!declared[i] || !params[i]) continue;
-			const std::shared_ptr<Sort> want = declared[i]->getSort();
+			const std::shared_ptr<Sort> want =
+				substituteSortParams(declared[i]->getSort(), dt_binding);
 			const std::shared_ptr<Sort> got = params[i]->getSort();
 			// A missing sort on either side is someone else's error to report;
 			// refusing here would turn it into a misleading one.
@@ -2397,7 +2593,14 @@ namespace SOMTParser{
 		if(fun->getFuncBody()->isNull()){
 			// Determine if this is a datatype constructor/selector/tester
 			NODE_KIND nk = getDtFunctionKind(fun->getSort(), fun->getName(), params);
-			std::shared_ptr<DAGNode> result = getNodeManager()->createNode(fun->getSort(), nk, fun->getName(), params);
+			std::shared_ptr<Sort> ret_sort = fun->getSort();
+			if(!dt_binding.empty()){
+				const auto self = dt_binding.find(kDtSelfKey);
+				ret_sort = self != dt_binding.end()
+					? self->second
+					: substituteSortParams(ret_sort, dt_binding);
+			}
+			std::shared_ptr<DAGNode> result = getNodeManager()->createNode(ret_sort, nk, fun->getName(), params);
 			return result;
 		}
 
@@ -2582,6 +2785,44 @@ namespace SOMTParser{
     std::shared_ptr<DAGNode> Parser::mkApplyUF(const std::shared_ptr<Sort>& sort, const std::string &name, const std::vector<std::shared_ptr<DAGNode>> &params){
         NODE_KIND nk = getDtFunctionKind(sort, name, params);
         return getNodeManager()->createNode(sort, nk, name, params);
+    }
+
+    /** `(par (X Y) (<ctors>))` -- SMT-LIB's PARAMETRIC datatype body.
+     *
+     *  The parameters are sorts, and inside the body they are ordinary sorts in
+     *  scope: `(cons (hd X) (tl (L X)))` needs `X` to resolve while the
+     *  constructors are read and needs it gone afterwards, or the next command
+     *  would see a sort the script never declared.
+     *
+     *  Returns the parameter names, empty when the body is not parametric. The
+     *  names are kept because they are not recoverable from the sort -- a sort
+     *  records its ARITY and not what its parameters were called -- and
+     *  dumpSMT2 has to write the same `par` form back.
+     *
+     *  Leaves the buffer positioned exactly where the non-parametric form
+     *  would, so the caller does not branch. */
+    std::vector<std::string> Parser::parseDatatypeParams() {
+        char* const save = bufptr;
+        const size_t save_line = line_number;
+        std::vector<std::string> params;
+        // `par` sits where a constructor's `(` would, so a symbol here means
+        // the parametric form and anything else means the plain one.
+        if (*bufptr == '(') { return params; }
+        std::string head = getSymbol();
+        if (head != "par") {
+            bufptr = save;
+            line_number = save_line;
+            return params;
+        }
+        scanToNextSymbol();           // getSymbol stops AT the symbol's end
+        parseLpar();
+        while (*bufptr != ')') {
+            params.push_back(getSymbol());
+            scanToNextSymbol();
+        }
+        parseRpar();
+        parseLpar();                  // the constructor list's own '('
+        return params;
     }
 
     void Parser::defineDatatypeConstructors(const std::shared_ptr<Sort>& dt_sort) {
@@ -3725,6 +3966,22 @@ namespace SOMTParser{
 					const auto* cs = ctors_of(group[gi]);
 					if(gi) ss << " ";
 					ss << "(";
+					// A PARAMETRIC datatype's body is wrapped in `par`, which
+					// binds the sort names its selectors mention. The names are
+					// not recoverable from the sort -- a Sort records its arity
+					// and not what its parameters were called -- so they are
+					// carried in datatype_params_ from the declaration.
+					const auto pit = datatype_params_.find(group[gi]);
+					const bool parametric = pit != datatype_params_.end()
+						&& !pit->second.empty();
+					if(parametric){
+						ss << "par (";
+						for(std::size_t pi = 0; pi < pit->second.size(); ++pi){
+							if(pi) ss << " ";
+							ss << pit->second[pi];
+						}
+						ss << ") (";
+					}
 					bool first_ctor = true;
 					if(cs){
 						for(const auto& ctor : *cs){
@@ -3741,6 +3998,7 @@ namespace SOMTParser{
 							ss << ")";
 						}
 					}
+					if(parametric){ ss << ")"; }      // close the `par`
 					ss << ")";
 				}
 				ss << "))" << std::endl;

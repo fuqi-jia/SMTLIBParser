@@ -157,6 +157,35 @@ namespace SOMTParser{
                                 frame.state = FrameState::Finish;
                                 break;
                             }
+                            else if(std::shared_ptr<DAGNode> dtf =
+                                        getSymbolManager()->getFun(second)){
+                                // `(as nil (L Int))` -- ASCRIBING which instance
+                                // of a parametric datatype a constructor builds.
+                                // A constructor mentioning none of the
+                                // parameters has no arguments to infer them
+                                // from, so SMT-LIB makes the script say. Without
+                                // this a parametric datatype has declarations
+                                // and no way to build a value.
+                                //
+                                // The ascribed sort becomes the term's, so `nil`
+                                // at `(L Int)` and at `(L Bool)` are different
+                                // terms rather than one shared node.
+                                const std::vector<std::shared_ptr<DAGNode>> none;
+                                const NODE_KIND dtk =
+                                    getDtFunctionKind(dtf->getSort(), second, none);
+                                if(dtk != NODE_KIND::NT_DT_CONSTRUCTOR){
+                                    err_unkwn_sym("as " + second, frame.line);
+                                    frame.result = mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
+                                    frame.state = FrameState::Finish;
+                                    break;
+                                }
+                                std::shared_ptr<Sort> want = parseSort();
+                                parseRpar(); // close (as C S)
+                                frame.result = getNodeManager()->createNode(
+                                    want, dtk, second, none);
+                                frame.state = FrameState::Finish;
+                                break;
+                            }
                             else{
                                 err_unkwn_sym("as " + second, frame.line);
                                 frame.result = mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
@@ -230,6 +259,32 @@ namespace SOMTParser{
                     // read the head symbol
                     std::string head = getSymbol();
                     frame.headSymbol = head;
+
+                    // `(as nil (L Int))` is a COMPLETE term, not an annotation
+                    // applied to arguments, so it arrives here rather than in
+                    // the `((as const T) value)` branch above: the two `as`
+                    // forms differ in whether the annotation is the operator or
+                    // the whole term, and they are separate code paths.
+                    if(head == "as"){
+                        const std::string what = getSymbol();
+                        if(std::shared_ptr<DAGNode> dtf = getSymbolManager()->getFun(what)){
+                            const std::vector<std::shared_ptr<DAGNode>> none;
+                            const NODE_KIND dtk =
+                                getDtFunctionKind(dtf->getSort(), what, none);
+                            if(dtk == NODE_KIND::NT_DT_CONSTRUCTOR){
+                                std::shared_ptr<Sort> want = parseSort();
+                                parseRpar();
+                                frame.result = getNodeManager()->createNode(
+                                    want, dtk, what, none);
+                                frame.state = FrameState::Finish;
+                                break;
+                            }
+                        }
+                        err_unkwn_sym("as " + what, frame.line);
+                        frame.result = mkErr(ERROR_TYPE::ERR_UNKWN_SYM);
+                        frame.state = FrameState::Finish;
+                        break;
+                    }
 
                     if(head == "exists" || head == "forall"){
                         in_quantifier_scope = true;
@@ -878,7 +933,13 @@ namespace SOMTParser{
 			NODE_KIND dtk = getDtFunctionKind(func->getSort(), s, oper_params);
 			if(dtk == NODE_KIND::NT_DT_TESTER || dtk == NODE_KIND::NT_DT_CONSTRUCTOR ||
 			   dtk == NODE_KIND::NT_DT_SELECTOR){
-				return getNodeManager()->createNode(func->getSort(), dtk, s, oper_params);
+				// A PARAMETRIC datatype's member is polymorphic, so the sort the
+				// application carries is the declared one with the parameters
+				// substituted: `hd` of an `(L Int)` is an Int, not an `X`. This
+				// path intercepts the application before applyFun, so it needs
+				// the same substitution rather than func->getSort() raw.
+				return getNodeManager()->createNode(
+					dtAppliedSort(func, oper_params), dtk, s, oper_params);
 			}
 		}
 		// Non-indexed (op ...): user define-fun / define-fun-rec / pending declare-fun (body) may shadow only allow_builtin_shadow names.
