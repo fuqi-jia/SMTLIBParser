@@ -108,8 +108,8 @@ int main() {
 (assert (= s "aba"))
 (assert (= t "aaa"))
 
-; Binary: str.indexof_re
-(assert (>= (str.indexof_re s (str.to_re "b")) 0))
+; Ternary: str.indexof_re takes a start index, like str.indexof
+(assert (>= (str.indexof_re s (str.to_re "b") 0) 0))
 
 ; Ternary: str.replace_re / str.replace_re_all
 (assert (= (str.replace_re s (str.to_re "a") "x") "xbx"))
@@ -200,7 +200,7 @@ int main() {
     }
 
     // --- Phase B: string / regex dispatch (no constant folding yet): structure + constant leaves preserved ---
-    eval_expect_structure_unchanged(parser, model, "(str.indexof_re \"abc\" (str.to_re \"b\"))");
+    eval_expect_structure_unchanged(parser, model, "(str.indexof_re \"abc\" (str.to_re \"b\") 0)");
     eval_expect_structure_unchanged(parser, model, "(str.replace_re \"aba\" (str.to_re \"a\") \"x\")");
     eval_expect_structure_unchanged(parser, model, "(str.replace_re_all \"aaa\" (str.to_re \"a\") \"b\")");
     eval_expect_structure_unchanged(parser, model, "((_ re.loop 1 2) (str.to_re \"x\"))");

@@ -3008,7 +3008,7 @@ namespace SOMTParser{
          * @param r Regular expression
          * @return String indexof-regex node (str.indexof_re(l, r))
          */
-        std::shared_ptr<DAGNode> mkStrIndexofReg(std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> r); // str.indexof_re(l, r)
+        std::shared_ptr<DAGNode> mkStrIndexofReg(std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> r, std::shared_ptr<DAGNode> i); // str.indexof_re(l, r, i)
 
         /**
          * @brief Create a string to-lower node
