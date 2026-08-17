@@ -727,13 +727,20 @@ namespace SOMTParser{
             }
             case NODE_KIND::NT_STR_REV:{
                 if(p->isCStr()){
-                    return mkConstStr(StringUtils::strRev(p->toString()));
+                    return mkConstStr(StringUtils::strRev(p->getStringLiteral()));
                 }
                 return mkUnknown();
             }
+            // `str.is_digit` holds for a ONE-CHARACTER string that is a digit,
+            // and for nothing else. It was sharing `str.to_int`'s test, so a
+            // longer run of digits satisfied it too and `(str.is_digit "77")`
+            // folded to true.
             case NODE_KIND::NT_STR_IS_DIGIT:{
                 if(p->isCStr()){
-                    return TypeChecker::isInt(p->toString()) ? mkTrue() : mkFalse();
+                    const std::string v = p->getStringLiteral();
+                    const bool one_digit =
+                        v.size() == 1 && v[0] >= '0' && v[0] <= '9';
+                    return one_digit ? mkTrue() : mkFalse();
                 }
                 return mkUnknown();
             }
@@ -743,27 +750,50 @@ namespace SOMTParser{
                 }
                 return mkUnknown();
             }
+            // **`str.to_int` returns -1; it does not fail.** SMT-LIB defines it
+            // total: a string that is not a non-empty run of digits maps to -1,
+            // so `(str.to_int "abc")` is a well-formed term with a value.
+            // Raising an error turned a legal script into a parse failure.
+            //
+            // It also read `toString()`, which renders a string constant WITH
+            // its quotes, so the digit test saw `"7"` rather than `7` and every
+            // literal took the error branch -- `(str.to_int "7")` included.
+            // `getStringLiteral()` is the accessor for the value, and the
+            // NT_STR_LEN case above was already using it.
             case NODE_KIND::NT_STR_TO_INT:{
                 if(p->isCStr()){
-                    if(TypeChecker::isInt(p->toString())){
-                        return mkConstInt(stoi(p->toString()));
+                    const std::string v = p->getStringLiteral();
+                    bool digits = !v.empty();
+                    for(const char c : v){
+                        if(c < '0' || c > '9'){ digits = false; break; }
                     }
-                    else{
-                        err_all(p, "String to int on non-integer", line_number);
+                    if(!digits){ return mkConstInt(-1); }
+                    // Leading zeroes are digits, so "0007" is 7.
+                    try{
+                        return mkConstInt(Integer(v));
+                    }
+                    catch(...){
+                        // Too large for the integer type rather than malformed.
+                        // Left unfolded, which is sound: the term keeps its
+                        // meaning and a solver may still reason about it.
                         return mkUnknown();
                     }
                 }
                 return mkUnknown();
             }
+            // `str.to_code` is total too: -1 for anything that is not a
+            // one-character string. Same two defects as str.to_int above -- an
+            // error where the standard has a value, and the quoted rendering
+            // where the value was wanted, which made `"a"` three characters
+            // long so no literal ever reached the folding branch.
             case NODE_KIND::NT_STR_TO_CODE:{
                 if(p->isCStr()){
-                    if(p->toString().size() == 1){
-                        return mkConstInt(static_cast<int>(p->toString()[0]));
+                    const std::string v = p->getStringLiteral();
+                    if(v.size() == 1){
+                        return mkConstInt(static_cast<int>(
+                            static_cast<unsigned char>(v[0])));
                     }
-                    else{
-                        err_all(p, "String to code on non-single character string", line_number);
-                        return mkUnknown();
-                    }
+                    return mkConstInt(-1);
                 }
                 return mkUnknown();
             }
