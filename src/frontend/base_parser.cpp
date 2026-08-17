@@ -3624,7 +3624,7 @@ namespace SOMTParser{
 		// variables
 		std::vector<std::shared_ptr<DAGNode>> vars = getVariables();
 		for(auto& var : vars){
-			ss << "(declare-fun " << var->getName() << " () " << var->getSort()->toString() << ")" << std::endl;
+			ss << "(declare-fun " << smtSymbol(var->getName()) << " () " << var->getSort()->toString() << ")" << std::endl;
 		}
 	std::vector<std::shared_ptr<DAGNode>> functions = getFunctions();
 	// Members of a (define-funs-rec ...) group are emitted together, at the
