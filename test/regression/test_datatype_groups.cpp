@@ -159,6 +159,45 @@ int main() {
         VERIFY(!has(out, "(declare-fun is-leaf"));
     }
 
+    // ---- The dependency may be NESTED inside a sort. -----------------------
+    //
+    // A selector of sort `(Array Int TL)` depends on TL exactly as one of sort
+    // `TL` does. Reading only the outermost sort name missed the edge, so the
+    // two datatypes landed in different groups, were emitted as separate
+    // commands, and the second was named before it was declared -- this file's
+    // own defect, reached through a sort constructor instead of directly.
+    {
+        const std::string out = roundTrip(
+            "(declare-datatypes ((T 0) (TL 0))"
+            " (((node (kids (Array Int TL))) (leaf))"
+            "  ((tnil) (tcons (thd T)))))\n",
+            "mutual recursion through an array");
+        // One command, not two: they are one strongly connected component.
+        VERIFY(count(out, "(declare-datatypes") == 1);
+    }
+    {
+        // And two levels down, which a scan that looked one level deep would
+        // still miss.
+        const std::string out = roundTrip(
+            "(declare-datatypes ((U 0) (V 0))"
+            " (((u1 (uv (Array Int (Array Int V)))) (u2))"
+            "  ((v1 (vu U)))))\n",
+            "mutual recursion two sorts deep");
+        VERIFY(count(out, "(declare-datatypes") == 1);
+    }
+    {
+        // A ONE-WAY nested dependency still gets two commands, in the right
+        // order: grouping is for cycles, and merging independent datatypes
+        // would change output that was already correct.
+        const std::string out = roundTrip(
+            "(declare-datatypes ((W 0) (Z 0))"
+            " (((w1 (wz (Array Int Z))))"
+            "  ((z1) (z2))))\n",
+            "one-way dependency through an array");
+        VERIFY(count(out, "(declare-datatypes") == 2);
+        VERIFY(out.find("(Z 0)") < out.find("(W 0)"));
+    }
+
     std::cout << "All datatype-group tests passed." << std::endl;
     return 0;
 }

@@ -3629,19 +3629,35 @@ namespace SOMTParser{
 				if(i == sort_map.end() || !i->second) return nullptr;
 				return &i->second->getDtConstructors();
 			};
-			// A -> B when a selector of A has sort B. Collected by NAME, since
-			// a placeholder sort and the finished one are different objects.
+			// A -> B when a selector of A MENTIONS B anywhere in its sort.
+			// Collected by NAME, since a placeholder sort and the finished one
+			// are different objects.
+			//
+			// Anywhere, not just at the top: a selector of sort
+			// `(Array Int TL)` depends on TL exactly as one of sort `TL` does,
+			// and reading only the outermost name missed the edge. The two
+			// datatypes then landed in different groups, were emitted as
+			// separate commands, and the second was named before it was
+			// declared -- which is the very defect this grouping exists to fix,
+			// reached through a sort constructor instead of directly.
 			std::unordered_map<std::string, std::unordered_set<std::string>> deps;
 			std::unordered_set<std::string> is_dt(datatype_order.begin(),
 			                                      datatype_order.end());
+			std::function<void(const std::shared_ptr<Sort>&, const std::string&)>
+				mentions = [&](const std::shared_ptr<Sort>& s,
+				               const std::string& owner){
+					if(!s) return;
+					if(s->name != owner && is_dt.count(s->name)){
+						deps[owner].insert(s->name);
+					}
+					for(const auto& ch : s->children){ mentions(ch, owner); }
+				};
 			for(const auto& n : datatype_order){
 				const auto* cs = ctors_of(n);
 				if(!cs) continue;
 				for(const auto& c : *cs){
 					for(const auto& sel : c.selectors){
-						if(!sel.sort) continue;
-						const std::string& t = sel.sort->name;
-						if(t != n && is_dt.count(t)) deps[n].insert(t);
+						mentions(sel.sort, n);
 					}
 				}
 			}
