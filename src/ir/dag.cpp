@@ -749,7 +749,20 @@ namespace SOMTParser{
                 // Constructor application: (CtorName arg1 arg2 ...) or just CtorName
                 const auto& children = node->getChildren();
                 if (children.empty()) {
-                    out << node->getName();
+                    // A NULLARY constructor of a PARAMETRIC datatype must keep
+                    // its sort ascription. `nil` names a constructor of every
+                    // instance of `L` at once, and having no arguments there is
+                    // nothing to infer the instance from -- which is why SMT-LIB
+                    // requires `(as nil (L Int))`. Printing the bare name gave a
+                    // term this parser had built at a definite sort and could
+                    // not read back at any.
+                    std::shared_ptr<Sort> s = node->getSort();
+                    if (s && s->isDatatype() && s->getChildrenSize() > 0) {
+                        out << "(as " << node->getName() << " " << s->toString()
+                            << ")";
+                    } else {
+                        out << node->getName();
+                    }
                 } else {
                     out << "(" << node->getName();
                     work_stack.emplace_back(nullptr, 2);  // )

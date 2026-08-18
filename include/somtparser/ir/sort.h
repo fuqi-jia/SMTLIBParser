@@ -169,7 +169,15 @@ namespace SOMTParser{
             // script the standard forbids parsed and translated with no
             // diagnostic. The array and set branches below compare their
             // children for this reason; a declared constructor needs it too.
-            if((isDef() || isDec()) && (other.isDef() || other.isDec())
+            //
+            // A PARAMETRIC DATATYPE needs the same treatment, for the same
+            // reason and with the same consequence. `(declare-datatypes ((L 1))
+            // ((par (X) ...)))` makes L a sort constructor, so `(L Int)` and
+            // `(L Bool)` are two sorts; comparing by name alone let a value of
+            // one be used where the other was declared. An arity-0 datatype has
+            // no children and is unaffected.
+            if((isDef() || isDec() || isDatatype())
+               && (other.isDef() || other.isDec() || other.isDatatype())
                && name == other.name && arity == other.arity){
                 if(children.size() != other.children.size()) return false;
                 for(size_t i = 0; i < children.size(); i++){
@@ -238,7 +246,18 @@ namespace SOMTParser{
                     return "(_ FloatingPoint " + std::to_string(children[0]->arity) + " " + std::to_string(children[1]->arity) + ")";
                 case SORT_KIND::SK_STR: return "String";
                 case SORT_KIND::SK_ARRAY: return "(Array " + children[0]->toString() + " " + children[1]->toString() + ")";
-                case SORT_KIND::SK_DATATYPE: return name.empty() ? "Datatype" : name;
+                // A PARAMETRIC datatype applied to arguments must print them:
+                // `(L X)` is not `L`. SK_DEC below already does this, and a
+                // datatype sort constructor was left returning its bare name --
+                // so `(tl (L X))` dumped as `(tl L)`, a constructor at the wrong
+                // arity, which nothing else reads.
+                case SORT_KIND::SK_DATATYPE: {
+                    if(name.empty()) return "Datatype";
+                    if(children.empty()) return name;
+                    std::string s = "(" + name;
+                    for(const auto& ch : children) s += " " + (ch ? ch->toString() : "?");
+                    return s + ")";
+                }
                 case SORT_KIND::SK_SET: return "Set";
                 case SORT_KIND::SK_RELATION: return "Relation";
                 case SORT_KIND::SK_BAG: return "Bag";
