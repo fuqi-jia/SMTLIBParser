@@ -52,6 +52,12 @@
 #include <array>
 
 namespace SOMTParser{
+
+/** A symbol as SMT-LIB can legally spell it: returned unchanged when it is a
+ *  valid simple symbol, and wrapped in `|...|` when it is not. See the
+ *  definition in dag.cpp for why the choice has to be made when printing. */
+std::string smtSymbol(const std::string& name);
+
     // Forward declaration of DAGNode class
     class DAGNode;
     
