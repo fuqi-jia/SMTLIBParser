@@ -756,14 +756,30 @@ namespace SOMTParser{
         }
         return mkConstReal(v.toReal());
     }
+    /** A string constant, stored in ONE canonical form.
+     *
+     *  Nodes are hash-consed by name, so two spellings of the same value are
+     *  two different nodes and an equality between them folds to FALSE. This
+     *  function stored a quoted argument with its quotes and an unquoted
+     *  argument without, so a constant built through the API and the identical
+     *  literal read from a script were never the same node:
+     *
+     *      (= (str.from_int 7) "7")     folded to false
+     *
+     *  -- str.from_int calls this with `7` and the parser calls it with `"7"`.
+     *  Both PRINT as `"7"`, because printing adds the quotes when they are
+     *  missing, so the disagreement was invisible in the output and showed up
+     *  only as an equality that would not hold.
+     *
+     *  The two spellings denote the same value, so exactly one of them may be
+     *  the stored form. Quoted is chosen because it is what the parser produces
+     *  and what getStringLiteral() already strips. */
     std::shared_ptr<DAGNode> Parser::mkConstStr(const std::string &v){
-        // process the escape characters in the string
-        std::string processed_v = v;
-        // if the string is quoted, remove the quotes
+        std::string raw = v;
         if (v.length() >= 2 && v[0] == '"' && v[v.length()-1] == '"') {
-            processed_v = ConversionUtils::unescapeString(v.substr(1, v.length()-2));
-            processed_v = "\"" + ConversionUtils::escapeString(processed_v) + "\"";
+            raw = ConversionUtils::unescapeString(v.substr(1, v.length()-2));
         }
+        const std::string processed_v = "\"" + ConversionUtils::escapeString(raw) + "\"";
         return getNodeManager()->createNode(SortManager::STR_SORT, NODE_KIND::NT_CONST, processed_v);
     }
     std::shared_ptr<DAGNode> Parser::mkConstBv(const std::string &v, const size_t& width){
