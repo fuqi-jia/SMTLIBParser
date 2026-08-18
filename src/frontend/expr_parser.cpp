@@ -1468,8 +1468,8 @@ namespace SOMTParser{
                 condAssert(oper_params.size() == 3, "Invalid number of parameters for str.replace_re_all");
                 return mkStrReplaceRegAll(oper_params[0], oper_params[1], oper_params[2]);
             case NODE_KIND::NT_STR_INDEXOF_REG:
-                condAssert(oper_params.size() == 2, "Invalid number of parameters for str.indexof_re");
-                return mkStrIndexofReg(oper_params[0], oper_params[1]);
+                condAssert(oper_params.size() == 3, "Invalid number of parameters for str.indexof_re");
+                return mkStrIndexofReg(oper_params[0], oper_params[1], oper_params[2]);
             case NODE_KIND::NT_STR_TO_LOWER:
                 condAssert(oper_params.size() == 1, "Invalid number of parameters for str.to_lower");
                 return mkStrToLower(oper_params[0]);

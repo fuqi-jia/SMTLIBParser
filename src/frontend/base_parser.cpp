@@ -3592,6 +3592,9 @@ namespace SOMTParser{
 		// declares all of them, so emitting a declare-fun for each as well
 		// would make the dump reject itself as a redeclaration.
 		std::unordered_set<std::string> datatype_member_names;
+		// Datatype sorts in declaration order; emitted in dependency groups
+		// after this loop, because a group cannot be split.
+		std::vector<std::string> datatype_order;
 		for(const auto& sort_name : getSymbolManager()->getSortOrder()){
 			auto it = sort_map.find(sort_name);
 			if(it == sort_map.end() || !it->second) continue;
@@ -3600,31 +3603,153 @@ namespace SOMTParser{
 				ss << "(declare-sort " << sort_name << " " << sort->arity << ")" << std::endl;
 			}
 			else if(sort->isDatatype() && sort->hasDtConstructors()){
-				// (declare-datatypes ((T 0)) (((ctor (sel S) ...) ...)))
-				// Without this the constructors were dumped as plain
-				// declare-funs over a sort that was never declared, so no
-				// datatype query could survive a dump/re-parse cycle.
-				ss << "(declare-datatypes ((" << sort_name << " " << sort->arity << ")) ((";
-				bool first_ctor = true;
-				for(const auto& ctor : sort->getDtConstructors()){
-					if(!first_ctor) ss << " ";
-					first_ctor = false;
-					datatype_member_names.insert(ctor.name);
-					datatype_member_names.insert("is-" + ctor.name);
-					ss << "(" << ctor.name;
-					for(const auto& sel : ctor.selectors){
-						datatype_member_names.insert(sel.name);
-						ss << " (" << sel.name << " " << sel.sort->toString() << ")";
+				// Emitted below, in dependency groups. A datatype whose
+				// selector names another datatype cannot be declared before
+				// it, and MUTUALLY recursive ones cannot be declared apart at
+				// all -- SMT-LIB puts a whole group in one command for exactly
+				// that reason.
+				datatype_order.push_back(sort_name);
+			}
+		}
+		// (declare-datatypes ((T 0) (TL 0)) ((<T ctors>) (<TL ctors>)))
+		//
+		// One command per group of mutually recursive datatypes, groups in
+		// dependency order. Emitting one command per SORT is what this did, and
+		// it produced a script THIS PARSER COULD NOT READ for any mutually
+		// recursive pair: `T` mentions `TL` in a selector, `TL` is declared in
+		// the next command, and re-parsing failed with `Unknown or unexpected
+		// symbol "TL"`. dumpSMT2 returned that text and reported nothing.
+		//
+		// A datatype that depends on nothing still gets its own command, so the
+		// output for every non-mutual script is unchanged.
+		if(!datatype_order.empty()){
+			const auto ctors_of = [&](const std::string& n)
+				-> const std::vector<Sort::DtConstructor>* {
+				auto i = sort_map.find(n);
+				if(i == sort_map.end() || !i->second) return nullptr;
+				return &i->second->getDtConstructors();
+			};
+			// A -> B when a selector of A MENTIONS B anywhere in its sort.
+			// Collected by NAME, since a placeholder sort and the finished one
+			// are different objects.
+			//
+			// Anywhere, not just at the top: a selector of sort
+			// `(Array Int TL)` depends on TL exactly as one of sort `TL` does,
+			// and reading only the outermost name missed the edge. The two
+			// datatypes then landed in different groups, were emitted as
+			// separate commands, and the second was named before it was
+			// declared -- which is the very defect this grouping exists to fix,
+			// reached through a sort constructor instead of directly.
+			std::unordered_map<std::string, std::unordered_set<std::string>> deps;
+			std::unordered_set<std::string> is_dt(datatype_order.begin(),
+			                                      datatype_order.end());
+			std::function<void(const std::shared_ptr<Sort>&, const std::string&)>
+				mentions = [&](const std::shared_ptr<Sort>& s,
+				               const std::string& owner){
+					if(!s) return;
+					if(s->name != owner && is_dt.count(s->name)){
+						deps[owner].insert(s->name);
+					}
+					for(const auto& ch : s->children){ mentions(ch, owner); }
+				};
+			for(const auto& n : datatype_order){
+				const auto* cs = ctors_of(n);
+				if(!cs) continue;
+				for(const auto& c : *cs){
+					for(const auto& sel : c.selectors){
+						mentions(sel.sort, n);
+					}
+				}
+			}
+			// Tarjan, iterative-free: the graph has one node per datatype and a
+			// script does not declare enough of them for recursion depth to be
+			// a concern. Groups come out in reverse topological order, which is
+			// the order they must be DECLARED in -- a group's dependencies
+			// finish first.
+			std::unordered_map<std::string, int> index, low;
+			std::unordered_set<std::string> on_stack;
+			std::vector<std::string> stack;
+			std::vector<std::vector<std::string>> groups;
+			int next_index = 0;
+			std::function<void(const std::string&)> strongconnect =
+				[&](const std::string& v){
+					index[v] = low[v] = next_index++;
+					stack.push_back(v);
+					on_stack.insert(v);
+					auto it = deps.find(v);
+					if(it != deps.end()){
+						for(const auto& w : it->second){
+							if(index.find(w) == index.end()){
+								strongconnect(w);
+								low[v] = std::min(low[v], low[w]);
+							} else if(on_stack.count(w)){
+								low[v] = std::min(low[v], index[w]);
+							}
+						}
+					}
+					if(low[v] == index[v]){
+						std::vector<std::string> group;
+						for(;;){
+							const std::string w = stack.back();
+							stack.pop_back();
+							on_stack.erase(w);
+							group.push_back(w);
+							if(w == v) break;
+						}
+						groups.push_back(std::move(group));
+					}
+				};
+			for(const auto& n : datatype_order){
+				if(index.find(n) == index.end()) strongconnect(n);
+			}
+			for(auto& group : groups){
+				// Declaration order within a group, so a one-element group and
+				// a group of three both read the way the script declared them.
+				std::sort(group.begin(), group.end(),
+				          [&](const std::string& a, const std::string& b){
+					          return std::find(datatype_order.begin(),
+					                           datatype_order.end(), a)
+					               < std::find(datatype_order.begin(),
+					                           datatype_order.end(), b);
+				          });
+				ss << "(declare-datatypes (";
+				for(std::size_t gi = 0; gi < group.size(); ++gi){
+					auto i = sort_map.find(group[gi]);
+					const size_t ar = (i != sort_map.end() && i->second)
+					                      ? i->second->arity : 0;
+					if(gi) ss << " ";
+					ss << "(" << group[gi] << " " << ar << ")";
+				}
+				ss << ") (";
+				for(std::size_t gi = 0; gi < group.size(); ++gi){
+					const auto* cs = ctors_of(group[gi]);
+					if(gi) ss << " ";
+					ss << "(";
+					bool first_ctor = true;
+					if(cs){
+						for(const auto& ctor : *cs){
+							if(!first_ctor) ss << " ";
+							first_ctor = false;
+							datatype_member_names.insert(ctor.name);
+							datatype_member_names.insert("is-" + ctor.name);
+							ss << "(" << ctor.name;
+							for(const auto& sel : ctor.selectors){
+								datatype_member_names.insert(sel.name);
+								ss << " (" << sel.name << " "
+								   << sel.sort->toString() << ")";
+							}
+							ss << ")";
+						}
 					}
 					ss << ")";
 				}
-				ss << ")))" << std::endl;
+				ss << "))" << std::endl;
 			}
 		}
 		// variables
 		std::vector<std::shared_ptr<DAGNode>> vars = getVariables();
 		for(auto& var : vars){
-			ss << "(declare-fun " << var->getName() << " () " << var->getSort()->toString() << ")" << std::endl;
+			ss << "(declare-fun " << smtSymbol(var->getName()) << " () " << var->getSort()->toString() << ")" << std::endl;
 		}
 	std::vector<std::shared_ptr<DAGNode>> functions = getFunctions();
 	// Members of a (define-funs-rec ...) group are emitted together, at the

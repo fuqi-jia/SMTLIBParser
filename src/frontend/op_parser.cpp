@@ -4253,13 +4253,18 @@ namespace SOMTParser{
     /*
     (str.indexof_re Str Reg), return Int
     */
-    std::shared_ptr<DAGNode> Parser::mkStrIndexofReg(std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> r){
-        if(l->isErr() || r->isErr()) return l->isErr()?l:r;
-        if(!isStrParam(l) || !isRegParam(r)) {
+    std::shared_ptr<DAGNode> Parser::mkStrIndexofReg(std::shared_ptr<DAGNode> l, std::shared_ptr<DAGNode> r,
+                                                     std::shared_ptr<DAGNode> i){
+        if(l->isErr() || r->isErr() || i->isErr()) return l->isErr()?l:(r->isErr()?r:i);
+        // (str.indexof_re String RegLan Int) Int -- three arguments, the third
+        // the index to start from, exactly as str.indexof takes one. Built with
+        // two, so a conforming script was a parse failure and a term built
+        // through the API named an operator with the wrong arity.
+        if(!isStrParam(l) || !isRegParam(r) || !isIntParam(i)) {
             err_all(ERROR_TYPE::ERR_TYPE_MIS, "Type mismatch in str_indexof_re", line_number);
             return mkUnknown();
         }
-        return mkOper(SortManager::INT_SORT, NODE_KIND::NT_STR_INDEXOF_REG, l, r);
+        return mkOper(SortManager::INT_SORT, NODE_KIND::NT_STR_INDEXOF_REG, l, r, i);
     }
 
     /*

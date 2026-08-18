@@ -89,6 +89,45 @@ namespace SOMTParser{
         return result;
     }
 
+    /** A symbol as SMT-LIB can legally spell it.
+     *
+     *  SMT-LIB 2.6 §3.1 gives a symbol two spellings: a SIMPLE symbol, whose
+     *  characters are letters, digits and `~!@$%^&*_-+=<>.?/` and which may not
+     *  start with a digit; and a QUOTED one, `|...|`, which may contain
+     *  anything but `|` and `\`. The two denote the same symbol, so choosing
+     *  between them is a printing decision.
+     *
+     *  It was not being made. A name that arrived quoted was printed quoted,
+     *  because the bars were kept as part of the name; a name built through the
+     *  public API was printed exactly as given. So a variable created as
+     *  `x(1)` -- legal through mkVar, and a perfectly ordinary identifier in
+     *  several input languages this library reads -- was emitted as
+     *
+     *      (declare-fun x(1) () Int)
+     *
+     *  which is not a well-formed command. No other solver accepts it, and this
+     *  library reads it back only because getSymbol() scans leniently, so the
+     *  defect did not show up in a round trip through this parser alone.
+     *
+     *  Quoting is applied where the symbol is printed rather than where it is
+     *  stored, because the stored name is the symbol's identity and `x(1)` and
+     *  `|x(1)|` are the same symbol. */
+    std::string smtSymbolImpl(const std::string& name) {
+        if (name.empty()) { return "||"; }
+        if (name.size() >= 2 && name.front() == '|' && name.back() == '|') {
+            return name;                       // already quoted; do not double it
+        }
+        auto simple = [](char c) {
+            return std::isalnum(static_cast<unsigned char>(c)) != 0
+                || std::strchr("~!@$%^&*_-+=<>.?/", c) != nullptr;
+        };
+        bool ok = std::isdigit(static_cast<unsigned char>(name.front())) == 0;
+        for (const char c : name) {
+            if (!simple(c)) { ok = false; break; }
+        }
+        return ok ? name : "|" + name + "|";
+    }
+
     std::string dumpConst(const std::string& name, const std::shared_ptr<Sort>& sort){
         // Rational a/b form is only meaningful for ARITHMETIC sorts.  It must
         // never apply to other sorts: a string literal may legitimately
@@ -347,7 +386,7 @@ namespace SOMTParser{
             case NODE_KIND::NT_VAR:
             case NODE_KIND::NT_TEMP_VAR:
             case NODE_KIND::NT_PLACEHOLDER_VAR:
-                out << node->getName();
+                out << smtSymbolImpl(node->getName());
                 break;
             case NODE_KIND::NT_CONST_ARRAY: {
                 out << "((as const ";
@@ -1561,4 +1600,8 @@ namespace SOMTParser{
         return insertNodeToBucket(node);
     }
 
+}
+
+namespace SOMTParser {
+std::string smtSymbol(const std::string& name) { return smtSymbolImpl(name); }
 }
