@@ -839,22 +839,6 @@ We welcome contributions from the community! Please see our [CONTRIBUTORS.md](CO
 
 **Active Development** — The project is under continuous maintenance and development; new features and optimizations are added regularly.
 
-## Releasing (maintainers)
-
-PyPI releases are fully automated by
-[`.github/workflows/wheels.yml`](.github/workflows/wheels.yml):
-
-1. Bump `version` in `pyproject.toml` on `main`.
-2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z` (the workflow
-   fails if the tag does not match the `pyproject.toml` version).
-3. The workflow builds the sdist and all wheels, runs the Python test suite
-   against each wheel, and publishes to PyPI via
-   [trusted publishing](https://docs.pypi.org/trusted-publishers/) (GitHub
-   environment `pypi`, no API token involved).
-
-To dry-run the wheel builds without publishing, trigger the workflow manually
-from the Actions tab (`workflow_dispatch`); wheels are attached as artifacts.
-
 ## Contact
 
 For technical inquiries or support, please contact:
