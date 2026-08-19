@@ -1,6 +1,8 @@
 # SOMTParser
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI](https://img.shields.io/pypi/v/somtparser.svg)](https://pypi.org/project/somtparser/)
+[![Python](https://img.shields.io/pypi/pyversions/somtparser.svg)](https://pypi.org/project/somtparser/)
 
 **SOMTParser** is a solver-independent C++17 front-end library for SMT-LIB and OMT (Optimization Modulo Theories). It parses input into a **typed DAG-based intermediate representation (IR)** and provides modular front-end functionality—parsing, type checking, traversals, rewriting, and formula-level processing—around this IR, separating reusable front-end logic from backend reasoning and reducing the effort to build new solvers and SMT-based tools.
 
@@ -14,7 +16,7 @@
 ## Key Features
 
 - **SMT-LIB2 support**: Compliant with the SMT-LIB2 specification; multiple logics and theories.
-- **FloatingPoint dialect**: By default the parser accepts small **lenient** extensions (e.g. unary `fp.sqrt` canonicalized to `(fp.sqrt RNE …)` in the IR, and aliases like `fp.=`). For **stricter** surface syntax aligned with the official FloatingPoint theory, enable `strict_smtlib_fp` (`Parser::setStrictSmtlib(true)` or `GlobalOptions::setOption("strict_smtlib_fp", "true")`). Details and the full matrix are in [`gaps.md`](gaps.md) (section *FloatingPoint: SMT-LIB theory vs lenient extensions*).
+- **FloatingPoint dialect**: By default the parser accepts small **lenient** extensions (e.g. unary `fp.sqrt` canonicalized to `(fp.sqrt RNE …)` in the IR, and aliases like `fp.=`). For **stricter** surface syntax aligned with the official FloatingPoint theory, enable `strict_smtlib_fp` (`Parser::setStrictSmtlib(true)` or `GlobalOptions::setOption("strict_smtlib_fp", "true")`).
 - **Multi-theory**: Booleans, integer/real arithmetic, bitvectors, IEEE-754 floating point, strings and regular expressions, arrays.
 - **Typed DAG IR**: Structure sharing and canonicalization for a more compact representation and easier analysis/transformation.
 - **OMT support**: Parses intermediate syntax such as `assert-soft`, `maximize`/`minimize`, `define-objective`, `lex-optimize`/`pareto-optimize`/`box-optimize`, `maxsat`/`minsat`, managed by `ObjectiveManager`.
@@ -193,12 +195,25 @@ parsing, expression-building, transformation, model-evaluation and OMT API.
 ### Install
 
 ```bash
-# from the repository root (requires a C++17 compiler, GMP and MPFR)
+pip install somtparser
+```
+
+Prebuilt wheels are published on [PyPI](https://pypi.org/project/somtparser/) for
+CPython 3.9–3.13 on Linux x86_64 (manylinux), macOS (Intel needs macOS 15+,
+Apple Silicon needs macOS 14+) and Windows AMD64, with GMP/MPFR bundled — no
+system dependencies required.
+
+On any other platform `pip` falls back to building from the sdist, which needs
+a C++17 compiler, CMake, GMP and MPFR (see
+[System Requirements](#system-requirements)). The same applies when installing
+from a checkout:
+
+```bash
+# from the repository root
 pip install .
 ```
 
 This builds a wheel via scikit-build-core with the static C++ core compiled in.
-(A prebuilt package on PyPI — `pip install somtparser` — is planned.)
 
 ### Quick Start
 
@@ -823,6 +838,22 @@ We welcome contributions from the community! Please see our [CONTRIBUTORS.md](CO
 ## Development Status
 
 **Active Development** — The project is under continuous maintenance and development; new features and optimizations are added regularly.
+
+## Releasing (maintainers)
+
+PyPI releases are fully automated by
+[`.github/workflows/wheels.yml`](.github/workflows/wheels.yml):
+
+1. Bump `version` in `pyproject.toml` on `main`.
+2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z` (the workflow
+   fails if the tag does not match the `pyproject.toml` version).
+3. The workflow builds the sdist and all wheels, runs the Python test suite
+   against each wheel, and publishes to PyPI via
+   [trusted publishing](https://docs.pypi.org/trusted-publishers/) (GitHub
+   environment `pypi`, no API token involved).
+
+To dry-run the wheel builds without publishing, trigger the workflow manually
+from the Actions tab (`workflow_dispatch`); wheels are attached as artifacts.
 
 ## Contact
 
