@@ -84,3 +84,6 @@ __pycache__/
 *.pyc
 dist/
 *.egg-info/
+
+# Claude Code local state
+.claude/
