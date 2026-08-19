@@ -23,7 +23,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Compare tag with pyproject.toml
         run: |
@@ -38,12 +38,12 @@ jobs:
     name: Build sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build sdist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -63,7 +63,7 @@ jobs:
           - os: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install GMP/MPFR (macOS)
         if: runner.os == 'macOS'
@@ -82,7 +82,8 @@ jobs:
         uses: pypa/cibuildwheel@v4.2.0  # no floating major tag exists
         env:
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
-          CIBW_SKIP: "pp* *musllinux*"
+          # PyPy is opt-in since cibuildwheel v4, no pp* skip needed
+          CIBW_SKIP: "*musllinux*"
           CIBW_ARCHS_LINUX: x86_64
           CIBW_ARCHS_MACOS: auto
           CIBW_ARCHS_WINDOWS: AMD64
@@ -103,7 +104,7 @@ jobs:
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: pytest {project}/test/python -q
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -117,7 +118,7 @@ jobs:
     permissions:
       id-token: write  # trusted publishing, no API token needed
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
