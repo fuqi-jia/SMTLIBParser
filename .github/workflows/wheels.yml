@@ -6,6 +6,11 @@ name: Build Wheels
 #  - Windows AMD64 (GMP/MPFR from vcpkg, vendored by delvewheel)
 # plus the sdist. Runs on demand (workflow_dispatch) and on version tags;
 # a v* tag additionally publishes to PyPI via trusted publishing.
+#
+# The macOS deployment target matches the runner's OS because the Homebrew
+# GMP/MPFR bottles are built for it — delocate refuses to vendor a dylib
+# whose minimum OS is newer than the wheel's target. Older macOS falls back
+# to the sdist.
 
 on:
   workflow_dispatch:
@@ -13,6 +18,22 @@ on:
     tags: [ "v*" ]
 
 jobs:
+  check_version:
+    name: Tag matches pyproject version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare tag with pyproject.toml
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Tag v$tag does not match pyproject.toml version $version"
+            exit 1
+          fi
+
   build_sdist:
     name: Build sdist
     runs-on: ubuntu-latest
@@ -33,7 +54,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        include:
+          - os: ubuntu-latest
+          - os: macos-15-intel   # last free x86_64 macOS runner (until Aug 2027)
+            macos-target: "15.0"
+          - os: macos-14         # arm64
+            macos-target: "14.0"
+          - os: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -57,11 +84,15 @@ jobs:
           # manylinux containers are yum-based
           CIBW_BEFORE_ALL_LINUX: yum install -y gmp-devel mpfr-devel
           CIBW_ENVIRONMENT_MACOS: >-
+            MACOSX_DEPLOYMENT_TARGET=${{ matrix.macos-target }}
             CMAKE_ARGS="-DCMAKE_PREFIX_PATH=/opt/homebrew;/usr/local"
           CIBW_ENVIRONMENT_WINDOWS: >-
             CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
           CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: delvewheel repair -w {dest_dir} {wheel}
+          # gmp/mpfr DLLs live in the vcpkg tree, which is not on PATH
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            delvewheel repair -w {dest_dir}
+            --add-path C:/vcpkg/installed/x64-windows/bin {wheel}
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: pytest {project}/test/python -q
 
@@ -72,7 +103,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: [build_wheels, build_sdist]
+    needs: [check_version, build_wheels, build_sdist]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment: pypi
