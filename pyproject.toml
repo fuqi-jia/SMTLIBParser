@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "somtparser"
-version = "0.2.0"
+version = "0.4.0"
 description = "Python bindings for SOMTParser - a solver-independent SMT-LIB/OMT front-end library"
 readme = "README.md"
 license = {text = "MIT"}
@@ -33,6 +33,7 @@ Homepage = "https://github.com/fuqi-jia/SOMTParser"
 test = ["pytest>=7.0"]
 
 [tool.scikit-build]
+sdist.exclude = [".claude"]
 cmake.args = [
     "-DBUILD_PYTHON=ON",
     "-DBUILD_SHARED_LIBS=OFF",
